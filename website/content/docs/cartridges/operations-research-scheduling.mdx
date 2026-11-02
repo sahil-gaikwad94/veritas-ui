@@ -17,7 +17,7 @@ The `or_sched` cartridge provides scheduling and resource allocation constraints
 
 Ensures tasks sharing a resource don't overlap in time:
 
-<CodeBlock language="python" code="from veritas.cartridges.or_sched import non_overlap
+<CodeBlock language="python" code={`from veritas.cartridges.or_sched import non_overlap
 
 @verified_schema
 def schedule(s: Schedule):
@@ -27,7 +27,7 @@ def schedule(s: Schedule):
 
 Ensures total resource usage never exceeds limits:
 
-<CodeBlock language="python" code="from veritas.cartridges.or_sched import capacity_bounds
+<CodeBlock language="python" code={`from veritas.cartridges.or_sched import capacity_bounds
 
 require(capacity_bounds(s.resources, s.limits))`} copyable />
 
@@ -35,7 +35,7 @@ require(capacity_bounds(s.resources, s.limits))`} copyable />
 
 Ensures task ordering constraints:
 
-<CodeBlock language="python" code="from veritas.cartridges.or_sched import precedence
+<CodeBlock language="python" code={`from veritas.cartridges.or_sched import precedence
 
 require(precedence(s.tasks, s.dependencies))`} copyable />
 
@@ -43,7 +43,7 @@ require(precedence(s.tasks, s.dependencies))`} copyable />
 
 ## Complete Example: Job-Shop Scheduling
 
-<CodeBlock language="python" code="from veritas import verified_schema, require
+<CodeBlock language="python" code={`from veritas import verified_schema, require
 from veritas.cartridges.or_sched import non_overlap, capacity_bounds, precedence
 
 @verified_schema

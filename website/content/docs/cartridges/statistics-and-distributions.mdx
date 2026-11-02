@@ -17,7 +17,7 @@ The `stat` cartridge provides probability simplex constraints, confidence interv
 
 `probability_simplex` ensures values form a valid probability distribution:
 
-<CodeBlock language="python" code="from veritas.cartridges.stat import probability_simplex
+<CodeBlock language="python" code={`from veritas.cartridges.stat import probability_simplex
 
 @verified_schema
 def distribution(d: Distribution):
@@ -29,7 +29,7 @@ This enforces: $\sum p_i = 1.0$ and $0 \le p_i \le 1$ for all $i$.
 
 `confidence_interval` enforces estimated means within confidence bounds:
 
-<CodeBlock language="python" code="from veritas.cartridges.stat import confidence_interval
+<CodeBlock language="python" code={`from veritas.cartridges.stat import confidence_interval
 
 require(confidence_interval(d.mean, d.ci))`} copyable />
 
@@ -37,7 +37,7 @@ require(confidence_interval(d.mean, d.ci))`} copyable />
 
 `moment_constraint` enforces sample moments match theoretical values:
 
-<CodeBlock language="python" code="from veritas.cartridges.stat import moment_constraint
+<CodeBlock language="python" code={`from veritas.cartridges.stat import moment_constraint
 
 # 2nd moment = variance
 require(moment_constraint(d.samples, 2, d.variance))
@@ -49,7 +49,7 @@ require(moment_constraint(d.samples, 1, d.mean))`} copyable />
 
 ## Complete Example
 
-<CodeBlock language="python" code="from veritas import verified_schema, require, derive
+<CodeBlock language="python" code={`from veritas import verified_schema, require, derive
 from veritas.cartridges.stat import probability_simplex, confidence_interval, moment_constraint
 
 @verified_schema

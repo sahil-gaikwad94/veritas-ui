@@ -19,7 +19,7 @@ The `llama.cpp` adapter integrates Veritas with llama.cpp's sampling pipeline â€
 
 ### Example
 
-<CodeBlock language="python" code="from veritas.bridges.llama_cpp import LlamaCppAdapter
+<CodeBlock language="python" code={`from veritas.bridges.llama_cpp import LlamaCppAdapter
 
 adapter = LlamaCppAdapter(schema=valid_portfolio)
 
@@ -36,7 +36,7 @@ result = llm.generate(
 
 The `from_llama_cpp` factory creates a Veritas-verified model from an existing llama.cpp model path:
 
-<CodeBlock language="python" code="from veritas.bridges.llama_cpp import from_llama_cpp
+<CodeBlock language="python" code={`from veritas.bridges.llama_cpp import from_llama_cpp
 
 # Zero code changes to your inference pipeline
 llm = from_llama_cpp(

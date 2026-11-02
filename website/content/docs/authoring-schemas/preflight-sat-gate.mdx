@@ -74,7 +74,7 @@ The `veritas check-spec` command runs the pre-flight check from the command line
 
 ### Basic Usage
 
-<CodeBlock language="bash" code="$ veritas check-spec portfolio_spec.py
+<CodeBlock language="bash" code={`$ veritas check-spec portfolio_spec.py
 
 # Expected output for a valid spec:
 # ✓ Spec is SAT — all constraints mutually satisfiable
@@ -89,7 +89,7 @@ The `veritas check-spec` command runs the pre-flight check from the command line
 
 ### JSON Output (for CI/CD)
 
-<CodeBlock language="bash" code="$ veritas check-spec portfolio_spec.py --json
+<CodeBlock language="bash" code={`$ veritas check-spec portfolio_spec.py --json
 # {
 #   "sat": true,
 #   "derived_fields": ["expected_return", "volatility", "sharpe_ratio"],
@@ -101,7 +101,7 @@ The `veritas check-spec` command runs the pre-flight check from the command line
 
 ### Strict Mode for CI
 
-<CodeBlock language="bash" code="# Exits with code 1 if the spec is not SAT — ideal for CI
+<CodeBlock language="bash" code={`# Exits with code 1 if the spec is not SAT — ideal for CI
 $ veritas check-spec portfolio_spec.py --strict
 # exit code: 0 (SAT) or 1 (UNSAT)`} copyable />
 
@@ -118,7 +118,7 @@ $ veritas check-spec portfolio_spec.py --strict
 - `e.minimal_relaxation` — Suggested change to make the spec feasible
 - `e.conflicting_constraints` — List of constraint IDs that conflict
 
-<CodeBlock language="python" code="from veritas import run_preflight, InfeasibleSpecError
+<CodeBlock language="python" code={`from veritas import run_preflight, InfeasibleSpecError
 
 try:
     report = run_preflight(bad_schema)
@@ -138,7 +138,7 @@ except InfeasibleSpecError as e:
 - `e.derivation_chain` — The chain of fields forming the cycle
 - `e.fields` — List of fields involved in the cycle
 
-<CodeBlock language="python" code="from veritas import run_preflight, CircularDerivationError
+<CodeBlock language="python" code={`from veritas import run_preflight, CircularDerivationError
 
 # This schema has a circular derivation:
 #   derive(p.a == p.b + 1)
@@ -181,7 +181,7 @@ Always run `veritas check-spec` before deploying a schema to production. A faile
 
 ## Complete Example
 
-<CodeBlock language="python" code="from veritas import verified_schema, require, derive, sum, dot, forall
+<CodeBlock language="python" code={`from veritas import verified_schema, require, derive, sum, dot, forall
 from veritas import run_preflight, InfeasibleSpecError, CircularDerivationError
 
 RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15}

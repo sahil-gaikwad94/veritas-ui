@@ -84,7 +84,7 @@ weights  →  expected_return  →  sharpe_ratio
 
 This graph is topologically sorted to determine JSON key order: **inputs first, derived fields last**. This ordering is what makes Zero-DoF splicing possible — by the time the LLM reaches `expected_return`, all the weights it depends on have already been emitted.
 
-<CodeBlock language="python" code="# Internal representation (simplified)
+<CodeBlock language="python" code={`# Internal representation (simplified)
 vir_spec = {
     "fields": ["weights", "expected_return", "volatility", "sharpe_ratio"],
     "constraints": [
@@ -142,7 +142,7 @@ The PDA mask computation runs in Rust and takes just **0.23 milliseconds per tok
 
 ### PDA Handle API
 
-<CodeBlock language="python" code="from veritas._native import PdaHandle
+<CodeBlock language="python" code={`from veritas._native import PdaHandle
 
 # Create a PDA starting with an open brace
 handle = PdaHandle.new('{')
@@ -189,7 +189,7 @@ Tier-1 uses **HC4 (Hull Consistency 4)** interval contractors combined with **Af
 
 3. **Constraint propagation** — If `weight_a + weight_b <= 1.0` and `weight_a` is in `[0.40, 0.50]`, then `weight_b` must be in `[0.00, 0.60]`. Combined with `weight_b >= 0.05`, the interval narrows to `[0.05, 0.60]`.
 
-<CodeBlock language="python" code="from veritas._native import Interval, AffineForm, Hc4AffineContractor
+<CodeBlock language="python" code={`from veritas._native import Interval, AffineForm, Hc4AffineContractor
 
 # Create interval from a numeric prefix
 iv = Interval.from_numeric_prefix('0.47')
@@ -236,7 +236,7 @@ You're saying: "expected_return is fully determined by the weights. The LLM does
 4. Veritas computes `dot(weights, RETURNS)` deterministically in Rust
 5. The result is spliced into the token stream — the LLM never samples it
 
-<CodeBlock language="python" code="from veritas._native import ZeroDofRule, splice_and_step
+<CodeBlock language="python" code={`from veritas._native import ZeroDofRule, splice_and_step
 
 rule = ZeroDofRule(vir_spec)
 
@@ -281,7 +281,7 @@ Veritas uses **Conflict-Driven Clause Learning (CDCL)**:
 4. **Learn** a half-space domain cut (e.g., `weights.AAPL <= 0.40`)
 5. **Resume** generation with the new constraint in place
 
-<CodeBlock language="python" code="from veritas._native import CdclJumpbackEngine
+<CodeBlock language="python" code={`from veritas._native import CdclJumpbackEngine
 
 engine = CdclJumpbackEngine()
 

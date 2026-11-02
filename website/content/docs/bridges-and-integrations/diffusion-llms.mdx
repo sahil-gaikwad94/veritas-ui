@@ -19,7 +19,7 @@ Diffusion LLMs generate tokens by iteratively denoising a discrete representatio
 
 ### Example
 
-<CodeBlock language="python" code="from veritas.bridges.diffusion import gumbel_max_unmask
+<CodeBlock language="python" code={`from veritas.bridges.diffusion import gumbel_max_unmask
 
 # Apply Veritas constraints to diffusion denoising
 masked_logits = gumbel_max_unmask(

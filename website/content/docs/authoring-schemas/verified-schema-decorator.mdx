@@ -1,6 +1,6 @@
 ---
-title: @verified_schema Decorator
-description: The @verified_schema decorator, VerifiedSchema class, and four constraint verbs: require, derive, prefer, forall.
+title: "@verified_schema Decorator"
+description: "The @verified_schema decorator, VerifiedSchema class, and four constraint verbs: require, derive, prefer, forall."
 ---
 
 import { Callout, CodeBlock, Badge, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/mdx-components';
@@ -22,7 +22,7 @@ Think of it like Pydantic's `BaseModel`, but with two critical differences:
 
 ### Basic Usage
 
-<CodeBlock language="python" code="from veritas import verified_schema, VerifiedSchema, require, derive, prefer, forall
+<CodeBlock language="python" code={`from veritas import verified_schema, VerifiedSchema, require, derive, prefer, forall
 
 @verified_schema
 def valid_portfolio(p: Portfolio):
@@ -41,7 +41,7 @@ When you decorate a function with `@verified_schema`:
 
 Under the hood, `@verified_schema` creates an instance of `VerifiedSchema`:
 
-<CodeBlock language="python" code="from veritas import VerifiedSchema
+<CodeBlock language="python" code={`from veritas import VerifiedSchema
 
 # These are equivalent:
 
@@ -87,7 +87,7 @@ Veritas provides four verbs for expressing constraints. Each serves a different 
 
 ### Examples
 
-<CodeBlock language="python" code="from veritas import require, sum, forall
+<CodeBlock language="python" code={`from veritas import require, sum, forall
 
 # Portfolio weights must sum to 1.0
 require(sum(p.weights.values()) == 1.0, tol=1e-6)
@@ -126,7 +126,7 @@ If your `require` constraints contradict each other (e.g., `sum(weights) == 1.0`
 
 ### Examples
 
-<CodeBlock language="python" code="from veritas import derive, dot
+<CodeBlock language="python" code={`from veritas import derive, dot
 
 # Expected return computed from weights and expected returns
 derive(p.expected_return == dot(p.weights, RETURNS))
@@ -166,7 +166,7 @@ With `derive`, Veritas computes it exactly. The LLM saves `_T_ − 1` forward pa
 
 ### Examples
 
-<CodeBlock language="python" code="from veritas import prefer
+<CodeBlock language="python" code={`from veritas import prefer
 
 # Prefer low volatility (but don't fail if not achievable)
 prefer(p.volatility <= 0.20, weight=0.8, tag=\"low_volatility\")
@@ -201,7 +201,7 @@ prefer(p.weights[\"AAPL\"] >= 0.20, weight=0.3, tag=\"aapl_overweight\")`} copya
 
 ### Examples
 
-<CodeBlock language="python" code="from veritas import forall
+<CodeBlock language="python" code={`from veritas import forall
 
 # Every weight between 5% and 50%
 require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
@@ -216,7 +216,7 @@ require(forall(p.tool_calls.values(), lambda call: call.name in ALLOWED_TOOLS))`
 
 `forall` over a dynamic collection (where you don't know the size ahead of time) uses a `ResidualAccumulator`:
 
-<CodeBlock language="python" code="# Internal representation (simplified)
+<CodeBlock language="python" code={`# Internal representation (simplified)
 # forall(weights.values(), lambda w: 0.05 <= w <= 0.50)
 # becomes:
 acc = ResidualAccumulator()
@@ -245,7 +245,7 @@ Veritas provides five built-in operators for expressing mathematical constraints
 
 ### Examples
 
-<CodeBlock language="python" code="from veritas import sum, dot, quad_form, sqrt, keys_subset
+<CodeBlock language="python" code={`from veritas import sum, dot, quad_form, sqrt, keys_subset
 
 # Portfolio variance constraint
 require(quad_form(p.weights, COV) <= 0.04)
@@ -268,7 +268,7 @@ require(sum(p.allocations.values()) <= 1.0)`} copyable />
 
 Here's a complete portfolio schema using all four verbs:
 
-<CodeBlock language="python" code="from veritas import verified_schema, require, derive, prefer, forall, sum, dot
+<CodeBlock language="python" code={`from veritas import verified_schema, require, derive, prefer, forall, sum, dot
 
 RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15, \"GOOGL\": 0.11}
 RISK_FREE = 0.04

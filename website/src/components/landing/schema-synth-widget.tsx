@@ -71,7 +71,9 @@ export function SchemaSynthWidget({ initialJson }: SchemaSynthWidgetProps) {
             size="sm"
           >
             {isGenerating ? (
-              <Zap className="h-4 w-4 animate-spin" /> Generating…
+              <>
+                <Zap className="h-4 w-4 animate-spin" /> Generating…
+              </>
             ) : (
               <>
                 <Bot className="h-4 w-4" /> Generate Schema

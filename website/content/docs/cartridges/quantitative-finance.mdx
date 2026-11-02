@@ -13,7 +13,7 @@ The `quant` cartridge provides financial modeling constraints: portfolio simplex
 
 ## Installation
 
-<CodeBlock language="bash" code="pip install 'veritas-ai[cas]'`} copyable />
+<CodeBlock language="bash" code={`pip install 'veritas-ai[cas]'`} copyable />
 
 The `[cas]` extra installs `sympy>=1.12` and `numpy>=1.26` for symbolic canonicalization and Cholesky matrix operations.
 
@@ -25,7 +25,7 @@ The `[cas]` extra installs `sympy>=1.12` and `numpy>=1.26` for symbolic canonica
 
 Ensures weights sum to 1.0 with each weight in [0, 1]:
 
-<CodeBlock language="python" code="from veritas.cartridges.quant import simplex
+<CodeBlock language="python" code={`from veritas.cartridges.quant import simplex
 
 require(simplex(p.weights))
 # Equivalent to:
@@ -36,7 +36,7 @@ require(simplex(p.weights))
 
 Computes $w^T \Sigma w$ via Cholesky-decomposed affine forms:
 
-<CodeBlock language="python" code="from veritas.cartridges.quant import quad_form
+<CodeBlock language="python" code={`from veritas.cartridges.quant import quad_form
 
 COV = {
     "AAPL": {"AAPL": 0.04, "MSFT": 0.01, "NVDA": 0.02},
@@ -51,7 +51,7 @@ require(quad_form(p.weights, COV) <= 0.04)`} copyable />
 
 European option price constraint:
 
-<CodeBlock language="python" code="from veritas.cartridges.quant import black_scholes
+<CodeBlock language="python" code={`from veritas.cartridges.quant import black_scholes
 
 # Option price must be >= market price
 require(black_scholes(p.S, p.K, p.T, p.r, p.sigma) >= p.market_price)`} copyable />
@@ -60,7 +60,7 @@ require(black_scholes(p.S, p.K, p.T, p.r, p.sigma) >= p.market_price)`} copyable
 
 VaR at confidence level alpha:
 
-<CodeBlock language="python" code="from veritas.cartridges.quant import value_at_risk
+<CodeBlock language="python" code={`from veritas.cartridges.quant import value_at_risk
 
 # 95% VaR <= 5%
 require(value_at_risk(p.weights, RETURNS, COV, alpha=0.95) <= 0.05)`} copyable />
@@ -80,7 +80,7 @@ require(value_at_risk(p.weights, RETURNS, COV, alpha=0.95) <= 0.05)`} copyable /
 
 ## Complete Example: Markowitz Portfolio
 
-<CodeBlock language="python" code="from veritas import verified_schema, require, derive, sum, dot
+<CodeBlock language="python" code={`from veritas import verified_schema, require, derive, sum, dot
 from veritas.cartridges.quant import simplex, quad_form, black_scholes, value_at_risk
 
 RETURNS = {"AAPL": 0.12, "MSFT": 0.10, "NVDA": 0.15}

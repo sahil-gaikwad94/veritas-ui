@@ -37,7 +37,7 @@ The constraints:
 
 Create a file called `portfolio_spec.py`:
 
-<CodeBlock language="python" code="from veritas import verified_schema, require, derive, sum, dot, forall
+<CodeBlock language="python" code={`from veritas import verified_schema, require, derive, sum, dot, forall
 
 # These are constants the LLM can reference
 RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15}
@@ -83,7 +83,7 @@ def valid_portfolio(p: Portfolio):
 
 Before you ever call an LLM, verify that your constraints are satisfiable:
 
-<CodeBlock language="bash" code="$ veritas check-spec portfolio_spec.py
+<CodeBlock language="bash" code={`$ veritas check-spec portfolio_spec.py
 
 # Expected output:
 # ✓ Spec is SAT — all constraints mutually satisfiable
@@ -91,7 +91,7 @@ Before you ever call an LLM, verify that your constraints are satisfiable:
 # ✓ Zero-DoF fields: expected_return, volatility, sharpe_ratio
 # ✓ Interval bounds: weights ∈ [0.05, 0.50]`} copyable />
 
-<CodeBlock language="bash" code="# For machine-readable output (CI/CD, scripting)
+<CodeBlock language="bash" code={`# For machine-readable output (CI/CD, scripting)
 $ veritas check-spec portfolio_spec.py --json
 # {
 #   "sat": true,
@@ -123,7 +123,7 @@ If your constraints are unsatisfiable (e.g., `sum(weights) == 1.0` AND `each wei
 
 Now let's actually generate a verified portfolio:
 
-<CodeBlock language="python" code="from veritas import decode
+<CodeBlock language="python" code={`from veritas import decode
 
 # Decode with an LLM — Veritas enforces constraints in real time
 result = decode(
@@ -191,6 +191,7 @@ require(p.expected_return >= 0.10)  # This is fine — expected_return is derive
 # The DependencyGraph ensures expected_return is emitted after weights
 # Veritas handles the ordering automatically
 ```
+</Callout>
 
 <Callout variant="warn" title="Mistake 2: Contradictory constraints">
 

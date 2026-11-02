@@ -1,5 +1,3 @@
-import { MDXComponents as MDXComponentsType } from '@mdx-js/react';
-
 import { Callout } from '@/components/docs/callout';
 import { CodeBlock } from '@/components/docs/code-block';
 import { Steps } from '@/components/docs/steps';
@@ -22,7 +20,7 @@ import { SchemaSynthWidget } from '@/components/landing/schema-synth-widget';
 import { TokenMaskHoverBox } from '@/components/docs/token-mask-hover-box';
 import { InteractiveTraceViewer } from '@/components/docs/interactive-trace-viewer';
 
-export function getMDXComponents(components?: MDXComponentsType) {
+export function getMDXComponents(components?: any) {
   return {
     ...components,
     // Custom Veritas components
@@ -43,5 +41,7 @@ export function getMDXComponents(components?: MDXComponentsType) {
     SchemaSynthWidget,
     TokenMaskHoverBox,
     InteractiveTraceViewer,
-  } as MDXComponentsType;
+  } as any;
 }
+
+export { Callout, CodeBlock, Badge, Card, CardContent, CardHeader, CardTitle, Tabs, TabsContent, TabsList, TabsTrigger };

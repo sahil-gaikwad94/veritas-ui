@@ -85,7 +85,7 @@ Python bindings that expose the Rust engine to Python. The main interface is `Pd
 
 ### Example Usage
 
-<CodeBlock language="python" code="from veritas._native import PdaHandle, prefix_status, engine_info
+<CodeBlock language="python" code={`from veritas._native import PdaHandle, prefix_status, engine_info
 
 # Check engine info
 info = engine_info()
@@ -135,7 +135,7 @@ class PdaHandle {
 
 ### Example Usage
 
-<CodeBlock language="typescript" code="import { PdaHandle, prefix_status, is_valid_document, version } from 'veritas-wasm';
+<CodeBlock language="typescript" code={`import { PdaHandle, prefix_status, is_valid_document, version } from 'veritas-wasm';
 
 console.log(version()); // "2.0.0"
 
@@ -155,7 +155,7 @@ console.log(is_valid_document('{"weights": {"AAPL": 0.40}}')); // true/false`} c
 
 ### Web Worker Usage
 
-<CodeBlock language="typescript" code="const worker = new Worker(new URL('./veritas-wasm.worker.ts', import.meta.url));
+<CodeBlock language="typescript" code={`const worker = new Worker(new URL('./veritas-wasm.worker.ts', import.meta.url));
 
 worker.postMessage({ method: 'prefix_status', args: ['{'] });
 worker.onmessage = (e) => {
@@ -168,7 +168,7 @@ worker.onmessage = (e) => {
 
 Force pure-Python reference execution for A/B debugging and fault isolation testing.
 
-<CodeBlock language="bash" code="# Force pure-Python engine
+<CodeBlock language="bash" code={`# Force pure-Python engine
 VERITAS_NO_NATIVE=1 python -m veritas doctor
 # Engine: reference (pure Python)
 # Native: disabled

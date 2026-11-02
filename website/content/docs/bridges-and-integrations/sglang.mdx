@@ -19,7 +19,7 @@ The `sglang` adapter integrates Veritas with SGLang's runtime — jump-forward h
 
 ### Example
 
-<CodeBlock language="python" code="from veritas.bridges.sglang import SglangAdapter
+<CodeBlock language="python" code={`from veritas.bridges.sglang import SglangAdapter
 
 adapter = SglangAdapter(schema=valid_portfolio)
 
@@ -45,7 +45,7 @@ SGLang's runtime supports custom jump-forward hooks. Veritas registers these for
 
 ## Complete Example
 
-<CodeBlock language="python" code="from veritas import verified_schema, require, derive, sum, dot
+<CodeBlock language="python" code={`from veritas import verified_schema, require, derive, sum, dot
 from veritas.bridges.sglang import SglangAdapter
 
 RETURNS = {"AAPL": 0.12, "MSFT": 0.10, "NVDA": 0.15}

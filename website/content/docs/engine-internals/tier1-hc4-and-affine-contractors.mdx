@@ -31,7 +31,7 @@ Without outward rounding, floating-point errors could make an interval slightly 
 
 ### Example
 
-<CodeBlock language="python" code="from veritas._native import Interval
+<CodeBlock language="python" code={`from veritas._native import Interval
 
 # Create interval from a numeric prefix
 iv = Interval.from_numeric_prefix('0.47')
@@ -79,7 +79,7 @@ The noise symbol cancels out exactly, preserving the correlation.
 
 ### Example
 
-<CodeBlock language="python" code="from veritas._native import AffineForm
+<CodeBlock language="python" code={`from veritas._native import AffineForm
 
 # Create affine form with noise symbol
 af = AffineForm(value=0.47, noise_symbols=['eps_1'])
@@ -108,7 +108,7 @@ HC4 (Hull Consistency 4) is a constraint propagation algorithm that:
 
 ### Example
 
-<CodeBlock language="python" code="from veritas._native import Interval, AffineForm, Hc4AffineContractor
+<CodeBlock language="python" code={`from veritas._native import Interval, AffineForm, Hc4AffineContractor
 
 contractor = Hc4AffineContractor()
 
@@ -134,7 +134,7 @@ contractor.contract([x, y], constraint='x + y <= 1.0')
 
 ## Complete Example: Portfolio Weight Bounds
 
-<CodeBlock language="python" code="from veritas._native import Interval, Hc4AffineContractor
+<CodeBlock language="python" code={`from veritas._native import Interval, Hc4AffineContractor
 
 contractor = Hc4AffineContractor()
 

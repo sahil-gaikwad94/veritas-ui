@@ -31,7 +31,7 @@ Every physical quantity is represented as a 7-tuple of rational exponents:
 
 `dimensional_analysis` verifies both sides of an equation have the same dimensions:
 
-<CodeBlock language="python" code="from veritas.cartridges.phys import dimensional_analysis
+<CodeBlock language="python" code={`from veritas.cartridges.phys import dimensional_analysis
 
 @verified_schema
 def equation(e: PhysicsEquation):
@@ -41,7 +41,7 @@ def equation(e: PhysicsEquation):
 
 `conservation_law` enforces conservation of energy, momentum, charge, or mass:
 
-<CodeBlock language="python" code="from veritas.cartridges.phys import conservation_law
+<CodeBlock language="python" code={`from veritas.cartridges.phys import conservation_law
 
 require(conservation_law(e, CONSERVATION_ENERGY))`} copyable />
 
@@ -49,7 +49,7 @@ require(conservation_law(e, CONSERVATION_ENERGY))`} copyable />
 
 `si_unit` ensures a result has the expected unit:
 
-<CodeBlock language="python" code="from veritas.cartridges.phys import si_unit
+<CodeBlock language="python" code={`from veritas.cartridges.phys import si_unit
 
 require(si_unit(e.result, "N"))  # Result in Newtons`} copyable />
 
@@ -57,7 +57,7 @@ require(si_unit(e.result, "N"))  # Result in Newtons`} copyable />
 
 ## Complete Example
 
-<CodeBlock language="python" code="from veritas import verified_schema, require, derive
+<CodeBlock language="python" code={`from veritas import verified_schema, require, derive
 from veritas.cartridges.phys import dimensional_analysis, conservation_law, si_unit
 
 CONSERVATION_ENERGY = {"energy": 1.0}

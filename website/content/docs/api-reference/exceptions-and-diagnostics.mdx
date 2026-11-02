@@ -39,7 +39,7 @@ Base exception for all Veritas errors. All Veritas exceptions inherit from this.
 - `minimal_relaxation` — Suggested change to make the spec feasible
 - `conflicting_constraints` — List of constraint IDs that conflict
 
-<CodeBlock language="python" code="from veritas import run_preflight, InfeasibleSpecError
+<CodeBlock language="python" code={`from veritas import run_preflight, InfeasibleSpecError
 
 try:
     report = run_preflight(bad_schema)
@@ -61,7 +61,7 @@ except InfeasibleSpecError as e:
 - `derivation_chain` — The chain of fields forming the cycle
 - `fields` — List of fields involved
 
-<CodeBlock language="python" code="from veritas import run_preflight, CircularDerivationError
+<CodeBlock language="python" code={`from veritas import run_preflight, CircularDerivationError
 
 try:
     report = run_preflight(circular_schema)
@@ -110,7 +110,7 @@ except CircularDerivationError as e:
 
 ## Exception Handling Best Practices
 
-<CodeBlock language="python" code="from veritas import (
+<CodeBlock language="python" code={`from veritas import (
     verified_schema, require, derive,
     run_preflight, decode,
     InfeasibleSpecError, CircularDerivationError,
@@ -162,7 +162,7 @@ Veritas emits telemetry dictionaries with the following keys:
 
 ### Example Telemetry Output
 
-<CodeBlock language="python" code="telemetry = {
+<CodeBlock language="python" code={`telemetry = {
     "engine_mode": "accelerated",
     "wire_protocol": "2.0",
     "pda_depth": 3,
@@ -178,7 +178,7 @@ Veritas emits telemetry dictionaries with the following keys:
 
 ### Enabling Verbose Telemetry
 
-<CodeBlock language="bash" code="# Enable detailed solver telemetry logging
+<CodeBlock language="bash" code={`# Enable detailed solver telemetry logging
 VERITAS_VERBOSE=1 python -m veritas doctor`} copyable />
 
 <Callout variant="tip" title="Telemetry for A/B Testing">

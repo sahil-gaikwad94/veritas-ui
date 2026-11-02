@@ -19,7 +19,7 @@ The `vLLM` adapter integrates Veritas with vLLM's logit processor — masking to
 
 ### Example
 
-<CodeBlock language="python" code="from veritas.bridges.vllm import VllmAdapter
+<CodeBlock language="python" code={`from veritas.bridges.vllm import VllmAdapter
 from vllm import LLM, SamplingParams
 
 adapter = VllmAdapter(schema=valid_portfolio)
@@ -53,7 +53,7 @@ The vLLM adapter runs the PDA mask in Rust (0.23 ms) — no Python overhead per 
 
 ## Complete Example
 
-<CodeBlock language="python" code="from veritas import verified_schema, require, derive, sum, dot
+<CodeBlock language="python" code={`from veritas import verified_schema, require, derive, sum, dot
 from veritas.bridges.vllm import VllmAdapter
 from vllm import LLM
 

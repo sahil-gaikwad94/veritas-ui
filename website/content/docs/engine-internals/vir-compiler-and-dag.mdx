@@ -39,7 +39,7 @@ It produces a `VirSpec` — a structured representation of everything Veritas ne
 
 ### Example
 
-<CodeBlock language="python" code="from veritas._native import AstTranspiler, VirSpec
+<CodeBlock language="python" code={`from veritas._native import AstTranspiler, VirSpec
 
 transpiler = AstTranspiler()
 vir_spec = transpiler.transpile(valid_portfolio)
@@ -122,7 +122,7 @@ This ordering is **critical** for Zero-DoF splicing: by the time the LLM reaches
 
 ### Example
 
-<CodeBlock language="python" code="from veritas._native import DependencyGraph, build_json_key_order
+<CodeBlock language="python" code={`from veritas._native import DependencyGraph, build_json_key_order
 
 graph = DependencyGraph(vir_spec)
 
@@ -190,7 +190,7 @@ Here's the complete flow from Python to Rust:
 
 ## Complete Example
 
-<CodeBlock language="python" code="from veritas._native import AstTranspiler, DependencyGraph, build_json_key_order
+<CodeBlock language="python" code={`from veritas._native import AstTranspiler, DependencyGraph, build_json_key_order
 
 # Your schema
 @verified_schema

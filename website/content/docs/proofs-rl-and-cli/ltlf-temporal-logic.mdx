@@ -34,7 +34,7 @@ LTLf extends propositional logic with temporal operators for reasoning about fin
 
 ## Example Usage
 
-<CodeBlock language="python" code="from veritas.ltlf import LTLf, eventually, globally, next_op, until
+<CodeBlock language="python" code={`from veritas.ltlf import LTLf, eventually, globally, next_op, until
 
 # \"The Sharpe ratio must eventually exceed 0.65\"
 spec = eventually(lambda s: s.sharpe_ratio >= 0.65)

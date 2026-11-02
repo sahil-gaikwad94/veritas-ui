@@ -27,7 +27,7 @@ sum(iterable)
 
 ### Example
 
-<CodeBlock language="python" code="from veritas import sum, require
+<CodeBlock language="python" code={`from veritas import sum, require
 
 # Portfolio weights must sum to 1.0 (fully invested)
 require(sum(p.weights.values()) == 1.0, tol=1e-6)
@@ -73,7 +73,7 @@ dot(weights_dict, constants_dict)
 
 ### Example
 
-<CodeBlock language="python" code="from veritas import dot, derive, require
+<CodeBlock language="python" code={`from veritas import dot, derive, require
 
 RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15, \"GOOGL\": 0.11}
 BETAS = {\"AAPL\": 1.2, \"MSFT\": 0.9, \"NVDA\": 1.5, \"GOOGL\": 1.1}
@@ -117,7 +117,7 @@ quad_form(weights_dict, cov_matrix_dict)
 
 ### Example
 
-<CodeBlock language="python" code="from veritas import quad_form, require, derive
+<CodeBlock language="python" code={`from veritas import quad_form, require, derive
 
 COV = {
     \"AAPL\": {\"AAPL\": 0.04, \"MSFT\": 0.01, \"NVDA\": 0.02},
@@ -166,7 +166,7 @@ sqrt(expr)
 
 ### Example
 
-<CodeBlock language="python" code="from veritas import sqrt, require, derive, quad_form
+<CodeBlock language="python" code={`from veritas import sqrt, require, derive, quad_form
 
 COV = {...}  # Covariance matrix
 
@@ -211,7 +211,7 @@ keys_subset(mapping, allowed_set)
 
 ### Example
 
-<CodeBlock language="python" code="from veritas import keys_subset, require
+<CodeBlock language="python" code={`from veritas import keys_subset, require
 
 ALLOWED_STOCKS = {\"AAPL\", \"MSFT\", \"NVDA\", \"GOOGL\", \"AMZN\"}
 ALLOWED_TOOLS = {\"web_search\", \"calculator\", \"code_interpreter\"}
@@ -244,7 +244,7 @@ require(keys_subset(p.config, {\"timeout\", \"retries\", \"mode\"}))`} copyable 
 
 ## Complete Example: All Operators Together
 
-<CodeBlock language="python" code="from veritas import verified_schema, require, derive, sum, dot, quad_form, sqrt, keys_subset
+<CodeBlock language="python" code={`from veritas import verified_schema, require, derive, sum, dot, quad_form, sqrt, keys_subset
 
 RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15}
 RISK_FREE = 0.04

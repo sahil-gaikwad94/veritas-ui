@@ -60,7 +60,7 @@ require(acc.min >= 0.05)
 
 ### Example
 
-<CodeBlock language="python" code="from veritas import ResidualAccumulator, require
+<CodeBlock language="python" code={`from veritas import ResidualAccumulator, require
 
 @verified_schema
 def dynamic_portfolio(p: Portfolio):
@@ -108,7 +108,7 @@ for container in info.containers:
 
 ### Example
 
-<CodeBlock language="python" code="from veritas import analyze_containers
+<CodeBlock language="python" code={`from veritas import analyze_containers
 
 info = analyze_containers(valid_portfolio)
 
@@ -149,7 +149,7 @@ ContainerInfo(
 
 ## Complete Example: Dynamic Position Sizing
 
-<CodeBlock language="python" code="from veritas import verified_schema, require, derive, forall, sum, dot, ResidualAccumulator
+<CodeBlock language="python" code={`from veritas import verified_schema, require, derive, forall, sum, dot, ResidualAccumulator
 
 RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15}
 
@@ -181,7 +181,7 @@ def dynamic_portfolio(p: Portfolio):
 
 ### Pattern 1: Bounded Dynamic Collection
 
-<CodeBlock language="python" code="# Between 3 and 10 positions, each 5%-25%
+<CodeBlock language="python" code={`# Between 3 and 10 positions, each 5%-25%
 acc = ResidualAccumulator()
 for w in p.weights.values():
     acc.add(w)
@@ -192,13 +192,13 @@ require(acc.total == 1.0, tol=1e-6)`} copyable />
 
 ### Pattern 2: Dynamic Key Validation
 
-<CodeBlock language="python" code="# Only allow specific keys in a dynamic dict
+<CodeBlock language="python" code={`# Only allow specific keys in a dynamic dict
 ALLOWED_KEYS = {\"AAPL\", \"MSFT\", \"NVDA\", \"GOOGL\"}
 require(keys_subset(p.weights, ALLOWED_KEYS))`} copyable />
 
 ### Pattern 3: Running Constraint
 
-<CodeBlock language="python" code="# Cumulative sum must never exceed budget
+<CodeBlock language="python" code={`# Cumulative sum must never exceed budget
 acc = ResidualAccumulator()
 for cost in p.costs.values():
     acc.add(cost)

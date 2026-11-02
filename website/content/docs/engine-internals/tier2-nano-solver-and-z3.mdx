@@ -40,7 +40,7 @@ Fourier-Motzkin is a variable elimination algorithm for linear systems:
 
 ### Example
 
-<CodeBlock language="python" code="from veritas._native import VeritasNanoSolver
+<CodeBlock language="python" code={`from veritas._native import VeritasNanoSolver
 
 solver = VeritasNanoSolver()
 
@@ -118,7 +118,7 @@ The pre-flight gate uses Tier 2 for **exact affine feasibility checking** — pr
 
 ### Example
 
-<CodeBlock language="python" code="from veritas import run_preflight
+<CodeBlock language="python" code={`from veritas import run_preflight
 
 # This spec is infeasible:
 # sum(weights) == 1.0 AND each weight <= 0.20 (with 6 stocks)
@@ -131,7 +131,7 @@ print(report.sat)  # False
 
 ## Complete Example
 
-<CodeBlock language="python" code="from veritas._native import VeritasNanoSolver
+<CodeBlock language="python" code={`from veritas._native import VeritasNanoSolver
 
 # Portfolio feasibility check
 solver = VeritasNanoSolver()

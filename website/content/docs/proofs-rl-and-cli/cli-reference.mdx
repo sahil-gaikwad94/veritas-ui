@@ -30,7 +30,7 @@ Inspects engine mode, wire protocol version, platform metadata, and optional Z3 
 
 ### Usage
 
-<CodeBlock language="bash" code="$ veritas doctor
+<CodeBlock language="bash" code={`$ veritas doctor
 
 # Expected output:
 # Engine: accelerated (Rust native)
@@ -74,7 +74,7 @@ Compiles a `@verified_schema` into `VirSpec` and runs `run_preflight()` — **0 
 
 ### Usage
 
-<CodeBlock language="bash" code="$ veritas check-spec portfolio_spec.py
+<CodeBlock language="bash" code={`$ veritas check-spec portfolio_spec.py
 
 # Expected output for valid spec:
 # ✓ Spec is SAT — all constraints mutually satisfiable
@@ -116,7 +116,7 @@ Runs `verify_instance()` / `verify_json()` — outputs a `VerificationReport` wi
 
 ### Usage
 
-<CodeBlock language="bash" code="$ veritas verify portfolio_spec.py instance.json
+<CodeBlock language="bash" code={`$ veritas verify portfolio_spec.py instance.json
 
 # Expected output:
 # VerificationReport:
@@ -162,7 +162,7 @@ Offline cryptographic verification of a saved `ProofCertificate`.
 
 ### Usage
 
-<CodeBlock language="bash" code="$ veritas verify-proof proof.json
+<CodeBlock language="bash" code={`$ veritas verify-proof proof.json
 
 # Expected output:
 # ✓ SHA-256 witness verified
@@ -194,7 +194,7 @@ Generates a standalone dark-mode HTML execution trace viewer.
 
 ### Usage
 
-<CodeBlock language="bash" code="$ veritas inspect trace.json --out report.html
+<CodeBlock language="bash" code={`$ veritas inspect trace.json --out report.html
 # Generated: report.html
 
 # JSON output
@@ -229,7 +229,7 @@ Auto-infers `@verified_schema` from sample JSON payloads.
 
 ### Usage
 
-<CodeBlock language="bash" code="$ veritas synth --from-json examples.json --out generated_schema.py
+<CodeBlock language="bash" code={`$ veritas synth --from-json examples.json --out generated_schema.py
 # Inferred 3 samples, 7 fields, 2 conservation laws
 # Generated: generated_schema.py
 

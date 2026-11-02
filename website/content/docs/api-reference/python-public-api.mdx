@@ -22,7 +22,7 @@ Complete reference for all exported symbols in `veritas.__all__`. The public API
 
 Transforms a Python function into a verified schema that enforces constraints during LLM token decoding.
 
-<CodeBlock language="python" code="from veritas import verified_schema
+<CodeBlock language="python" code={`from veritas import verified_schema
 
 @verified_schema
 def my_schema(p: Portfolio):
@@ -32,7 +32,7 @@ def my_schema(p: Portfolio):
 
 The underlying class. Use the decorator syntax for 99% of cases; use the class directly for programmatic schema construction.
 
-<CodeBlock language="python" code="from veritas import VerifiedSchema
+<CodeBlock language="python" code={`from veritas import VerifiedSchema
 
 schema = VerifiedSchema(func=my_func, constraints=[...], derivations=[...])`} copyable />
 
@@ -51,7 +51,7 @@ schema = VerifiedSchema(func=my_func, constraints=[...], derivations=[...])`} co
 
 Hard invariant enforced via Tier-1 HC4/AF2 contractors and Tier-2 NanoSolver.
 
-<CodeBlock language="python" code="from veritas import require
+<CodeBlock language="python" code={`from veritas import require
 
 require(sum(p.weights.values()) == 1.0, tol=1e-6)
 require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))`} copyable />
@@ -60,7 +60,7 @@ require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))`} copya
 
 Zero-DoF deterministic computation. Veritas computes `target` from `expr` — the LLM never samples it.
 
-<CodeBlock language="python" code="from veritas import derive, dot
+<CodeBlock language="python" code={`from veritas import derive, dot
 
 derive(p.expected_return == dot(p.weights, RETURNS))`} copyable />
 
@@ -68,7 +68,7 @@ derive(p.expected_return == dot(p.weights, RETURNS))`} copyable />
 
 Soft preference via Weighted MaxSMT. Guides token selection without causing hard failures.
 
-<CodeBlock language="python" code="from veritas import prefer
+<CodeBlock language="python" code={`from veritas import prefer
 
 prefer(p.volatility <= 0.20, weight=0.8, tag="low_volatility")`} copyable />
 
@@ -76,7 +76,7 @@ prefer(p.volatility <= 0.20, weight=0.8, tag="low_volatility")`} copyable />
 
 Universal quantifier over dynamic collections, lowered into `ResidualAccumulator` bounds.
 
-<CodeBlock language="python" code="from veritas import forall
+<CodeBlock language="python" code={`from veritas import forall
 
 require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))`} copyable />
 
@@ -94,7 +94,7 @@ require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))`} copya
 
 ### Examples
 
-<CodeBlock language="python" code="from veritas import sum, dot, quad_form, sqrt, keys_subset
+<CodeBlock language="python" code={`from veritas import sum, dot, quad_form, sqrt, keys_subset
 
 require(sum(p.weights.values()) == 1.0, tol=1e-6)
 derive(p.expected_return == dot(p.weights, RETURNS))
@@ -119,7 +119,7 @@ require(keys_subset(p.weights, {"AAPL", "MSFT", "NVDA"}))`} copyable />
 
 Runs the complete pre-flight check — interval contraction, affine feasibility, circular derivation detection.
 
-<CodeBlock language="python" code="from veritas import run_preflight, InfeasibleSpecError
+<CodeBlock language="python" code={`from veritas import run_preflight, InfeasibleSpecError
 
 try:
     report = run_preflight(my_schema)
@@ -131,7 +131,7 @@ except InfeasibleSpecError as e:
 
 Decode with an LLM — Veritas enforces constraints in real time.
 
-<CodeBlock language="python" code="from veritas import decode
+<CodeBlock language="python" code={`from veritas import decode
 
 result = decode(
     schema=my_schema,
@@ -144,7 +144,7 @@ result = decode(
 
 Auto-generate `@verified_schema` from sample JSON.
 
-<CodeBlock language="python" code="from veritas import synth
+<CodeBlock language="python" code={`from veritas import synth
 
 schema_code = synth(samples=[{"a": 1.0}, {"a": 2.0}])
 print(schema_code)`} copyable />
@@ -182,7 +182,8 @@ The full `veritas.__all__` exports 65+ symbols including all cartridges, bridges
 from veritas import verified_schema, require, derive
 from veritas.cartridges import quant, sql
 from veritas.bridges import VllmAdapter
-```</Callout>
+```
+</Callout>
 
 ---
 

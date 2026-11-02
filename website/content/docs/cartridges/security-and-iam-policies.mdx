@@ -17,7 +17,7 @@ The `sec` cartridge provides cloud IAM/RBAC least-privilege enforcement and tool
 
 `least_privilege` ensures agents only use tools they're authorized for:
 
-<CodeBlock language="python" code="from veritas.cartridges.sec import least_privilege
+<CodeBlock language="python" code={`from veritas.cartridges.sec import least_privilege
 
 ALLOWED_TOOLS = {"web_search", "calculator", "code_interpreter"}
 
@@ -29,7 +29,7 @@ def agent_action(a: AgentAction):
 
 `tool_guardrail` enforces policy rules on every tool call:
 
-<CodeBlock language="python" code="from veritas.cartridges.sec import tool_guardrail
+<CodeBlock language="python" code={`from veritas.cartridges.sec import tool_guardrail
 
 POLICY_RULES = {
     "web_search": {"max_results": 10, "allowed_domains": ["*.com", "*.org"]},
@@ -43,7 +43,7 @@ require(tool_guardrail(a.tool_call, POLICY_RULES))`} copyable />
 
 `rbac_policy` checks that the principal has the required role/action on the resource:
 
-<CodeBlock language="python" code="from veritas.cartridges.sec import rbac_policy
+<CodeBlock language="python" code={`from veritas.cartridges.sec import rbac_policy
 
 require(rbac_policy(a.principal, a.resource, a.action))`} copyable />
 
@@ -51,7 +51,7 @@ require(rbac_policy(a.principal, a.resource, a.action))`} copyable />
 
 ## Complete Example
 
-<CodeBlock language="python" code="from veritas import verified_schema, require
+<CodeBlock language="python" code={`from veritas import verified_schema, require
 from veritas.cartridges.sec import least_privilege, tool_guardrail, rbac_policy
 
 ALLOWED_TOOLS = {"web_search", "calculator", "code_interpreter"}

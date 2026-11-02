@@ -28,7 +28,7 @@ This is especially useful when you have an existing API response and want to add
 
 ### Basic Usage
 
-<CodeBlock language="bash" code="# Create a JSONL file with 2-3 sample objects
+<CodeBlock language="bash" code={`# Create a JSONL file with 2-3 sample objects
 $ cat examples.jsonl
 {\"weights\": {\"AAPL\": 0.40, \"MSFT\": 0.35, \"NVDA\": 0.25}, \"expected_return\": 0.1615, \"sharpe_ratio\": 0.6422}
 {\"weights\": {\"AAPL\": 0.50, \"MSFT\": 0.30, \"NVDA\": 0.20}, \"expected_return\": 0.1550, \"sharpe_ratio\": 0.7100}
@@ -61,7 +61,7 @@ def inferred_schema(obj: dict):
 
 ### JSON Output
 
-<CodeBlock language="bash" code="$ veritas synth --from-json examples.jsonl --json
+<CodeBlock language="bash" code={`$ veritas synth --from-json examples.jsonl --json
 # {
 #   "samples": 3,
 #   "fields": 7,
@@ -126,7 +126,7 @@ The widget runs entirely in-browser via `veritas-wasm` WebAssembly — zero serv
 
 ### Step 1: Collect Sample API Responses
 
-<CodeBlock language="bash" code="# Save 3 sample API responses as JSONL
+<CodeBlock language="bash" code={`# Save 3 sample API responses as JSONL
 $ cat api_responses.jsonl
 {\"portfolio\": {\"AAPL\": 0.40, \"MSFT\": 0.35, \"NVDA\": 0.25}, \"metrics\": {\"return\": 0.1615, \"volatility\": 0.1892, \"sharpe\": 0.6422}}
 {\"portfolio\": {\"AAPL\": 0.50, \"MSFT\": 0.30, \"NVDA\": 0.20}, \"metrics\": {\"return\": 0.1550, \"volatility\": 0.1700, \"sharpe\": 0.7100}}
@@ -134,13 +134,13 @@ $ cat api_responses.jsonl
 
 ### Step 2: Generate Schema
 
-<CodeBlock language="bash" code="$ veritas synth --from-json api_responses.jsonl --out portfolio_schema.py
+<CodeBlock language="bash" code={`$ veritas synth --from-json api_responses.jsonl --out portfolio_schema.py
 # Inferred 3 samples, 9 fields, 1 conservation law
 # Generated: portfolio_schema.py`} copyable />
 
 ### Step 3: Review and Customize
 
-<CodeBlock language="python" code="# portfolio_schema.py (auto-generated, then customized)
+<CodeBlock language="python" code={`# portfolio_schema.py (auto-generated, then customized)
 from veritas import verified_schema, require, derive, sum, dot, forall
 
 RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15}
@@ -164,7 +164,7 @@ def portfolio_schema(obj: dict):
 
 ### Step 4: Run Pre-Flight Check
 
-<CodeBlock language="bash" code="$ veritas check-spec portfolio_schema.py
+<CodeBlock language="bash" code={`$ veritas check-spec portfolio_schema.py
 # ✓ Spec is SAT — all constraints mutually satisfiable
 # ✓ 0-token pre-flight gate passed
 # ✓ Zero-DoF fields: metrics.return`} copyable />

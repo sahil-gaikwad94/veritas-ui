@@ -32,7 +32,7 @@ The `PdaHandle` is the main interface to the JSON Pushdown Automaton. Created on
 
 ### Example Usage
 
-<CodeBlock language="python" code="from veritas._native import PdaHandle
+<CodeBlock language="python" code={`from veritas._native import PdaHandle
 
 # Create PDA starting with an open brace
 handle = PdaHandle.new("{")
@@ -76,7 +76,7 @@ handle_copy = handle.clone_handle()`} copyable />
 
 ### `prefix_status(text)`
 
-<CodeBlock language="python" code="from veritas._native import prefix_status
+<CodeBlock language="python" code={`from veritas._native import prefix_status
 
 status = prefix_status('{"w')
 # {
@@ -90,7 +90,7 @@ status = prefix_status('{"w')
 
 ### `numeric_prefix(prefix)`
 
-<CodeBlock language="python" code="from veritas._native import numeric_prefix
+<CodeBlock language="python" code={`from veritas._native import numeric_prefix
 
 bounds = numeric_prefix("0.47")
 # {
@@ -101,7 +101,7 @@ bounds = numeric_prefix("0.47")
 
 ### `engine_info()`
 
-<CodeBlock language="python" code="from veritas._native import engine_info
+<CodeBlock language="python" code={`from veritas._native import engine_info
 
 info = engine_info()
 # {

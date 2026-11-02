@@ -17,7 +17,7 @@ The `sql` cartridge ensures generated SQL is safe, valid, and referentially inta
 
 The `no_injection` constraint scans for injection patterns and masks them at the PDA level:
 
-<CodeBlock language="python" code="from veritas.cartridges.sql import no_injection
+<CodeBlock language="python" code={`from veritas.cartridges.sql import no_injection
 
 @verified_schema
 def text_to_sql(q: Query):
@@ -40,7 +40,7 @@ SQL injection is blocked at the grammar level — the LLM physically cannot emit
 
 `fk_integrity` ensures referenced tables and columns exist in the catalog:
 
-<CodeBlock language="python" code="from veritas.cartridges.sql import fk_integrity
+<CodeBlock language="python" code={`from veritas.cartridges.sql import fk_integrity
 
 require(fk_integrity(q.raw_sql, SCHEMA))`} copyable />
 
@@ -48,7 +48,7 @@ require(fk_integrity(q.raw_sql, SCHEMA))`} copyable />
 
 `schema_alignment` ensures tables and columns match the catalog:
 
-<CodeBlock language="python" code="from veritas.cartridges.sql import schema_alignment
+<CodeBlock language="python" code={`from veritas.cartridges.sql import schema_alignment
 
 require(schema_alignment(q.raw_sql, CATALOG))`} copyable />
 
@@ -56,7 +56,7 @@ require(schema_alignment(q.raw_sql, CATALOG))`} copyable />
 
 ## Complete Example
 
-<CodeBlock language="python" code="from veritas import verified_schema, require
+<CodeBlock language="python" code={`from veritas import verified_schema, require
 from veritas.cartridges.sql import no_injection, fk_integrity, schema_alignment
 
 SCHEMA = {

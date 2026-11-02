@@ -65,7 +65,7 @@ The `PdaHandle` is the main interface to the PDA. It's created once per decode a
 
 ### Example Usage
 
-<CodeBlock language="python" code="from veritas._native import PdaHandle
+<CodeBlock language="python" code={`from veritas._native import PdaHandle
 
 # Create PDA starting with an open brace
 handle = PdaHandle.new('{')
@@ -118,7 +118,7 @@ Parses the token stream incrementally, maintaining PDA stack depth and detecting
 
 ### Example
 
-<CodeBlock language="python" code="from veritas._native import IncrementalJSONParser
+<CodeBlock language="python" code={`from veritas._native import IncrementalJSONParser
 
 parser = IncrementalJSONParser()
 
@@ -143,7 +143,7 @@ LLMs use subword tokenization (BPE, WordPiece, etc.). A number like `0.47` might
 
 ### Example
 
-<CodeBlock language="python" code="from veritas._native import TokenHealer
+<CodeBlock language="python" code={`from veritas._native import TokenHealer
 
 # BPE splits "0.25" into ["0.2", "5"]
 healed = TokenHealer.heal_boundary("0.2", "5")
@@ -172,7 +172,8 @@ handle.last_event()        # Last transition description
 handle.candidates()        # Top candidate tokens
 handle.mask()              # Float32Array logit mask
 handle.clone_handle()      # Deep copy
-```</Callout>
+```
+</Callout>
 
 ---
 

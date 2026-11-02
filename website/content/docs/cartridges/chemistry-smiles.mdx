@@ -17,7 +17,7 @@ The `chem` cartridge provides SMILES molecular parsing with atomic valence limit
 
 `parse_smiles` validates SMILES grammar at the token level:
 
-<CodeBlock language="python" code="from veritas.cartridges.chem import parse_smiles
+<CodeBlock language="python" code={`from veritas.cartridges.chem import parse_smiles
 
 @verified_schema
 def molecule(m: Molecule):
@@ -27,7 +27,7 @@ def molecule(m: Molecule):
 
 `valence_limits` ensures no element exceeds its maximum valence:
 
-<CodeBlock language="python" code="from veritas.cartridges.chem import valence_limits
+<CodeBlock language="python" code={`from veritas.cartridges.chem import valence_limits
 
 PERIODIC_TABLE = {"C": 4, "N": 3, "O": 2, "H": 1}
 
@@ -37,13 +37,13 @@ require(valence_limits(m.atoms, PERIODIC_TABLE))`} copyable />
 
 `formal_charge` computes net charge from atomic valences:
 
-<CodeBlock language="python" code="from veritas.cartridges.chem import formal_charge
+<CodeBlock language="python" code={`from veritas.cartridges.chem import formal_charge
 
 require(formal_charge(m.atoms) == m.net_charge)`} copyable />
 
 ### Molecular Weight
 
-<CodeBlock language="python" code="from veritas.cartridges.chem import molecular_weight
+<CodeBlock language="python" code={`from veritas.cartridges.chem import molecular_weight
 
 require(molecular_weight(m.atoms) <= m.max_mw)`} copyable />
 
@@ -51,7 +51,7 @@ require(molecular_weight(m.atoms) <= m.max_mw)`} copyable />
 
 ## Complete Example
 
-<CodeBlock language="python" code="from veritas import verified_schema, require, derive
+<CodeBlock language="python" code={`from veritas import verified_schema, require, derive
 from veritas.cartridges.chem import parse_smiles, valence_limits, formal_charge, molecular_weight
 
 PERIODIC_TABLE = {"C": 4, "N": 3, "O": 2, "H": 1, "S": 6}

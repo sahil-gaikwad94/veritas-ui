@@ -17,7 +17,7 @@ The `code` and `code_synth` cartridges provide AST-based constraints for code ge
 
 `ast_complexity` limits the number of AST nodes:
 
-<CodeBlock language="python" code="from veritas.cartridges.code import ast_complexity
+<CodeBlock language="python" code={`from veritas.cartridges.code import ast_complexity
 
 @verified_schema
 def generated_code(c: Code):
@@ -27,7 +27,7 @@ def generated_code(c: Code):
 
 `forbidden_nodes` scans the AST for dangerous constructs:
 
-<CodeBlock language="python" code="from veritas.cartridges.code import forbidden_nodes
+<CodeBlock language="python" code={`from veritas.cartridges.code import forbidden_nodes
 
 require(forbidden_nodes(c.ast, ["eval", "exec", "import os", "subprocess"]))`} copyable />
 
@@ -35,7 +35,7 @@ require(forbidden_nodes(c.ast, ["eval", "exec", "import os", "subprocess"]))`} c
 
 `max_depth` limits AST nesting depth:
 
-<CodeBlock language="python" code="from veritas.cartridges.code import max_depth
+<CodeBlock language="python" code={`from veritas.cartridges.code import max_depth
 
 require(max_depth(c.ast, max_depth=10))`} copyable />
 
@@ -43,7 +43,7 @@ require(max_depth(c.ast, max_depth=10))`} copyable />
 
 ## Complete Example
 
-<CodeBlock language="python" code="from veritas import verified_schema, require
+<CodeBlock language="python" code={`from veritas import verified_schema, require
 from veritas.cartridges.code import ast_complexity, forbidden_nodes, max_depth
 
 @verified_schema

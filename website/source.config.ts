@@ -1,5 +1,14 @@
-import { defineDocs } from 'fumadocs-mdx/config';
+import { defineDocs, defineConfig } from 'fumadocs-mdx/config';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 
-export default defineDocs({
+export const { docs, meta } = defineDocs({
   dir: 'content/docs',
+});
+
+export default defineConfig({
+  mdxOptions: {
+    remarkPlugins: [remarkMath],
+    rehypePlugins: [rehypeKatex],
+  },
 });

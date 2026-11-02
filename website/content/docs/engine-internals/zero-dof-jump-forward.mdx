@@ -51,7 +51,7 @@ With Zero-DoF:
 
 ### Example
 
-<CodeBlock language="python" code="from veritas._native import ZeroDofRule, splice_and_step
+<CodeBlock language="python" code={`from veritas._native import ZeroDofRule, splice_and_step
 
 rule = ZeroDofRule(vir_spec)
 
@@ -74,7 +74,7 @@ Topologically sorts JSON keys using the `DependencyGraph` so that **inputs alway
 
 ### Example
 
-<CodeBlock language="python" code="from veritas._native import build_json_key_order
+<CodeBlock language="python" code={`from veritas._native import build_json_key_order
 
 order = build_json_key_order(vir_spec)
 # ['weights', 'expected_return', 'volatility', 'sharpe_ratio']
@@ -106,7 +106,7 @@ If a derived field would take 20 tokens to guess, Zero-DoF saves 19 forward pass
 
 ## Complete Example
 
-<CodeBlock language="python" code="from veritas import verified_schema, require, derive, sum, dot, forall
+<CodeBlock language="python" code={`from veritas import verified_schema, require, derive, sum, dot, forall
 
 RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15}
 RISK_FREE = 0.04

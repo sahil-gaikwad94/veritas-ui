@@ -21,7 +21,7 @@ Cartridges are Python modules that extend Veritas with domain-specific constrain
 
 ### Composition Example
 
-<CodeBlock language="python" code="from veritas.cartridges import quant, sql, sec
+<CodeBlock language="python" code={`from veritas.cartridges import quant, sql, sec
 
 @verified_schema
 def trading_bot(p: Portfolio):
@@ -143,7 +143,7 @@ AST complexity limits, forbidden node detection & grammar-safe synthesis.
 
 Some cartridges require optional extras:
 
-<CodeBlock language="bash" code="# quant needs sympy + numpy for quad_form
+<CodeBlock language="bash" code={`# quant needs sympy + numpy for quad_form
 pip install 'veritas-ai[cas]'
 
 # stat needs numpy for moment constraints

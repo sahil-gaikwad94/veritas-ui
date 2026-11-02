@@ -24,7 +24,7 @@ A `ProofCertificate` is a self-contained JSON object that proves:
 
 ## ProofCertificate Structure
 
-<CodeBlock language="json" code="{
+<CodeBlock language="json" code={`{
   \"witness_sha256\": \"a3f5c8d2e1f4a7b3c9d8e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1\",
   \"smtlib2\": \"; SMT-LIB2 proof script\\n(declare-fun weights.AAPL () Real)\\n(assert (= weights.AAPL 0.40))\\n(assert (= weights.MSFT 0.35))\\n(assert (= weights.NVDA 0.25))\\n(assert (= (+ weights.AAPL weights.MSFT weights.NVDA) 1.0))\\n(check-sat)\\n\",
   \"constraints\": [
@@ -62,7 +62,7 @@ A `ProofCertificate` is a self-contained JSON object that proves:
 
 ### Usage
 
-<CodeBlock language="bash" code="$ veritas verify-proof proof.json
+<CodeBlock language="bash" code={`$ veritas verify-proof proof.json
 
 # Expected output:
 # ✓ SHA-256 witness verified
