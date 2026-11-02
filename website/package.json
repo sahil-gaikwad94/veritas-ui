@@ -20,7 +20,6 @@
     "docs:build-index": "node scripts/build-search-index.mjs",
     "render:build": "npm install --legacy-peer-deps && npm run build",
     "render:start": "npm start",
-    "postinstall": "patch-package"
   },
   "dependencies": {
     "next": "15.1.0",
@@ -29,8 +28,6 @@
     "fumadocs-core": "^14.6.0",
     "fumadocs-ui": "^14.6.0",
     "fumadocs-mdx": "^11.4.0",
-    "@mdx-js/mdx": "^3.1.0",
-    "@mdx-js/react": "^3.1.0",
     "@tailwindcss/postcss": "^4.0.0",
     "tailwindcss": "^4.0.0",
     "postcss": "^8.4.0",
@@ -44,7 +41,6 @@
     "rehype-katex": "^7.0.0",
     "remark-math": "^6.0.0",
     "oramasearch": "^3.0.0",
-    "react-flow-renderer": "^11.11.0",
     "next-themes": "^0.4.0",
     "cmdk": "^1.0.0",
     "sonner": "^1.5.0",

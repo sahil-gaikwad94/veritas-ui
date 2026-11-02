@@ -16,9 +16,6 @@ const config = {
       },
     ],
   },
-  experimental: {
-    mdxRs: true,
-  },
 };
 
 const withMDX = createMDX();
