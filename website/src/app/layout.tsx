@@ -6,7 +6,7 @@ import { JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider as NextThemesProvider } from 'next-themes';
 import { RootProvider } from 'fumadocs-ui/provider';
 import { Toaster } from 'sonner';
-import '../globals.css';
+import '../../globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const plusJakartaSans = Plus_Jakarta_Sans({

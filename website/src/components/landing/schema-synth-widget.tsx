@@ -47,7 +47,7 @@ export function SchemaSynthWidget({ initialJson }: SchemaSynthWidgetProps) {
           <Badge variant="cobalt" size="sm">Browser WASM</Badge>
         </CardHeader>
         <p className="text-xs text-ink-muted">
-          Paste 2–3 sample JSON objects → get a ready-to-copy {@verified_schema}
+          Paste 2–3 sample JSON objects → get a ready-to-copy {'@'}verified_schema
         </p>
       </div>
 
@@ -80,7 +80,7 @@ export function SchemaSynthWidget({ initialJson }: SchemaSynthWidgetProps) {
           </Button>
           <div className="space-y-2">
             <label className="text-xs font-semibold uppercase tracking-wider text-ink-muted">
-              Generated {@verified_schema}
+              Generated {'@'}verified_schema
             </label>
             <div className="relative">
               <pre className="p-3 rounded-lg border border-border-subtle bg-[#0A0D14] text-xs font-mono text-slate-300 overflow-x-auto max-h-[200px]">

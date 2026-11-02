@@ -1,5 +1,4 @@
 import { MDXComponents as MDXComponentsType } from '@mdx-js/react';
-import { components as fumadocsComponents } from 'fumadocs-mdx/components';
 
 import { Callout } from '@/components/docs/callout';
 import { CodeBlock } from '@/components/docs/code-block';
@@ -25,7 +24,6 @@ import { InteractiveTraceViewer } from '@/components/docs/interactive-trace-view
 
 export function getMDXComponents(components?: MDXComponentsType) {
   return {
-    ...fumadocsComponents,
     ...components,
     // Custom Veritas components
     Callout,
