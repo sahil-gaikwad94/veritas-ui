@@ -2,7 +2,7 @@
   "name": "veritas-website",
   "version": "2.0.0",
   "private": true,
-  "description": "Veritas — Official Marketing, Playground & Documentation Portal",
+  "description": "Veritas - Official Marketing, Playground & Documentation Portal",
   "author": "sahil-gaikwad94",
   "license": "MIT",
   "repository": {
@@ -19,7 +19,7 @@
     "wasm:watch": "wasm-pack build ../../crates/veritas-wasm --target web --out-dir ./public/wasm --watch",
     "docs:build-index": "node scripts/build-search-index.mjs",
     "render:build": "npm install --legacy-peer-deps && npm run build",
-    "render:start": "npm start",
+    "render:start": "npm start"
   },
   "dependencies": {
     "next": "^15.3.0",
