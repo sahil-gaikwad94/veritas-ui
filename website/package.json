@@ -40,7 +40,7 @@
     "katex": "^0.16.0",
     "rehype-katex": "^7.0.0",
     "remark-math": "^6.0.0",
-    "oramasearch": "^3.0.0",
+    "@orama/orama": "^3.0.0",
     "next-themes": "^0.4.0",
     "cmdk": "^1.0.0",
     "sonner": "^1.5.0",

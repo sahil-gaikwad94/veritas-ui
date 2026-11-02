@@ -1,4 +1,4 @@
-import { Orama } from 'oramasearch';
+import { Orama } from '@orama/orama';
 
 // Static search index populated at build time by scripts/build-search-index.mjs
 const DATABASE: any = null;
