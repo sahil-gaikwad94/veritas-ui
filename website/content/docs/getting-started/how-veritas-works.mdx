@@ -1,0 +1,381 @@
+---
+title: How Veritas Works
+description: Visual tour of the Veritas pipeline — AST → VIR → PDA/HC4 → 0-DoF → Proof certificate.
+---
+
+import { Callout, CodeBlock, Badge, Card, CardContent, CardHeader, CardTitle } from '@/components/mdx-components';
+
+# How Veritas Works
+
+This is a guided tour of what happens when you run `decode(schema, prompt, model)`. We'll follow a single token from the LLM all the way to a verified JSON output with a cryptographic proof.
+
+## The Big Picture
+
+Here's the complete pipeline:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  YOUR PYTHON SCHEMA                                               │
+│  @verified_schema                                                 │
+│  def valid_portfolio(p):                                          │
+│      require(sum(weights) == 1.0)                                 │
+│      derive(expected_return == dot(weights, RETURNS))             │
+└─────────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  STEP 1: AST TRANSPILATION                                        │
+│  Python AST → VirSpec (Veritas Intermediate Representation)       │
+│  DependencyGraph builds key ordering                              │
+└─────────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  STEP 2: TIER 0 — JSON PUSHDOWN AUTOMATON                         │
+│  Tracks JSON grammar stack, masks invalid tokens byte-by-byte     │
+│  0.23 ms per step                                                 │
+└─────────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  STEP 3: TIER 1 — HC4 + AF2 CONTRACTORS                           │
+│  Narrows numeric prefixes using interval arithmetic               │
+│  3.9 µs per contraction                                           │
+└─────────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  STEP 4: ZERO-DOF SPLICING                                        │
+│  When inputs close, compute derived fields deterministically      │
+│  0 LLM calls per derived field                                    │
+└─────────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  STEP 5: CDCL JUMPBACK (if needed)                                │
+│  Detect UNSAT conflicts, rewind token stream, learn domain cuts   │
+└─────────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────────┐
+│  STEP 6: PROOF CERTIFICATE                                        │
+│  SHA-256 witness digest + SMT-LIB2 proof script                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Step 1: AST Transpilation
+
+Before any LLM tokens are generated, Veritas compiles your Python schema into an internal representation.
+
+### What Happens
+
+Your `@verified_schema` decorated function is parsed as a Python AST (Abstract Syntax Tree). Veritas's `AstTranspiler` walks this tree and produces a `VirSpec` — a structured description of:
+
+- **Fields** — what keys will appear in the output JSON
+- **Constraints** — `require` and `prefer` statements
+- **Derivations** — `derive` statements that compute values
+- **Dependency Graph** — which fields depend on which other fields
+
+### Dependency Graph & Key Ordering
+
+The `DependencyGraph` is a directed graph where nodes are fields and edges represent "depends on" relationships. For our portfolio example:
+
+```
+weights  →  expected_return  →  sharpe_ratio
+              ↑                    ↑
+           (dot)              (division)
+```
+
+This graph is topologically sorted to determine JSON key order: **inputs first, derived fields last**. This ordering is what makes Zero-DoF splicing possible — by the time the LLM reaches `expected_return`, all the weights it depends on have already been emitted.
+
+<CodeBlock language="python" code="# Internal representation (simplified)
+vir_spec = {
+    "fields": ["weights", "expected_return", "volatility", "sharpe_ratio"],
+    "constraints": [
+        {"type": "require", "expr": "sum(weights) == 1.0"},
+        {"type": "require", "expr": "forall(weights, 0.05 <= w <= 0.50)"},
+        {"type": "require", "expr": "sharpe_ratio >= 0.65"},
+    ],
+    "derivations": [
+        {"target": "expected_return", "expr": "dot(weights, RETURNS)"},
+        {"target": "sharpe_ratio", "expr": "(expected_return - 0.04) / volatility"},
+    ],
+    "key_order": ["weights", "expected_return", "volatility", "sharpe_ratio"],
+    # weights first (inputs), derived fields last
+}`} copyable />
+
+<Callout variant="check" title="Why Key Order Matters">
+
+If `sharpe_ratio` appeared before `weights` in the JSON, the LLM would have to guess it. By putting derived fields last, Veritas ensures all inputs are available when it's time to compute.
+
+</Callout>
+
+---
+
+## Step 2: Tier 0 — JSON Pushdown Automaton
+
+The Tier-0 engine is a **JSON Pushdown Automaton (PDA)** — a state machine that tracks the structure of JSON as it's being generated.
+
+### How a PDA Works
+
+Think of the PDA as a stack-based parser that runs in reverse. As each token is produced:
+
+1. The PDA reads the token
+2. It updates its internal stack (e.g., "we're now inside an object", "we're now inside a string")
+3. It computes which tokens are **syntactically valid** next
+4. Everything else is masked to `-inf` (negative infinity logits)
+
+### Example
+
+```json
+{
+  "weights": {
+```
+
+At this point, the PDA knows:
+- We're inside an object `{}`
+- We just started a nested object for `"weights"`
+- Valid next tokens: `"AAPL"`, `"MSFT"`, `"NVDA"`, or `}` (close the object)
+- Invalid tokens: `[`, `]`, `0`, `1`, `true`, etc. — all masked
+
+<Callout variant="check" title="Performance: 0.23 ms per step">
+
+The PDA mask computation runs in Rust and takes just **0.23 milliseconds per token** — 17.9x faster than the Python reference implementation (4.07 ms). This means Veritas adds negligible latency to LLM generation.
+
+</Callout>
+
+### PDA Handle API
+
+<CodeBlock language="python" code="from veritas._native import PdaHandle
+
+# Create a PDA starting with an open brace
+handle = PdaHandle.new('{')
+
+# Feed tokens one at a time
+handle.push('\"')       # Start a string key
+handle.push('w')        # First character of "weights"
+handle.push('e')
+handle.push('i')
+handle.push('g')
+handle.push('h')
+handle.push('t')
+handle.push('s')
+handle.push('\"')       # End the key
+handle.push(':')        # Colon separator
+
+# Check what tokens are valid next
+print(handle.accepts('\"'))   # True — can start a value
+print(handle.accepts('}'))    # False — can't close yet, no value
+print(handle.depth())         # 2 — two levels of nesting
+
+# Get the full logit mask
+mask = handle.mask()  # Float32Array: 0.0 for valid, -inf for invalid`} copyable />
+
+---
+
+## Step 3: Tier 1 — HC4 + AF2 Interval Contractors
+
+While the PDA ensures valid JSON syntax, Tier-1 ensures **valid numbers**.
+
+### The Problem
+
+The LLM generates numbers digit by digit. If you specify `weight <= 0.50`, the LLM might start generating `0.6...` — which is already invalid before it finishes.
+
+### The Solution: Interval Contractors
+
+Tier-1 uses **HC4 (Hull Consistency 4)** interval contractors combined with **Affine Forms** to narrow numeric ranges in real time.
+
+#### How It Works
+
+1. **Outward-rounded IEEE-754 intervals** — Every number is represented as `[lo, hi]` where `lo` rounds toward negative infinity and `hi` rounds toward positive infinity. This guarantees soundness — the true value is always inside the interval.
+
+2. **Affine noise-symbol propagation** — When you compute `weight_a + weight_b`, Veritas tracks not just the result but also the uncertainty (noise symbols). This prevents over-approximation drift across multiple operations.
+
+3. **Constraint propagation** — If `weight_a + weight_b <= 1.0` and `weight_a` is in `[0.40, 0.50]`, then `weight_b` must be in `[0.00, 0.60]`. Combined with `weight_b >= 0.05`, the interval narrows to `[0.05, 0.60]`.
+
+<CodeBlock language="python" code="from veritas._native import Interval, AffineForm, Hc4AffineContractor
+
+# Create interval from a numeric prefix
+iv = Interval.from_numeric_prefix('0.47')
+# Interval(lo=0.46999999999999997, hi=0.47000000000000003)
+# Outward rounding: lo rounds down, hi rounds up
+
+# Narrow via HC4 contractor
+contractor = Hc4AffineContractor()
+contractor.contract(iv, constraint='x <= 0.50')
+# Result: Interval(lo=0.469..., hi=0.50) — upper bound tightened
+
+# Affine form tracks noise symbols
+af = AffineForm(value=0.47, noise_symbols=['eps_1'])
+af2 = af * 2.0 + 0.1
+# Noise symbol eps_1 propagates through the computation`} copyable />
+
+<Callout variant="check" title="Performance: 3.9 µs">
+
+`Interval.from_numeric_prefix` runs in **3.9 microseconds** — 1.5x faster than the previous 5.7 µs implementation. This is fast enough to run on every single token without adding noticeable latency.
+
+</Callout>
+
+---
+
+## Step 4: Zero-DoF Splicing
+
+Zero-DoF (Zero Degrees of Freedom) is Veritas's most powerful optimization. It eliminates LLM guessing for derived fields entirely.
+
+### The Concept
+
+When you write:
+
+```python
+derive(p.expected_return == dot(p.weights, RETURNS))
+```
+
+You're saying: "expected_return is fully determined by the weights. The LLM doesn't need to guess it."
+
+### How It Works
+
+1. The `DependencyGraph` knows `expected_return` depends on `weights`
+2. The key ordering puts `weights` before `expected_return`
+3. When the PDA detects that all weight values have been emitted, `ZeroDofRule` triggers
+4. Veritas computes `dot(weights, RETURNS)` deterministically in Rust
+5. The result is spliced into the token stream — the LLM never samples it
+
+<CodeBlock language="python" code="from veritas._native import ZeroDofRule, splice_and_step
+
+rule = ZeroDofRule(vir_spec)
+
+# When all weights are emitted (AAPL=0.40, MSFT=0.35, NVDA=0.25):
+result = splice_and_step(rule, 'expected_return')
+# Computes: 0.40*0.12 + 0.35*0.10 + 0.25*0.15 = 0.1615
+# Splices into token stream: \"expected_return\": 0.1615
+# LLM calls used: 0`} copyable />
+
+### Benefits
+
+| Metric | Without Zero-DoF | With Zero-DoF |
+| :--- | :--- | :--- |
+| LLM forward passes per derived field | 1+ (LLM guesses) | **0** (computed deterministically) |
+| Numerical guessing | Possible | **Impossible** |
+| Token latency per field | ~50-100 ms | **0.23 ms** |
+| Conservation law violations | Possible | **Impossible** |
+
+<Callout variant="check" title="Saves T − 1 Forward Passes">
+
+For each derived field, Veritas saves `_T_ − 1` LLM forward passes — where `_T_` is the number of tokens the LLM would have needed to guess the value correctly.
+
+</Callout>
+
+---
+
+## Step 5: CDCL Jumpback (When Conflicts Occur)
+
+Sometimes constraints conflict. For example, if the LLM generates weights that sum to more than 1.0, Veritas detects a UNSAT conflict.
+
+### Without CDCL
+
+Traditional approaches would retry the entire prompt — wasting all tokens generated so far.
+
+### With CDCL Jumpback
+
+Veritas uses **Conflict-Driven Clause Learning (CDCL)**:
+
+1. **Detect** the conflict (e.g., `sum(weights) > 1.0`)
+2. **Attribute** the conflict to a specific earlier field using entropy-weighted culprit scoring
+3. **Rewind** the token stream to just before the culprit field
+4. **Learn** a half-space domain cut (e.g., `weights.AAPL <= 0.40`)
+5. **Resume** generation with the new constraint in place
+
+<CodeBlock language="python" code="from veritas._native import CdclJumpbackEngine
+
+engine = CdclJumpbackEngine()
+
+# On UNSAT conflict at token index 142:
+culprit = engine.find_culprit(trace, conflict_idx=142)
+# culprit.field = 'weights.AAPL'
+# culprit.start_token_idx = 89
+# culprit.entropy_score = 0.94  (high confidence this field caused the conflict)
+
+# Rewind and learn
+engine.rewind(culprit.start_token_idx - 1)
+engine.learn_cut(culprit.field, 'weights.AAPL <= 0.40')
+# The model won't try AAPL=0.50 again`} copyable />
+
+---
+
+## Step 6: Proof Certificate
+
+Every verified decode produces a **ProofCertificate** — a tamper-proof record that the output satisfies all constraints.
+
+### What's in a Proof
+
+```json
+{
+  "witness_sha256": "a3f5c8d2e1f4...8c21",
+  "smtlib2": "; SMT-LIB2 proof script\n(declare-fun weights.AAPL () Real)\n(assert (= weights.AAPL 0.40))\n(check-sat)",
+  "constraints": [
+    {"id": "sum_weights", "outcome": "PASS", "expression": "sum(weights) == 1.0"},
+    {"id": "sharpe_ratio", "outcome": "SPLICE", "expression": "derive(sharpe_ratio == ...)"}
+  ],
+  "derived_values": {
+    "expected_return": 0.1615,
+    "volatility": 0.1892,
+    "sharpe_ratio": 0.6422
+  },
+  "llm_calls_saved": 24
+}
+```
+
+### Verifying Offline
+
+You can verify this proof without Veritas, without the LLM, and without a server:
+
+```bash
+$ veritas verify-proof proof.json
+✓ SHA-256 witness verified
+✓ SMT-LIB2 script is SAT
+✓ All constraints satisfied
+✓ Proof certificate valid
+```
+
+<Callout variant="check" title="Zero Backend Storage">
+
+Proof certificates are self-contained JSON. Share them via URL, store them in a database, or print them on paper. Verification is entirely offline.
+
+</Callout>
+
+---
+
+## Interactive Trace Viewer
+
+Want to see this pipeline in action? The [/playground](/playground) lets you:
+
+- Step through tokens one at a time
+- Watch the PDA stack depth change
+- See HC4 intervals narrow in real time
+- Observe Zero-DoF splices (green) vs. samples (blue) vs. backtracks (amber)
+- View Shannon entropy at each step
+
+---
+
+## Mathematical Notation Reference
+
+Veritas uses standard mathematical notation throughout its documentation:
+
+| Symbol | Meaning | Example |
+| :--- | :--- | :--- |
+| $\sum w_i = 1.0$ | Portfolio simplex (weights sum to 1) | `require(sum(weights) == 1.0)` |
+| $w^T \Sigma w$ | Quadratic form (portfolio variance) | `quad_form(weights, COV)` |
+| HC4([lo, hi]) | Interval contractor narrowing | Tier-1 contraction |
+| AF2(x) | Affine form with noise symbols | Correlation tracking |
+| SHA-256(w) | Cryptographic witness digest | Proof certificates |
+| $T - 1$ | LLM forward passes saved per derived field | Zero-DoF benefit |
+
+<Callout variant="tip" title="KaTeX Rendering">
+
+All mathematical notation renders at build time with KaTeX — zero client-side JavaScript needed for math display.
+
+</Callout>
+
+---
+
+## Next Steps
+
+- **[Authoring Schemas](/docs/authoring-schemas/verified-schema-decorator)** — `require`, `derive`, `prefer`, `forall` in detail
+- **[Engine Internals](/docs/engine-internals/vir-compiler-and-dag)** — Deep dive into the Rust core
+- **[Playground](/playground)** — Interactive WASM demonstration

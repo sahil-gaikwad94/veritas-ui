@@ -1,0 +1,107 @@
+---
+title: Proof Certificates
+description: ProofCertificate, SMT-LIB2 export, SHA-256 witness verification — tamper-proof proof of verified output.
+---
+
+import { CodeBlock, Callout, Badge } from '@/components/mdx-components';
+
+# Proof Certificates
+
+Every verified decode ships with a **tamper-proof SHA-256 witness digest** and an **offline-verifiable SMT-LIB2 proof script**. Verify with `veritas verify-proof` — zero backend storage required.
+
+---
+
+## What Is a Proof Certificate?
+
+A `ProofCertificate` is a self-contained JSON object that proves:
+
+1. The output satisfies all constraints
+2. The SHA-256 witness digest matches the output
+3. The SMT-LIB2 script is satisfiable (SAT)
+4. Zero-DoF fields were computed deterministically
+
+---
+
+## ProofCertificate Structure
+
+<CodeBlock language="json" code="{
+  \"witness_sha256\": \"a3f5c8d2e1f4a7b3c9d8e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1\",
+  \"smtlib2\": \"; SMT-LIB2 proof script\\n(declare-fun weights.AAPL () Real)\\n(assert (= weights.AAPL 0.40))\\n(assert (= weights.MSFT 0.35))\\n(assert (= weights.NVDA 0.25))\\n(assert (= (+ weights.AAPL weights.MSFT weights.NVDA) 1.0))\\n(check-sat)\\n\",
+  \"constraints\": [
+    {\"id\": \"sum_weights\", \"outcome\": \"PASS\", \"expression\": \"sum(weights) == 1.0\"},
+    {\"id\": \"weight_bounds\", \"outcome\": \"PASS\", \"expression\": \"forall(weights, 0.05 <= w <= 0.50)\"},
+    {\"id\": \"expected_return\", \"outcome\": \"SPLICE\", \"expression\": \"derive(expected_return == dot(weights, RETURNS))\"},
+    {\"id\": \"sharpe_ratio\", \"outcome\": \"SPLICE\", \"expression\": \"derive(sharpe_ratio == (expected_return - 0.04) / volatility)\"},
+    {\"id\": \"sharpe_threshold\", \"outcome\": \"PASS\", \"expression\": \"sharpe_ratio >= 0.65\"}
+  ],
+  \"derived_values\": {
+    \"expected_return\": 0.1615,
+    \"volatility\": 0.1892,
+    \"sharpe_ratio\": 0.6422
+  },
+  \"llm_calls_saved\": 24,
+  \"decode_time_ms\": 234.5,
+  \"engine_version\": \"2.0.0\"
+}`} copyable />
+
+### Fields Reference
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `witness_sha256` | `string` | SHA-256 digest of the entire output + constraints |
+| `smtlib2` | `string` | Offline-verifiable SMT-LIB2 proof script |
+| `constraints` | `array` | Per-constraint outcomes (PASS, SPLICE, FAIL) |
+| `derived_values` | `object` | Values computed via Zero-DoF splicing |
+| `llm_calls_saved` | `int` | LLM forward passes saved by Zero-DoF |
+| `decode_time_ms` | `float` | Total decode time in milliseconds |
+| `engine_version` | `string` | Veritas engine version |
+
+---
+
+## `veritas verify-proof` CLI
+
+### Usage
+
+<CodeBlock language="bash" code="$ veritas verify-proof proof.json
+
+# Expected output:
+# ✓ SHA-256 witness verified
+# ✓ SMT-LIB2 script is SAT
+# ✓ All constraints satisfied
+# ✓ Proof certificate valid
+
+# JSON output
+$ veritas verify-proof proof.json --json
+# {
+#   "valid": true,
+#   "witness_verified": true,
+#   "smtlib2_sat": true,
+#   "constraints_passed": 5,
+#   "constraints_failed": 0
+# }`} copyable />
+
+### Offline Browser Verification
+
+<Callout variant="check" title="Zero Backend Storage">
+
+Proof certificates are self-contained JSON. Share them via URL, store them in a database, or print them on paper. Verification is entirely offline — use Web Crypto API + veritas-wasm at **[/verify](/verify)**.
+
+</Callout>
+
+---
+
+## Why Proof Certificates Matter
+
+| Scenario | Without Proof | With Proof Certificate |
+| :--- | :--- | :--- |
+| Audit compliance | "Trust me, the LLM output was correct" | "Here's the SHA-256 witness and SMT-LIB2 script" |
+| Dispute resolution | Re-run the LLM and hope | Verify offline in seconds |
+| Regulatory reporting | No artifacts | Self-contained proof artifact |
+| Model comparison | Subjective | Objective: same constraints, same proof |
+
+---
+
+## Next Steps
+
+- **[LTLf Temporal Logic](/docs/proofs-rl-and-cli/ltlf-temporal-logic)** — Temporal constraints
+- **[CLI Reference](/docs/proofs-rl-and-cli/cli-reference)** — All 6 CLI subcommands

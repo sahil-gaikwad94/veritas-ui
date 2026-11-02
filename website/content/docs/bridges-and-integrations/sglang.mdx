@@ -1,0 +1,77 @@
+---
+title: SGLang Integration
+description: veritas.bridges.sglang — SglangAdapter & jump-forward hooks.
+---
+
+import { CodeBlock, Callout } from '@/components/mdx-components';
+
+# SGLang Bridge
+
+The `sglang` adapter integrates Veritas with SGLang's runtime — jump-forward hooks for Zero-DoF splicing.
+
+---
+
+## SglangAdapter
+
+### What It Does
+
+`SglangAdapter` registers Veritas with SGLang's runtime, enabling **jump-forward hooks** — when all input variables for a `derive` field are emitted, SGLang calls the hook to compute and splice the value directly.
+
+### Example
+
+<CodeBlock language="python" code="from veritas.bridges.sglang import SglangAdapter
+
+adapter = SglangAdapter(schema=valid_portfolio)
+
+# Register jump-forward hook for Zero-DoF fields
+adapter.register_jump_forward_hook(
+    target_field="expected_return",
+    compute_fn=lambda state: dot(state.weights, RETURNS),
+)
+
+# SGLang runtime calls the hook when all inputs are ready
+# Zero-DoF splice happens automatically — 0 LLM calls`} copyable />
+
+### Jump-Forward Hooks
+
+SGLang's runtime supports custom jump-forward hooks. Veritas registers these for every `derive` field:
+
+1. All input variables emitted → hook triggered
+2. Hook computes derived value deterministically in Rust
+3. Value spliced into token stream
+4. LLM never samples the derived field
+
+---
+
+## Complete Example
+
+<CodeBlock language="python" code="from veritas import verified_schema, require, derive, sum, dot
+from veritas.bridges.sglang import SglangAdapter
+
+RETURNS = {"AAPL": 0.12, "MSFT": 0.10, "NVDA": 0.15}
+
+@verified_schema
+def portfolio(p: Portfolio):
+    require(sum(p.weights.values()) == 1.0, tol=1e-6)
+    require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
+    derive(p.expected_return == dot(p.weights, RETURNS))
+    require(p.expected_return >= 0.10)
+
+# Create SGLang adapter
+adapter = SglangAdapter(schema=portfolio)
+
+# Register jump-forward hook
+adapter.register_jump_forward_hook(
+    target_field="expected_return",
+    compute_fn=lambda state: dot(state.weights, RETURNS),
+)
+
+# Use with SGLang runtime
+# sglang_engine.generate(..., veritas_adapter=adapter)`} copyable />
+
+---
+
+## Next Steps
+
+- **[llama.cpp](/docs/bridges-and-integrations/llama-cpp)** — llama.cpp adapter
+- **[HuggingFace Transformers](/docs/bridges-and-integrations/huggingface-transformers)** — HF adapter

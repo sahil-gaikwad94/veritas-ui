@@ -1,0 +1,84 @@
+---
+title: Operations Research Scheduling
+description: veritas.cartridges.or_sched — job-shop scheduling, capacity bounds, non-overlap logic.
+---
+
+import { CodeBlock, Callout } from '@/components/mdx-components';
+
+# Operations Research Cartridge
+
+The `or_sched` cartridge provides scheduling and resource allocation constraints: job-shop scheduling, capacity bounds, and non-overlap difference logic.
+
+---
+
+## Core Constraints
+
+### Non-Overlap
+
+Ensures tasks sharing a resource don't overlap in time:
+
+<CodeBlock language="python" code="from veritas.cartridges.or_sched import non_overlap
+
+@verified_schema
+def schedule(s: Schedule):
+    require(non_overlap(s.tasks, s.resources))`} copyable />
+
+### Capacity Bounds
+
+Ensures total resource usage never exceeds limits:
+
+<CodeBlock language="python" code="from veritas.cartridges.or_sched import capacity_bounds
+
+require(capacity_bounds(s.resources, s.limits))`} copyable />
+
+### Precedence
+
+Ensures task ordering constraints:
+
+<CodeBlock language="python" code="from veritas.cartridges.or_sched import precedence
+
+require(precedence(s.tasks, s.dependencies))`} copyable />
+
+---
+
+## Complete Example: Job-Shop Scheduling
+
+<CodeBlock language="python" code="from veritas import verified_schema, require
+from veritas.cartridges.or_sched import non_overlap, capacity_bounds, precedence
+
+@verified_schema
+def job_shop_schedule(s: Schedule):
+    # No resource conflicts
+    require(non_overlap(s.tasks, s.resources))
+
+    # Capacity respected at all times
+    require(capacity_bounds(s.resources, s.limits))
+
+    # Task ordering constraints
+    require(precedence(s.tasks, s.dependencies))
+
+    # All tasks complete within time horizon
+    require(forall(s.tasks.values(), lambda t: t.end_time <= s.horizon))`} copyable />
+
+<Callout variant="tip" title="Difference Constraints">
+
+Non-overlap constraints are difference constraints ($x_j - x_i \ge d_{ij}$) — efficiently solvable by Fourier-Motzkin in Tier-2.
+
+</Callout>
+
+---
+
+## Key Functions Reference
+
+| Function | Signature | Description |
+| :--- | :--- | :--- |
+| `non_overlap` | `(tasks, resources) -> bool` | No resource conflicts |
+| `capacity_bounds` | `(resources, limits) -> bool` | Capacity never exceeded |
+| `precedence` | `(tasks, dependencies) -> bool` | Task ordering constraints |
+
+---
+
+## Next Steps
+
+- **[Chemistry (SMILES)](/docs/cartridges/chemistry-smiles)** — chem cartridge
+- **[Physics](/docs/cartridges/physics-dimensional-analysis)** — phys cartridge

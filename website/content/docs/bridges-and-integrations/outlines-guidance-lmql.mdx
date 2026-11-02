@@ -1,0 +1,57 @@
+---
+title: Outlines, Guidance & LMQL
+description: OutlinesAdapter, GuidanceAdapter, LmqlAdapter — grammar-based bridge adapters.
+---
+
+import { CodeBlock, Callout } from '@/components/mdx-components';
+
+# Outlines, Guidance & LMQL Bridges
+
+Adapters for grammar-based generation libraries — Outlines, Guidance, and LMQL. These enforce **syntax** (CFG/Regex); Veritas enforces **semantics** (math, logic, cross-field invariants). Use them together for maximum safety.
+
+---
+
+## Available Adapters
+
+| Adapter | Library | Integration |
+| :--- | :--- | :--- |
+| `OutlinesAdapter` | Outlines | CFG/Regex grammar masking |
+| `GuidanceAdapter` | Guidance | Programmatic generation |
+| `LmqlAdapter` | LMQL | SQL-like query language |
+
+---
+
+## Example Usage
+
+<CodeBlock language="python" code="from veritas.bridges import OutlinesAdapter, GuidanceAdapter, LmqlAdapter
+
+# Outlines — CFG grammar masking
+outlines_adapter = OutlinesAdapter(schema=valid_portfolio)
+outlines_adapter.mask_logits(logits, tokenizer)
+
+# Guidance — programmatic generation
+guidance_adapter = GuidanceAdapter(schema=valid_portfolio)
+guidance_adapter.generate(program, model)
+
+# LMQL — SQL-like queries
+lmql_adapter = LmqlAdapter(schema=valid_portfolio)
+lmql_adapter.query(
+    \"SELECT portfolio WHERE sharpe_ratio > 0.65\",
+    model,
+)`} copyable />
+
+<Callout variant="info" title="Why Veritas Over Grammar-Only">
+
+Outlines/Guidance enforce **syntax** (valid JSON, valid Python). Veritas enforces **semantics** (weights sum to 1.0, Sharpe ratio computed correctly). Use them together:
+
+- Outlines/Guidance: "This is valid JSON"
+- Veritas: "This is mathematically correct"
+
+</Callout>
+
+---
+
+## Next Steps
+
+- **[Async Stream Proxy](/docs/bridges-and-integrations/async-stream-proxy)** — Cloud API proxy
+- **[Diffusion LLMs](/docs/bridges-and-integrations/diffusion-llms)** — Diffusion model support

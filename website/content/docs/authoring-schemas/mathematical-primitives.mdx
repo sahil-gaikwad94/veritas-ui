@@ -1,0 +1,305 @@
+---
+title: Mathematical Primitives
+description: sum, dot, quad_form, sqrt, keys_subset — all built-in mathematical operators explained with examples.
+---
+
+import { Callout, CodeBlock } from '@/components/mdx-components';
+
+# Mathematical Primitives
+
+Veritas provides five built-in mathematical operators for expressing constraints over numeric fields. All operators are lowered into symbolic linear forms (`LinearForm`) and residual accumulators (`ResidualAccumulator`) at compile time, then enforced by the Tier-1 HC4/AF2 contractors during token decoding.
+
+---
+
+## `sum(iterable)`
+
+### What It Does
+
+`sum` performs symbolic summation over an iterable of numeric expressions. It's lowered into a `LinearForm` that the HC4/AF2 contractors can incrementally narrow as each term is emitted.
+
+### Syntax
+
+```python
+sum(iterable)
+```
+
+- `iterable` — Any iterable of numeric values (list, dict values, generator expression)
+
+### Example
+
+<CodeBlock language="python" code="from veritas import sum, require
+
+# Portfolio weights must sum to 1.0 (fully invested)
+require(sum(p.weights.values()) == 1.0, tol=1e-6)
+
+# Total allocation must not exceed 1.0
+require(sum(p.allocations.values()) <= 1.0)
+
+# Sum of position sizes must equal total capital
+require(sum(p.position_sizes.values()) == p.total_capital)
+
+# Weighted sum with generator expression
+require(sum(w * r for w, r in zip(p.weights.values(), RETURNS.values())) >= 0.10)`} copyable />
+
+### How It Works Internally
+
+1. At schema compile time, `sum(iterable)` is lowered into a `LinearForm` — a symbolic representation of the sum
+2. As each element is emitted during decoding, the `LinearForm` is incrementally updated
+3. The HC4 contractor narrows the interval of the running sum
+4. If the running sum can never satisfy the constraint (e.g., already exceeds 1.0), tokens are masked
+
+### Type Signature
+
+| Input | Output | Complexity |
+| :--- | :--- | :--- |
+| `Iterable[Number]` | `LinearForm` | $O(n)$ where $n$ is the number of elements |
+
+---
+
+## `dot(weights_dict, constants_dict)`
+
+### What It Does
+
+`dot` computes the inner product of two key-aligned dictionaries. This is the workhorse for portfolio expected return, weighted averages, beta calculations, and any linear combination.
+
+### Syntax
+
+```python
+dot(weights_dict, constants_dict)
+```
+
+- `weights_dict` — A dictionary mapping keys to weights
+- `constants_dict` — A dictionary mapping the same keys to constant values
+
+### Example
+
+<CodeBlock language="python" code="from veritas import dot, derive, require
+
+RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15, \"GOOGL\": 0.11}
+BETAS = {\"AAPL\": 1.2, \"MSFT\": 0.9, \"NVDA\": 1.5, \"GOOGL\": 1.1}
+SECTOR_CAPS = {\"tech\": 0.60, \"finance\": 0.40}
+
+# Expected return: weighted average of stock returns
+derive(p.expected_return == dot(p.weights, RETURNS))
+
+# Portfolio beta: weighted average of stock betas
+derive(p.beta == dot(p.weights, BETAS))
+
+# Sector exposure constraint
+require(dot(p.sector_weights, SECTOR_CAPS) <= 1.0)`} copyable />
+
+### Requirements
+
+Both dictionaries must share the same keys. If a key exists in one but not the other, Veritas raises a `SchemaError` at compile time.
+
+### Type Signature
+
+| Input | Output | Complexity |
+| :--- | :--- | :--- |
+| `Dict[K, Number] × Dict[K, Number]` | `LinearForm` | $O(n)$ where $n$ is the number of shared keys |
+
+---
+
+## `quad_form(weights_dict, cov_matrix_dict)`
+
+### What It Does
+
+`quad_form` computes the quadratic form $w^T \Sigma w$ — essential for portfolio variance, risk parity, and Markowitz optimization. It's contracted via Affine Forms (`AffineForm`) and Cholesky decomposition for numerical stability.
+
+### Syntax
+
+```python
+quad_form(weights_dict, cov_matrix_dict)
+```
+
+- `weights_dict` — Dictionary mapping asset keys to weights
+- `cov_matrix_dict` — Nested dictionary representing the covariance matrix $\Sigma$
+
+### Example
+
+<CodeBlock language="python" code="from veritas import quad_form, require, derive
+
+COV = {
+    \"AAPL\": {\"AAPL\": 0.04, \"MSFT\": 0.01, \"NVDA\": 0.02},
+    \"MSFT\": {\"AAPL\": 0.01, \"MSFT\": 0.03, \"NVDA\": 0.015},
+    \"NVDA\": {\"AAPL\": 0.02, \"MSFT\": 0.015, \"NVDA\": 0.06},
+}
+
+# Portfolio variance must not exceed 4%
+require(quad_form(p.weights, COV) <= 0.04)
+
+# Derive variance for use in Sharpe ratio
+derive(p.variance == quad_form(p.weights, COV))
+
+# Risk parity: each asset contributes equally to risk
+# (Advanced: requires per-asset risk contribution constraints)`} copyable />
+
+### Cholesky Contraction
+
+<Callout variant="tip" title="Why Cholesky?">
+
+The covariance matrix is Cholesky-decomposed **once at schema compilation time**. This means each `quad_form` evaluation is $O(n^2)$ instead of $O(n^3)$ — critical for real-time token decoding.
+
+</Callout>
+
+### Type Signature
+
+| Input | Output | Complexity |
+| :--- | :--- | :--- |
+| `Dict[K, Number] × Matrix[K×K]` | `Number` | $O(n^2)$ after Cholesky precomputation |
+
+---
+
+## `sqrt(expr)`
+
+### What It Does
+
+`sqrt` computes the square root of a numeric expression with sign-aware polynomial lifting and interval contraction. Used for volatility, standard deviation, and any risk metric that involves square roots.
+
+### Syntax
+
+```python
+sqrt(expr)
+```
+
+- `expr` — Any numeric expression that evaluates to a non-negative value
+
+### Example
+
+<CodeBlock language="python" code="from veritas import sqrt, require, derive, quad_form
+
+COV = {...}  # Covariance matrix
+
+# Derive variance
+derive(p.variance == quad_form(p.weights, COV))
+
+# Volatility is the square root of variance
+derive(p.volatility == sqrt(p.variance))
+
+# Volatility constraint: must not exceed 20%
+require(sqrt(p.variance) <= 0.20)
+
+# Sharpe ratio uses volatility in denominator
+derive(p.sharpe_ratio == (p.expected_return - RISK_FREE) / sqrt(p.variance))`} copyable />
+
+### Domain Constraint
+
+`sqrt` requires a non-negative input. If the expression inside `sqrt` could be negative, Veritas will mask tokens that could lead to a negative value during interval contraction.
+
+### Type Signature
+
+| Input | Output | Complexity |
+| :--- | :--- | :--- |
+| `Number` (non-negative) | `Number` | $O(1)$ |
+
+---
+
+## `keys_subset(mapping, allowed_set)`
+
+### What It Does
+
+`keys_subset` enforces a structural set-inclusion constraint over dictionary keys. It ensures that a dictionary only contains keys from an allowed set — useful for schema evolution, allowlisting, and preventing unexpected fields.
+
+### Syntax
+
+```python
+keys_subset(mapping, allowed_set)
+```
+
+- `mapping` — A dictionary whose keys are being validated
+- `allowed_set` — A set of keys that are permitted
+
+### Example
+
+<CodeBlock language="python" code="from veritas import keys_subset, require
+
+ALLOWED_STOCKS = {\"AAPL\", \"MSFT\", \"NVDA\", \"GOOGL\", \"AMZN\"}
+ALLOWED_TOOLS = {\"web_search\", \"calculator\", \"code_interpreter\"}
+
+# Portfolio can only contain allowed stocks
+require(keys_subset(p.weights, ALLOWED_STOCKS))
+
+# Agent can only call allowed tools
+require(keys_subset(p.tool_calls, ALLOWED_TOOLS))
+
+# Config can only have known keys
+require(keys_subset(p.config, {\"timeout\", \"retries\", \"mode\"}))`} copyable />
+
+### Use Cases
+
+| Scenario | How `keys_subset` Helps |
+| :--- | :--- |
+| Schema evolution | Prevent new fields from breaking downstream consumers |
+| Allowlisting | Ensure only approved tools/stocks/keys are used |
+| Security | Block unexpected fields that could be injection vectors |
+| API contracts | Guarantee response shape matches the client's expectations |
+
+### Type Signature
+
+| Input | Output | Complexity |
+| :--- | :--- | :--- |
+| `Dict × Set` | `Bool` | $O(k)$ where $k$ is the number of keys in the mapping |
+
+---
+
+## Complete Example: All Operators Together
+
+<CodeBlock language="python" code="from veritas import verified_schema, require, derive, sum, dot, quad_form, sqrt, keys_subset
+
+RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15}
+RISK_FREE = 0.04
+COV = {
+    \"AAPL\": {\"AAPL\": 0.04, \"MSFT\": 0.01, \"NVDA\": 0.02},
+    \"MSFT\": {\"AAPL\": 0.01, \"MSFT\": 0.03, \"NVDA\": 0.015},
+    \"NVDA\": {\"AAPL\": 0.02, \"MSFT\": 0.015, \"NVDA\": 0.06},
+}
+ALLOWED_STOCKS = {\"AAPL\", \"MSFT\", \"NVDA\"}
+
+@verified_schema
+def portfolio(p: Portfolio):
+    # Structural: only allowed stocks
+    require(keys_subset(p.weights, ALLOWED_STOCKS))
+
+    # Linear: weights sum to 1.0
+    require(sum(p.weights.values()) == 1.0, tol=1e-6)
+
+    # Bounds: each weight in [0.05, 0.50]
+    require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
+
+    # Quadratic: portfolio variance <= 4%
+    require(quad_form(p.weights, COV) <= 0.04)
+
+    # Derived: expected return
+    derive(p.expected_return == dot(p.weights, RETURNS))
+
+    # Derived: variance
+    derive(p.variance == quad_form(p.weights, COV))
+
+    # Derived: volatility (sqrt of variance)
+    derive(p.volatility == sqrt(p.variance))
+
+    # Derived: Sharpe ratio
+    derive(p.sharpe_ratio == (p.expected_return - RISK_FREE) / p.volatility)
+
+    # Hard: quality threshold
+    require(p.sharpe_ratio >= 0.65)`} copyable />
+
+---
+
+## Operator Reference Summary
+
+| Operator | Purpose | Typical Use | Complexity |
+| :--- | :--- | :--- | :--- |
+| `sum` | Add up values | Portfolio weights, total allocation | $O(n)$ |
+| `dot` | Weighted average | Expected return, beta, sector exposure | $O(n)$ |
+| `quad_form` | Quadratic form | Portfolio variance, risk | $O(n^2)$ |
+| `sqrt` | Square root | Volatility, standard deviation | $O(1)$ |
+| `keys_subset` | Set inclusion | Allowlisting, schema validation | $O(k)$ |
+
+---
+
+## Next Steps
+
+- **[Dynamic Containers](/docs/authoring-schemas/dynamic-containers)** — `ResidualAccumulator` for constraints over dynamic-length collections
+- **[Pre-Flight SAT Gate](/docs/authoring-schemas/preflight-sat-gate)** — `run_preflight`, `check_spec`, and error handling
+- **[Schema Synthesis](/docs/authoring-schemas/schema-synthesis)** — Auto-generate `@verified_schema` from sample JSON

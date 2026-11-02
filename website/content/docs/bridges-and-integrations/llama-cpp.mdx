@@ -1,0 +1,60 @@
+---
+title: llama.cpp Integration
+description: veritas.bridges.llama_cpp — LlamaCppAdapter & from_llama_cpp.
+---
+
+import { CodeBlock, Callout } from '@/components/mdx-components';
+
+# llama.cpp Bridge
+
+The `llama.cpp` adapter integrates Veritas with llama.cpp's sampling pipeline — direct logit masking in C++.
+
+---
+
+## LlamaCppAdapter
+
+### What It Does
+
+`LlamaCppAdapter` wraps a llama.cpp model and adds Veritas token masking to its sampling pipeline. The mask is called from C++ via FFI — zero Python overhead per token.
+
+### Example
+
+<CodeBlock language="python" code="from veritas.bridges.llama_cpp import LlamaCppAdapter
+
+adapter = LlamaCppAdapter(schema=valid_portfolio)
+
+# Wrap llama.cpp model
+llm = adapter.wrap(model_path="./models/llama-3.1-8b.Q4_K_M.gguf")
+
+# Generate with Veritas masking
+result = llm.generate(
+    prompt="Create a portfolio with AAPL, MSFT, NVDA",
+    veritas_adapter=adapter,
+)`} copyable />
+
+### `from_llama_cpp`
+
+The `from_llama_cpp` factory creates a Veritas-verified model from an existing llama.cpp model path:
+
+<CodeBlock language="python" code="from veritas.bridges.llama_cpp import from_llama_cpp
+
+# Zero code changes to your inference pipeline
+llm = from_llama_cpp(
+    model_path="./models/llama-3.1-8b.Q4_K_M.gguf",
+    schema=valid_portfolio,
+)
+
+result = llm.generate("Create a portfolio")`} copyable />
+
+<Callout variant="tip" title="C++ Performance">
+
+llama.cpp runs in C++ — the Veritas mask is called from C++ via FFI, adding zero Python overhead per token.
+
+</Callout>
+
+---
+
+## Next Steps
+
+- **[HuggingFace Transformers](/docs/bridges-and-integrations/huggingface-transformers)** — HF adapter
+- **[Outlines / Guidance / LMQL](/docs/bridges-and-integrations/outlines-guidance-lmql)** — grammar-based bridges

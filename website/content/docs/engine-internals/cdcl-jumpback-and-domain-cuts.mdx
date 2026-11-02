@@ -1,0 +1,190 @@
+---
+title: CDCL Jumpback & Domain Cuts
+description: CdclJumpbackEngine, entropy culprit score, TabuPrefixTrie — conflict-driven backjumping without full prompt retry.
+---
+
+import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
+
+# CDCL Jumpback & Domain Cuts
+
+When a UNSAT conflict is detected during decoding, Veritas doesn't retry the whole prompt — wasting all tokens generated so far. Instead, it uses **Conflict-Driven Clause Learning (CDCL)** to pinpoint the exact field responsible, rewind the token stream, and learn a half-space domain cut.
+
+---
+
+## The Problem: Full Prompt Retry
+
+Without CDCL, when constraints conflict (e.g., weights sum to more than 1.0), traditional approaches:
+
+1. Detect the conflict at the end of generation
+2. Throw away all generated tokens
+3. Retry the entire prompt from scratch
+4. Hope the LLM doesn't make the same mistake again
+
+This wastes tokens, time, and money — and the LLM might repeat the same error.
+
+---
+
+## `CdclJumpbackEngine`
+
+### What It Does
+
+The CDCL jumpback engine analyzes UNSAT conflicts and:
+
+1. **Detects** the conflict (e.g., `sum(weights) > 1.0`)
+2. **Attributes** the conflict to a specific earlier field using **entropy-weighted culprit scoring**
+3. **Rewinds** the token stream to just before the culprit field
+4. **Learns** a **half-space domain cut** (e.g., `weights.AAPL <= 0.40`)
+5. **Resumes** generation with the new constraint in place
+
+### Example
+
+<CodeBlock language="python" code="from veritas._native import CdclJumpbackEngine
+
+engine = CdclJumpbackEngine()
+
+# During decode, UNSAT conflict detected at token index 142
+# The LLM generated weights.AAPL = 0.50, making sum > 1.0
+
+culprit = engine.find_culprit(trace, conflict_idx=142)
+# culprit.field = 'weights.AAPL'
+# culprit.start_token_idx = 89      # Where AAPL started
+# culprit.entropy_score = 0.94      # High confidence this caused the conflict
+
+# Rewind to just before the culprit
+engine.rewind(culprit.start_token_idx - 1)
+
+# Learn a domain cut: AAPL can't be 0.50 again
+engine.learn_cut(culprit.field, 'weights.AAPL <= 0.40')
+
+# Resume generation — the model won't try AAPL=0.50 again`} copyable />
+
+### Entropy Culprit Score
+
+The culprit score weighs fields by their contribution to the conflict:
+
+| Factor | Weight | Description |
+| :--- | :--- | :--- |
+| Shannon entropy at field | 0.40 | High uncertainty = more likely to be the culprit |
+| Interval contraction magnitude | 0.30 | Large contraction = field was tightly constrained |
+| Constraint involvement count | 0.20 | More constraints involving this field = more likely culprit |
+| Recency | 0.10 | More recent fields weighted slightly higher |
+
+### Example Culprit Analysis
+
+```
+Conflict: sum(weights) > 1.0 at token 142
+
+Field analysis:
+├── weights.AAPL (token 89-92)
+│   ├── Entropy: 0.94 (high — model was uncertain)
+│   ├── Contraction: 0.80 (narrowed from [0.05, 0.50] to [0.40, 0.50])
+│   ├── Constraints: sum == 1.0, <= 0.50
+│   └── Culprit score: 0.91 ← HIGHEST
+├── weights.MSFT (token 95-98)
+│   ├── Entropy: 0.45
+│   ├── Contraction: 0.30
+│   └── Culprit score: 0.38
+└── weights.NVDA (token 101-104)
+    ├── Entropy: 0.22
+    ├── Contraction: 0.15
+    └── Culprit score: 0.21
+
+Result: AAPL is the culprit. Rewind to token 88, learn: weights.AAPL <= 0.40
+```
+
+---
+
+## `TabuPrefixTrie`
+
+### What It Does
+
+A **trie** (prefix tree) of previously-rejected token prefixes. Once a branch is marked UNSAT, all extensions of that prefix are **tabu** — forbidden from being explored again.
+
+### How It Works
+
+1. When a UNSAT conflict is found, the prefix leading to it is inserted into the trie
+2. Before sampling any token, Veritas checks if the current prefix is tabu
+3. If tabu, the token is masked — the model can't repeat the same dead end
+
+### Example
+
+```
+Tabu prefixes (rejected UNSAT branches):
+├── {"weights": {"AAPL": 0.50, ...}     ← Led to sum > 1.0
+├── {"weights": {"AAPL": 0.45, ...}     ← Led to sum > 1.0
+└── {"expected_return": 0.25, ...}      ← Led to sharpe_ratio < 0.65
+
+Current prefix: {"weights": {"AAPL": 0.50
+→ Tabu! Mask all continuations of this prefix
+→ Model must try AAPL = 0.40 or lower
+```
+
+---
+
+## Half-Space Domain Cuts
+
+Instead of retrying from scratch, Veritas learns a **linear inequality (half-space cut)** that excludes the infeasible region:
+
+```
+weights.AAPL <= 0.40    # Learned from UNSAT: AAPL=0.50 made sum > 1.0
+```
+
+This cut is added to the constraint system, so the HC4/AF2 contractors enforce it going forward.
+
+### Types of Cuts
+
+| Cut Type | Form | Example |
+| :--- | :--- | :--- |
+| Upper bound | `x <= c` | `weights.AAPL <= 0.40` |
+| Lower bound | `x >= c` | `weights.AAPL >= 0.10` |
+| Linear combination | `a·x + b·y <= c` | `0.5·w_AAPL + 0.3·w_MSFT <= 0.40` |
+
+---
+
+## CDCL vs. Traditional Retry
+
+| Aspect | Traditional Retry | CDCL Jumpback |
+| :--- | :--- | :--- |
+| Tokens wasted | All tokens so far | Only tokens after culprit |
+| Time wasted | Full prompt latency | Rewind + resume latency |
+| Learning | None | Half-space domain cuts |
+| Repeat errors | Possible | Prevented by tabu trie |
+| Best for | Simple conflicts | Complex, multi-field conflicts |
+
+<Callout variant="check" title="Efficiency">
+
+CDCL jumpback typically saves 60-90% of tokens compared to full prompt retry — the model only re-generates from the culprit point, not from the beginning.
+
+</Callout>
+
+---
+
+## Complete Example
+
+<CodeBlock language="python" code="from veritas._native import CdclJumpbackEngine
+
+engine = CdclJumpbackEngine()
+
+# Simulate a decode with conflict
+trace = [...]  # Token trace from decode
+conflict_idx = 142  # Where UNSAT was detected
+
+# Find the culprit
+culprit = engine.find_culprit(trace, conflict_idx)
+print(f\"Culprit field: {culprit.field}\")
+print(f\"Culprit token index: {culprit.start_token_idx}\")
+print(f\"Entropy score: {culprit.entropy_score:.3f}\")
+
+# Rewind and learn
+engine.rewind(culprit.start_token_idx - 1)
+engine.learn_cut(culprit.field, f\"{culprit.field} <= 0.40\")
+
+# Resume with the cut in effect
+# The model will now respect weights.AAPL <= 0.40`} copyable />
+
+---
+
+## Next Steps
+
+- **[Rust Native & WASM Core](/docs/engine-internals/rust-native-and-wasm-core)** — `crates/veritas-core`, `veritas-wasm`
+- **[Proof Certificates](/docs/proofs-rl-and-cli/proof-certificates)** — SHA-256 + SMT-LIB2 verification

@@ -1,0 +1,161 @@
+---
+title: Domain Cartridges Overview
+description: How domain cartridges work and composing multiple cartridges together.
+---
+
+import { Callout, Badge, Card, CardContent, CardHeader, CardTitle } from '@/components/mdx-components';
+
+# Domain Cartridges
+
+## What Are Domain Cartridges?
+
+Domain cartridges are **composable constraint modules** for specific domains. Each cartridge exports pre-built `@verified_schema` templates, mathematical primitives, and validation rules for a particular domain — finance, SQL, security, chemistry, physics, statistics, code, and more.
+
+Think of cartridges like "Veritas plugins" — they add domain-specific knowledge to the core engine without modifying it.
+
+---
+
+## How Cartridges Work
+
+Cartridges are Python modules that extend Veritas with domain-specific constraints. They can be **composed** — you can use multiple cartridges in a single schema, and Veritas's solver combines all their constraints into a single feasible region.
+
+### Composition Example
+
+<CodeBlock language="python" code="from veritas.cartridges import quant, sql, sec
+
+@verified_schema
+def trading_bot(p: Portfolio):
+    # From quant cartridge
+    require(quant.simplex(p.weights))
+    require(quant.quad_form_limit(p.weights, COV, max_risk=0.04))
+
+    # From sec cartridge
+    require(sec.least_privilege(p.tools, ALLOWED_TOOLS))
+
+    # From sql cartridge
+    require(sql.no_injection(p.query))
+    require(sql.fk_integrity(p.query, SCHEMA))
+
+    # All constraints combined into one feasible region
+    # Veritas solves them together`} copyable />
+
+<Callout variant="check" title="Cartridge Composition">
+
+Cartridges compose cleanly — each contributes constraints, and Veritas's solver combines them into a single feasible region. No conflicts between cartridges.
+
+</Callout>
+
+---
+
+## The 9 Domain Cartridges
+
+<Card>
+<CardHeader>
+<CardTitle>quant — Quantitative Finance</CardTitle>
+</CardHeader>
+<CardContent>
+Portfolio simplex, Cholesky covariance `quad_form`, Black-Scholes, Value-at-Risk.
+</CardContent>
+</Card>
+
+<Card>
+<CardHeader>
+<CardTitle>sql — Text-to-SQL Safety</CardTitle>
+</CardHeader>
+<CardContent>
+Catalog-aware schema alignment, FK join validation, SQL injection blocking.
+</CardContent>
+</Card>
+
+<Card>
+<CardHeader>
+<CardTitle>sec — Security & IAM</CardTitle>
+</CardHeader>
+<CardContent>
+Cloud IAM / RBAC least-privilege policies & tool-call guardrails.
+</CardContent>
+</Card>
+
+<Card>
+<CardHeader>
+<CardTitle>or_sched — Operations Research</CardTitle>
+</CardHeader>
+<CardContent>
+Job-shop scheduling, resource capacity bounds, non-overlap difference logic.
+</CardContent>
+</Card>
+
+<Card>
+<CardHeader>
+<CardTitle>chem — Chemistry (SMILES)</CardTitle>
+</CardHeader>
+<CardContent>
+SMILES molecular parser, atomic valence limits, formal charge & molecular weight.
+</CardContent>
+</Card>
+
+<Card>
+<CardHeader>
+<CardTitle>phys — Physics</CardTitle>
+</CardHeader>
+<CardContent>
+SI dimensional analysis group $\mathbb{Q}^7$ & conservation laws.
+</CardContent>
+</Card>
+
+<Card>
+<CardHeader>
+<CardTitle>stat — Statistics</CardTitle>
+</CardHeader>
+<CardContent>
+Probability simplexes, confidence intervals & moment constraints.
+</CardContent>
+</Card>
+
+<Card>
+<CardHeader>
+<CardTitle>code & code_synth — Code Analysis</CardTitle>
+</CardHeader>
+<CardContent>
+AST complexity limits, forbidden node detection & grammar-safe synthesis.
+</CardContent>
+</Card>
+
+---
+
+## Cartridge Quick Reference
+
+| Cartridge | Module | Key Constraints | Best For |
+| :--- | :--- | :--- | :--- |
+| **quant** | `veritas.cartridges.quant` | simplex, quad_form, black_scholes, var | Portfolio optimization, risk |
+| **sql** | `veritas.cartridges.sql` | no_injection, fk_integrity, schema_alignment | Text-to-SQL, database |
+| **sec** | `veritas.cartridges.sec` | least_privilege, tool_guardrail, rbac_policy | AI agents, tool use |
+| **or_sched** | `veritas.cartridges.or_sched` | non_overlap, capacity_bounds, precedence | Scheduling, resource allocation |
+| **chem** | `veritas.cartridges.chem` | parse_smiles, valence_limits, formal_charge | Molecular design, chemistry |
+| **phys** | `veritas.cartridges.phys` | dimensional_analysis, conservation_law, si_unit | Physics equations, engineering |
+| **stat** | `veritas.cartridges.stat` | probability_simplex, confidence_interval, moment_constraint | Statistical modeling, ML |
+| **code** | `veritas.cartridges.code` | ast_complexity, forbidden_nodes, max_depth | Code generation, security |
+| **code_synth** | `veritas.cartridges.code_synth` | grammar_safe_synthesis, ast_validation | Code synthesis, compilers |
+
+---
+
+## Installing Cartridge Dependencies
+
+Some cartridges require optional extras:
+
+<CodeBlock language="bash" code="# quant needs sympy + numpy for quad_form
+pip install 'veritas-ai[cas]'
+
+# stat needs numpy for moment constraints
+pip install 'veritas-ai[cas]'
+
+# Most cartridges work with just veritas-ai
+pip install veritas-ai`} copyable />
+
+---
+
+## Next Steps
+
+- **[Quantitative Finance](/docs/cartridges/quantitative-finance)** — quant cartridge deep dive
+- **[Text-to-SQL Safety](/docs/cartridges/sql-and-database-safety)** — sql cartridge
+- **[Security & IAM](/docs/cartridges/security-and-iam-policies)** — sec cartridge

@@ -1,0 +1,93 @@
+---
+title: Statistics & Distributions
+description: veritas.cartridges.stat — probability simplexes, confidence intervals, moment constraints.
+---
+
+import { CodeBlock, Callout } from '@/components/mdx-components';
+
+# Statistics Cartridge
+
+The `stat` cartridge provides probability simplex constraints, confidence intervals, and moment constraints for statistical modeling.
+
+---
+
+## Core Constraints
+
+### Probability Simplex
+
+`probability_simplex` ensures values form a valid probability distribution:
+
+<CodeBlock language="python" code="from veritas.cartridges.stat import probability_simplex
+
+@verified_schema
+def distribution(d: Distribution):
+    require(probability_simplex(d.probs))`} copyable />
+
+This enforces: $\sum p_i = 1.0$ and $0 \le p_i \le 1$ for all $i$.
+
+### Confidence Intervals
+
+`confidence_interval` enforces estimated means within confidence bounds:
+
+<CodeBlock language="python" code="from veritas.cartridges.stat import confidence_interval
+
+require(confidence_interval(d.mean, d.ci))`} copyable />
+
+### Moment Constraints
+
+`moment_constraint` enforces sample moments match theoretical values:
+
+<CodeBlock language="python" code="from veritas.cartridges.stat import moment_constraint
+
+# 2nd moment = variance
+require(moment_constraint(d.samples, 2, d.variance))
+
+# 1st moment = mean
+require(moment_constraint(d.samples, 1, d.mean))`} copyable />
+
+---
+
+## Complete Example
+
+<CodeBlock language="python" code="from veritas import verified_schema, require, derive
+from veritas.cartridges.stat import probability_simplex, confidence_interval, moment_constraint
+
+@verified_schema
+def statistical_model(d: Distribution):
+    # Valid probability distribution
+    require(probability_simplex(d.probs))
+
+    # Mean within confidence interval
+    require(confidence_interval(d.mean, d.ci))
+
+    # Variance matches 2nd moment
+    require(moment_constraint(d.samples, 2, d.variance))
+
+    # Skewness within bounds
+    require(abs(d.skewness) <= 1.0)
+
+    # Kurtosis within bounds
+    require(d.kurtosis <= 10.0)`} copyable />
+
+<Callout variant="check" title="Statistically Sound">
+
+Every generated distribution satisfies its statistical constraints — no post-hoc rejection sampling needed.
+
+</Callout>
+
+---
+
+## Key Functions Reference
+
+| Function | Signature | Description |
+| :--- | :--- | :--- |
+| `probability_simplex` | `(probs: list) -> bool` | $\sum p_i = 1.0$, $0 \le p_i \le 1$ |
+| `confidence_interval` | `(mean, ci) -> bool` | Mean within confidence bounds |
+| `moment_constraint` | `(samples, order, value) -> bool` | Sample moment matches theoretical |
+
+---
+
+## Next Steps
+
+- **[Code Analysis](/docs/cartridges/code-analysis-and-synthesis)** — code cartridge
+- **[Bridges & Integrations](/docs/bridges-and-integrations/vllm)** — vLLM adapter

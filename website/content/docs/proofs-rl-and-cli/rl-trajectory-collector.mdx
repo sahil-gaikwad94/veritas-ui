@@ -1,0 +1,128 @@
+---
+title: RL Trajectory Collector
+description: Exporting CDCL jumpbacks to DPO / Process-GRPO datasets — free post-training data from every decode.
+---
+
+import { CodeBlock, Callout } from '@/components/mdx-components';
+
+# RL Trajectory Collector
+
+Veritas automatically turns every CDCL jumpback into step-level **DPO / Process-GRPO preference trajectories** — free post-training data from every decode, zero annotation cost.
+
+---
+
+## What Is the RL Collector?
+
+The `rl.collector` module collects preference data from Veritas decodes:
+
+- **Accepted completions** (verified, all constraints PASS) → positive examples
+- **Rejected branches** (CDCL jumpback targets, UNSAT) → negative examples
+- **Preference scores** (entropy-weighted culprit scores) → weighting for training
+
+---
+
+## `Collector` API
+
+<CodeBlock language="python" code="from veritas.rl import Collector
+
+collector = Collector(output_dir=\"./dpo_dataset\")
+
+# After each decode, collect trajectories
+collector.collect(
+    trace=trace,
+    accepted=accepted_completion,   # Verified output
+    rejected=rejected_branch,       # CDCL jumpback target
+    preference_score=culprit_entropy,  # How confident we are
+)
+
+# Export as JSONL for DPO / Process-GRPO training
+collector.export_jsonl(\"preferences.jsonl\")`} copyable />
+
+### Collector Methods
+
+| Method | Description |
+| :--- | :--- |
+| `collect(trace, accepted, rejected, preference_score)` | Collect one preference pair |
+| `export_jsonl(path)` | Export all collected pairs as JSONL |
+| `export_dpo(path)` | Export in DPO format |
+| `export_process_grpo(path)` | Export in Process-GRPO format |
+| `clear()` | Clear collected data |
+
+---
+
+## Trajectory Format
+
+### JSONL Format
+
+```jsonl
+{"prompt": "Create a portfolio", "chosen": "{\"weights\": {\"AAPL\": 0.40, \"MSFT\": 0.35, \"NVDA\": 0.25}, \"expected_return\": 0.1615}", "rejected": "{\"weights\": {\"AAPL\": 0.50, \"MSFT\": 0.45, \"NVDA\": 0.30}, \"expected_return\": 0.2100}", "score": 0.94}
+{"prompt": "Create a low-volatility portfolio", "chosen": "{\"weights\": {\"AAPL\": 0.30, \"MSFT\": 0.40, \"NVDA\": 0.30}}", "rejected": "{\"weights\": {\"AAPL\": 0.60, \"MSFT\": 0.20, \"NVDA\": 0.20}}", "score": 0.87}
+```
+
+### DPO Format
+
+| Field | Meaning |
+| :--- | :--- |
+| `prompt` | The user's request |
+| `chosen` | Verified completion (all constraints PASS) |
+| `rejected` | Rejected branch (CDCL jumpback target) |
+| `score` | Preference score (0.0 to 1.0) |
+
+---
+
+## Why Free RL Data Matters
+
+<Callout variant="check" title="Zero Annotation Cost">
+
+Every Veritas decode generates training data:
+
+- Every **rejected UNSAT branch** = negative example (what NOT to do)
+- Every **verified completion** = positive example (what TO do)
+- Every **CDCL jumpback** = preference pair with confidence score
+
+No human annotation needed — the data is generated automatically during normal usage.
+
+</Callout>
+
+### DPO vs. Process-GRPO
+
+| Format | Use Case | Best For |
+| :--- | :--- | :--- |
+| **DPO** | Direct Preference Optimization | Pairwise preferences, simple alignment |
+| **Process-GRPO** | Process-level reward | Step-by-step credit assignment, complex reasoning |
+
+---
+
+## Complete Example
+
+<CodeBlock language="python" code="from veritas import decode
+from veritas.rl import Collector
+
+collector = Collector(output_dir=\"./dpo_dataset\")
+
+# Decode with Veritas
+result = decode(
+    schema=valid_portfolio,
+    prompt="Create a low-volatility portfolio",
+    model="gpt-4o",
+)
+
+# Collect trajectory if there was a CDCL jumpback
+if result.trace.has_backtracks:
+    collector.collect(
+        trace=result.trace,
+        accepted=result.output,
+        rejected=result.trace.rejected_branch,
+        preference_score=result.trace.culprit_entropy,
+    )
+
+# Export for training
+collector.export_jsonl(\"./preferences.jsonl\")
+# 1,247 preference pairs collected`} copyable />
+
+---
+
+## Next Steps
+
+- **[CLI Reference](/docs/proofs-rl-and-cli/cli-reference)** — All 6 CLI subcommands
+- **[Proof Certificates](/docs/proofs-rl-and-cli/proof-certificates)** — SHA-256 verification

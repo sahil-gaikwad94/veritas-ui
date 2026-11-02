@@ -1,0 +1,154 @@
+---
+title: Installation
+description: Install Veritas — pip install veritas-ai with optional extras [z3, cas, rl]. Verify with `veritas doctor`.
+---
+
+import { Callout, CodeBlock, Badge, Card, CardContent, CardHeader, CardTitle } from '@/components/mdx-components';
+
+# Installation
+
+## What You're Installing
+
+When you run `pip install veritas-ai`, you're getting two things in one package:
+
+1. **A pure-Python reference engine** — works everywhere Python 3.11+ runs. No compilation needed.
+2. **A dependency-free Rust native accelerator** — compiled machine code that runs the same engine 17.9x faster. If your system can load it, Veritas uses it automatically.
+
+The Rust core has **zero external dependencies** — it doesn't need Z3, NumPy, or anything else to function. This means it's lightweight, portable, and easy to deploy.
+
+---
+
+## Standard Zero-Dependency Install
+
+<CodeBlock language="bash" code="# Install Veritas (core package, no extras needed)
+pip install veritas-ai
+
+# Verify it worked
+python -c "import veritas; print(veritas.__version__)"`} copyable />
+
+That's it. The core package requires only `pydantic>=2.0` and includes everything you need to start writing verified schemas.
+
+---
+
+## Optional Extras
+
+Veritas has three optional feature groups you can add depending on what you need:
+
+<table className="w-full text-left text-sm border-collapse mb-6">
+<thead>
+<tr className="border-b border-border-subtle">
+<th className="py-3 text-ink-muted font-medium" style={{ width: '30%' }}>Install Command</th>
+<th className="py-3 text-ink-muted font-medium">What It Unlocks</th>
+<th className="py-3 text-ink-muted font-medium">When You Need It</th>
+</tr>
+</thead>
+<tbody>
+<tr className="border-b border-border-subtle">
+<td className="py-3 font-mono text-xs">`pip install "veritas-ai[z3]"`</td>
+<td className="py-3">
+  <strong>`z3-solver>=4.13`</strong> — Microsoft's Z3 theorem prover for non-linear and quantified constraint solving.
+</td>
+<td className="py-3 text-ink-muted">
+  You need to solve non-linear constraints (e.g., quadratic equations) or quantified formulas (forall/exists over infinite domains).
+</td>
+</tr>
+<tr className="border-b border-border-subtle">
+<td className="py-3 font-mono text-xs">`pip install "veritas-ai[cas]"`</td>
+<td className="py-3">
+  <strong>`sympy>=1.12`</strong> and <strong>`numpy>=1.26`</strong> — symbolic mathematics and linear algebra.
+</td>
+<td className="py-3 text-ink-muted">
+  You're using `quad_form` for portfolio optimization, Cholesky decomposition, or symbolic canonicalization.
+</td>
+</tr>
+<tr className="border-b border-border-subtle">
+<td className="py-3 font-mono text-xs">`pip install "veritas-ai[rl]"`</td>
+<td className="py-3">
+  <strong>`datasets>=2.0`</strong> and <strong>`transformers>=4.40`</strong> — RLHF dataset tools.
+</td>
+<td className="py-3 text-ink-muted">
+  You want to collect DPO/Process-GRPO preference data from CDCL jumpbacks for model fine-tuning.
+</td>
+</tr>
+</tbody>
+</table>
+
+<Callout variant="tip" title="Start Simple, Add Later">
+
+You don't need any extras to get started. `pip install veritas-ai` gives you the complete core engine. Add extras only when you hit a feature that requires them.
+
+</Callout>
+
+---
+
+## Verify Your Installation
+
+Run `veritas doctor` to check that everything is working correctly:
+
+<CodeBlock language="bash" code="# Basic installation check
+$ python -m veritas doctor
+
+# Expected output:
+# Engine: accelerated (Rust native)
+# Wire Protocol: v2.0
+# Platform: linux-x86_64
+# Z3 Available: true
+# Native Extension: loaded
+# Tests: 499 passing
+
+# JSON output (useful for CI/CD scripts)
+$ python -m veritas doctor --json
+# {"engine": "accelerated", "wire_protocol": "2.0", "platform": "linux-x86_64", "z3": true, "native": true, "tests": 499}
+
+# Strict mode — exits with code 1 if Rust native is not loaded
+# Use this in CI to guarantee you're running the accelerated engine
+$ python -m veritas doctor --strict
+# exit code: 0 (if native loaded) or 1 (if native missing)`} copyable />
+
+### Understanding the Doctor Output
+
+| Field | What It Means |
+| :--- | :--- |
+| **Engine** | `accelerated` = Rust native is loaded, `reference` = pure-Python fallback |
+| **Wire Protocol** | The version of Veritas's internal wire protocol (currently v2.0) |
+| **Platform** | Your OS and architecture (e.g., `linux-x86_64`, `darwin-arm64`) |
+| **Z3 Available** | Whether the optional Z3 solver is installed (only needed for non-linear constraints) |
+| **Native Extension** | Whether the Rust `.so`/`.pyd` file was successfully loaded |
+| **Tests** | Number of passing engine tests (499 in v2.0) |
+
+---
+
+## Environment Variables & Kill Switches
+
+Veritas respects several environment variables that control its behavior:
+
+| Variable | Values | Effect |
+| :--- | :--- | :--- |
+| `VERITAS_NO_NATIVE` | `1` | Forces pure-Python reference execution. Useful for A/B testing or debugging native issues. |
+| `VERITAS_VERBOSE` | `1` | Enables detailed solver telemetry logging. Shows mask times, contraction times, and backtrack events. |
+| `VERITAS_LOG_LEVEL` | `debug`, `info`, `warn`, `error` | Controls log verbosity (default: `warn`). |
+
+<Callout variant="warn" title="VERITAS_NO_NATIVE=1">
+
+Setting this forces Veritas to use the pure-Python engine even if Rust is available. This is **slower** (17.9x slower for PDA masking) but useful for:
+
+- Debugging native extension crashes
+- Comparing Python vs. Rust results
+- Running in environments where Rust compilation isn't possible
+
+</Callout>
+
+<Callout variant="tip" title="Fault Isolation">
+
+If a native Rust call ever panics, Veritas automatically falls back to the pure-Python reference engine. Your application never crashes — it just slows down temporarily.
+
+</Callout>
+
+---
+
+## Next Steps
+
+Now that Veritas is installed:
+
+- **[Quickstart](/docs/getting-started/quickstart)** — Write your first `@verified_schema` in 60 seconds
+- **[How Veritas Works](/docs/getting-started/how-veritas-works)** — Understand the 3-tier engine pipeline

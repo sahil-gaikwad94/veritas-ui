@@ -1,0 +1,99 @@
+---
+title: Chemistry (SMILES)
+description: veritas.cartridges.chem — SMILES molecular parser, valence limits, formal charge.
+---
+
+import { CodeBlock, Callout } from '@/components/mdx-components';
+
+# Chemistry (SMILES) Cartridge
+
+The `chem` cartridge provides SMILES molecular parsing with atomic valence limits, formal charge, and molecular weight constraints.
+
+---
+
+## Core Constraints
+
+### SMILES Parser
+
+`parse_smiles` validates SMILES grammar at the token level:
+
+<CodeBlock language="python" code="from veritas.cartridges.chem import parse_smiles
+
+@verified_schema
+def molecule(m: Molecule):
+    require(parse_smiles(m.smiles))`} copyable />
+
+### Atomic Valence Limits
+
+`valence_limits` ensures no element exceeds its maximum valence:
+
+<CodeBlock language="python" code="from veritas.cartridges.chem import valence_limits
+
+PERIODIC_TABLE = {"C": 4, "N": 3, "O": 2, "H": 1}
+
+require(valence_limits(m.atoms, PERIODIC_TABLE))`} copyable />
+
+### Formal Charge
+
+`formal_charge` computes net charge from atomic valences:
+
+<CodeBlock language="python" code="from veritas.cartridges.chem import formal_charge
+
+require(formal_charge(m.atoms) == m.net_charge)`} copyable />
+
+### Molecular Weight
+
+<CodeBlock language="python" code="from veritas.cartridges.chem import molecular_weight
+
+require(molecular_weight(m.atoms) <= m.max_mw)`} copyable />
+
+---
+
+## Complete Example
+
+<CodeBlock language="python" code="from veritas import verified_schema, require, derive
+from veritas.cartridges.chem import parse_smiles, valence_limits, formal_charge, molecular_weight
+
+PERIODIC_TABLE = {"C": 4, "N": 3, "O": 2, "H": 1, "S": 6}
+
+@verified_schema
+def valid_molecule(m: Molecule):
+    # Valid SMILES grammar
+    require(parse_smiles(m.smiles))
+
+    # No valence violations
+    require(valence_limits(m.atoms, PERIODIC_TABLE))
+
+    # Charge balance
+    require(formal_charge(m.atoms) == m.net_charge)
+
+    # Molecular weight constraint
+    require(molecular_weight(m.atoms) <= 500.0)
+
+    # At least one carbon atom
+    require(forall(m.atoms.values(), lambda atom: True))  # Enables counting
+    # (Use ResidualAccumulator for atom counting)`} copyable />
+
+<Callout variant="check" title="Chemically Valid by Construction">
+
+Every generated molecule passes valence and charge checks — no post-hoc validation needed. Invalid SMILES cannot be generated.
+
+</Callout>
+
+---
+
+## Key Functions Reference
+
+| Function | Signature | Description |
+| :--- | :--- | :--- |
+| `parse_smiles` | `(smiles: str) -> bool` | Valid SMILES grammar |
+| `valence_limits` | `(atoms, periodic_table) -> bool` | No valence violations |
+| `formal_charge` | `(atoms) -> int` | Net charge from valences |
+| `molecular_weight` | `(atoms) -> float` | Molecular weight |
+
+---
+
+## Next Steps
+
+- **[Physics](/docs/cartridges/physics-dimensional-analysis)** — phys cartridge
+- **[Statistics](/docs/cartridges/statistics-and-distributions)** — stat cartridge

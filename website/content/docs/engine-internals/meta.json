@@ -1,0 +1,4 @@
+{
+  "title": "Engine Internals",
+  "pages": ["vir-compiler-and-dag", "tier0-json-pda-and-healing", "tier1-hc4-and-affine-contractors", "tier2-nano-solver-and-z3", "zero-dof-jump-forward", "crane-dual-mode-reasoning", "cdcl-jumpback-and-domain-cuts", "rust-native-and-wasm-core"]
+}

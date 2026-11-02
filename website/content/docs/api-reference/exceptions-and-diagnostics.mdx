@@ -1,0 +1,206 @@
+---
+title: Exceptions & Diagnostics
+description: Error hierarchy & telemetry dictionary keys — complete reference for error handling and observability.
+---
+
+import { CodeBlock, Callout } from '@/components/mdx-components';
+
+# Exceptions & Diagnostics
+
+Complete reference for Veritas's error hierarchy and telemetry system.
+
+---
+
+## Error Hierarchy
+
+```
+VeritasError
+├── InfeasibleSpecError      # Constraints are mutually unsatisfiable
+├── CircularDerivationError   # derive chain forms a cycle
+├── StrictBoundRefutation     # Affine feasibility check failed
+├── VerificationError         # Instance verification failed
+├── ProofError                # Proof certificate verification failed
+├── SchemaError               # Invalid schema definition
+└── EngineError               # Internal engine error
+```
+
+### `VeritasError` (Base)
+
+Base exception for all Veritas errors. All Veritas exceptions inherit from this.
+
+### `InfeasibleSpecError`
+
+**Raised by:** `run_preflight()`, `veritas check-spec`
+
+**Meaning:** No assignment of values can satisfy all constraints — the spec is contradictory.
+
+**Attributes:**
+- `message` — Human-readable description
+- `minimal_relaxation` — Suggested change to make the spec feasible
+- `conflicting_constraints` — List of constraint IDs that conflict
+
+<CodeBlock language="python" code="from veritas import run_preflight, InfeasibleSpecError
+
+try:
+    report = run_preflight(bad_schema)
+except InfeasibleSpecError as e:
+    print(f"Message: {e.message}")
+    # "sum(weights) == 1.0 conflicts with forall(weights, w <= 0.20) for 6 stocks"
+    print(f"Relaxation: {e.minimal_relaxation}")
+    # "Increase max weight to 0.17 or reduce to 5 stocks"
+    print(f"Conflicts: {e.conflicting_constraints}")
+    # ["sum_weights == 1.0", "weight_bounds <= 0.20"]`} copyable />
+
+### `CircularDerivationError`
+
+**Raised by:** `run_preflight()`, `veritas check-spec`
+
+**Meaning:** `derive` statements form a cycle — A derives B, and B derives A.
+
+**Attributes:**
+- `derivation_chain` — The chain of fields forming the cycle
+- `fields` — List of fields involved
+
+<CodeBlock language="python" code="from veritas import run_preflight, CircularDerivationError
+
+try:
+    report = run_preflight(circular_schema)
+except CircularDerivationError as e:
+    print(f"Chain: {e.derivation_chain}")
+    # ["a -> b -> a"]
+    print(f"Fields: {e.fields}")
+    # ["a", "b"]`} copyable />
+
+### `StrictBoundRefutation`
+
+**Raised by:** `run_preflight()`, Tier-2 NanoSolver
+
+**Meaning:** The affine feasibility check proves no solution exists within the given bounds.
+
+**Attributes:**
+- `bound_field` — The field whose bounds are too tight
+- `current_bounds` — Current `[lo, hi]` interval
+- `required_bounds` — Bounds needed for feasibility
+
+### `VerificationError`
+
+**Raised by:** `verify_instance()`, `verify_json()`
+
+**Meaning:** An instance failed verification — at least one constraint was violated.
+
+### `ProofError`
+
+**Raised by:** `verify_proof()`
+
+**Meaning:** A proof certificate failed verification — SHA-256 mismatch or SMT-LIB2 UNSAT.
+
+### `SchemaError`
+
+**Raised by:** `@verified_schema` decoration, `VerifiedSchema` constructor
+
+**Meaning:** Invalid schema definition — missing fields, invalid expressions, etc.
+
+### `EngineError`
+
+**Raised by:** Rust engine calls
+
+**Meaning:** Internal engine error — should not happen in normal usage.
+
+---
+
+## Exception Handling Best Practices
+
+<CodeBlock language="python" code="from veritas import (
+    verified_schema, require, derive,
+    run_preflight, decode,
+    InfeasibleSpecError, CircularDerivationError,
+    StrictBoundRefutation, VerificationError, ProofError,
+    VeritasError,
+)
+
+# Always run pre-flight before decoding
+try:
+    report = run_preflight(my_schema)
+except InfeasibleSpecError as e:
+    print(f"Spec infeasible: {e.message}")
+    print(f"Fix: {e.minimal_relaxation}")
+    exit(1)
+except CircularDerivationError as e:
+    print(f"Circular derivation: {e.derivation_chain}")
+    exit(1)
+except StrictBoundRefutation as e:
+    print(f"Bounds too tight: {e.bound_field}")
+    exit(1)
+
+# Decode with error handling
+try:
+    result = decode(schema=my_schema, prompt="...", model="gpt-4o")
+except VerificationError as e:
+    print(f"Verification failed: {e}")
+except VeritasError as e:
+    print(f"Veritas error: {e}`} copyable />
+
+---
+
+## Telemetry Dictionary Keys
+
+Veritas emits telemetry dictionaries with the following keys:
+
+| Key | Type | Description |
+| :--- | :--- | :--- |
+| `engine_mode` | `str` | `"accelerated"` or `"reference"` |
+| `wire_protocol` | `str` | Protocol version (e.g., `"2.0"`) |
+| `pda_depth` | `int` | Current PDA stack depth |
+| `tokens_sampled` | `int` | Tokens sampled by LLM |
+| `tokens_spliced` | `int` | Tokens spliced via Zero-DoF |
+| `backtracks` | `int` | CDCL jumpback count |
+| `mask_time_ms` | `float` | PDA mask time in milliseconds |
+| `contract_time_us` | `float` | HC4 contraction time in microseconds |
+| `witness_sha256` | `str` | SHA-256 witness digest |
+| `llm_calls_saved` | `int` | LLM forward passes saved by Zero-DoF |
+| `decode_time_ms` | `float` | Total decode time |
+
+### Example Telemetry Output
+
+<CodeBlock language="python" code="telemetry = {
+    "engine_mode": "accelerated",
+    "wire_protocol": "2.0",
+    "pda_depth": 3,
+    "tokens_sampled": 45,
+    "tokens_spliced": 3,
+    "backtracks": 1,
+    "mask_time_ms": 0.23,
+    "contract_time_us": 3.9,
+    "witness_sha256": "a3f5c8...8c21",
+    "llm_calls_saved": 24,
+    "decode_time_ms": 234.5,
+}`} copyable />
+
+### Enabling Verbose Telemetry
+
+<CodeBlock language="bash" code="# Enable detailed solver telemetry logging
+VERITAS_VERBOSE=1 python -m veritas doctor`} copyable />
+
+<Callout variant="tip" title="Telemetry for A/B Testing">
+
+Compare `engine_mode: accelerated` vs. `reference` to measure the performance benefit of the Rust native extension.
+
+</Callout>
+
+---
+
+## Error Codes (CLI)
+
+| Code | Meaning |
+| :--- | :--- |
+| 0 | Success |
+| 1 | Verification failure / UNSAT |
+| 2 | Invalid schema or arguments |
+| 3 | Pre-flight gate failure |
+
+---
+
+## Next Steps
+
+- **[CLI Reference](/docs/proofs-rl-and-cli/cli-reference)** — All 6 CLI subcommands
+- **[Python Public API](/docs/api-reference/python-public-api)** — All 65+ exported symbols

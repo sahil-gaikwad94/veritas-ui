@@ -1,0 +1,48 @@
+---
+title: Diffusion LLMs
+description: Gumbel-max factor-graph unmasking for diffusion models.
+---
+
+import { CodeBlock, Callout } from '@/components/mdx-components';
+
+# Diffusion LLMs
+
+Support for diffusion-based LLMs via **Gumbel-max factor-graph unmasking** — Veritas constraints applied to discrete diffusion denoising.
+
+---
+
+## Gumbel-Max Unmasking
+
+### What It Does
+
+Diffusion LLMs generate tokens by iteratively denoising a discrete representation. Veritas applies constraints to the denoising process — masking tokens that would violate constraints at each denoising step.
+
+### Example
+
+<CodeBlock language="python" code="from veritas.bridges.diffusion import gumbel_max_unmask
+
+# Apply Veritas constraints to diffusion denoising
+masked_logits = gumbel_max_unmask(
+    logits=diffusion_logits,
+    schema=valid_portfolio,
+    temperature=1.0,
+)`} copyable />
+
+### How It Works
+
+1. Diffusion model produces logits for each token position
+2. Veritas applies PDA + HC4 masks to the logits
+3. Gumbel-max sampling selects from valid tokens only
+4. Iterate until complete document
+
+<Callout variant="info" title="Research Feature">
+
+Diffusion LLM support is an active research area — contributions welcome.
+
+</Callout>
+
+---
+
+## Next Steps
+
+- **[Proof Certificates](/docs/proofs-rl-and-cli/proof-certificates)** — SHA-256 verification

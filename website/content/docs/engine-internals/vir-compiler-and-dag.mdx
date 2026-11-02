@@ -1,0 +1,224 @@
+---
+title: VIR Compiler & DAG
+description: AstTranspiler, VirSpec, VirExpr, VirType, DependencyGraph — schema compilation pipeline explained.
+---
+
+import { Callout, CodeBlock } from '@/components/mdx-components';
+
+# VIR Compiler & DAG
+
+The Veritas Intermediate Representation (VIR) compiler is the bridge between your Python `@verified_schema` code and the Rust engine. It transpiles Python AST into a structured intermediate representation that drives the entire solve pipeline.
+
+---
+
+## What Is VIR?
+
+**VIR** (Veritas Intermediate Representation) is a language-independent description of your schema. It captures:
+
+- What fields exist in the output
+- What constraints must be satisfied
+- Which fields are derived from others
+- The dependency order (inputs before outputs)
+
+Your Python code → VIR → Rust engine → verified output
+
+---
+
+## `AstTranspiler`
+
+### What It Does
+
+The `AstTranspiler` parses your decorated Python function's AST (Abstract Syntax Tree) and walks it to extract:
+
+1. The function signature and parameter types
+2. All `require`, `derive`, `prefer`, and `forall` statements
+3. All mathematical operators (`sum`, `dot`, `quad_form`, `sqrt`, `keys_subset`)
+4. Constant definitions (RETURNS, COV, etc.)
+
+It produces a `VirSpec` — a structured representation of everything Veritas needs to enforce your schema.
+
+### Example
+
+<CodeBlock language="python" code="from veritas._native import AstTranspiler, VirSpec
+
+transpiler = AstTranspiler()
+vir_spec = transpiler.transpile(valid_portfolio)
+
+print(vir_spec.fields)
+# ['weights', 'expected_return', 'volatility', 'sharpe_ratio']
+
+print(vir_spec.constraints)
+# [require(sum(weights) == 1.0), require(forall(weights, ...)), require(sharpe_ratio >= 0.65)]
+
+print(vir_spec.derived)
+# ['expected_return', 'volatility', 'sharpe_ratio']
+
+print(vir_spec.key_order)
+# ['weights', 'expected_return', 'volatility', 'sharpe_ratio']`} copyable />
+
+### VirSpec Structure
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `fields` | `List[str]` | All field names in the output JSON |
+| `constraints` | `List[Constraint]` | All `require` and `prefer` statements |
+| `derived` | `List[str]` | Fields computed via `derive` |
+| `key_order` | `List[str]` | Topologically sorted JSON key order |
+| `constants` | `Dict[str, Any]` | Constant values referenced in constraints |
+
+---
+
+## `VirSpec`, `VirExpr`, `VirType`
+
+These are the core types in VIR:
+
+### `VirSpec`
+
+The top-level container for a compiled schema. Contains fields, constraints, derivations, and metadata.
+
+### `VirExpr`
+
+A symbolic expression tree representing a mathematical expression. Can be:
+- A literal number (`1.5`, `0.05`)
+- A field reference (`p.weights["AAPL"]`)
+- A binary operation (`a + b`, `a * b`, `a / b`)
+- A function call (`sum(...)`, `dot(...)`, `quad_form(...)`)
+- A unary operation (`sqrt(...)`, `-a`)
+
+### `VirType`
+
+Type annotations for fields:
+- `float` — 64-bit floating point
+- `int` — 64-bit integer
+- `bool` — boolean
+- `dict` — dictionary with typed keys/values
+- `list` — list with typed elements
+- `option` — optional value (may be absent)
+
+---
+
+## `DependencyGraph`
+
+### What It Does
+
+The `DependencyGraph` builds a directed graph where nodes are fields and edges represent "depends on" relationships. For example:
+
+```
+weights  →  expected_return  →  sharpe_ratio
+              ↑                    ↑
+           (dot)              (division)
+```
+
+This means:
+- `expected_return` depends on `weights`
+- `sharpe_ratio` depends on `expected_return` (and `volatility`)
+- `weights` depends on nothing (it's an input)
+
+### Topological Sort & Key Ordering
+
+The graph is topologically sorted to produce `key_order` — the order in which JSON keys should be emitted. Inputs first, derived fields last.
+
+This ordering is **critical** for Zero-DoF splicing: by the time the LLM reaches `expected_return`, all weights have already been emitted, so Veritas can compute it deterministically.
+
+### Example
+
+<CodeBlock language="python" code="from veritas._native import DependencyGraph, build_json_key_order
+
+graph = DependencyGraph(vir_spec)
+
+# Check if field A depends on field B
+print(graph.depends_on('expected_return', 'weights'))  # True
+print(graph.depends_on('weights', 'expected_return'))  # False
+
+# Get topological ordering
+order = build_json_key_order(graph)
+# ['weights', 'expected_return', 'volatility', 'sharpe_ratio']
+
+# Verify: no derived field appears before its inputs
+for i, field in enumerate(order):
+    deps = graph.dependencies(field)
+    for dep in deps:
+        assert order.index(dep) < i, f\"{dep} must come before {field}\"`} copyable />
+
+<Callout variant="check" title="Why This Matters">
+
+Without topological sorting, the LLM might need to emit `sharpe_ratio` before `weights` — forcing it to guess. With sorting, derived fields always come after their inputs, enabling Zero-DoF splicing.
+
+</Callout>
+
+---
+
+## The Compilation Pipeline
+
+Here's the complete flow from Python to Rust:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 1. Python Source                                            │
+│    @verified_schema                                         │
+│    def portfolio(p):                                        │
+│        require(sum(weights) == 1.0)                         │
+│        derive(ret == dot(weights, RETURNS))                 │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 2. AST Transpilation (AstTranspiler)                        │
+│    Python AST → VirSpec                                     │
+│    Extract fields, constraints, derivations, constants      │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 3. Dependency Graph (DependencyGraph)                       │
+│    Build field dependency graph                             │
+│    Topologically sort → key_order                           │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 4. VirSpec Serialization                                    │
+│    VirSpec → JSON wire format                               │
+│    Sent to Rust engine via PyO3 / WASM                      │
+└─────────────────────────────────────────────────────────────┘
+                          ↓
+┌─────────────────────────────────────────────────────────────┐
+│ 5. Rust Engine                                              │
+│    Tier 0 PDA → Tier 1 HC4/AF2 → Tier 2 NanoSolver          │
+│    Zero-DoF splicing → CDCL jumpback → Proof certificate    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Complete Example
+
+<CodeBlock language="python" code="from veritas._native import AstTranspiler, DependencyGraph, build_json_key_order
+
+# Your schema
+@verified_schema
+def portfolio(p: Portfolio):
+    require(sum(p.weights.values()) == 1.0, tol=1e-6)
+    derive(p.expected_return == dot(p.weights, RETURNS))
+    require(p.expected_return >= 0.10)
+
+# Step 1: Transpile
+transpiler = AstTranspiler()
+vir_spec = transpiler.transpile(portfolio)
+
+# Step 2: Build dependency graph
+graph = DependencyGraph(vir_spec)
+
+# Step 3: Get key order
+key_order = build_json_key_order(graph)
+print(key_order)
+# ['weights', 'expected_return']  # inputs first, derived last
+
+# Step 4: Serialize for Rust engine
+wire_json = vir_spec.to_wire_json()
+# Sent to Rust via PdaHandle or WASM`} copyable />
+
+---
+
+## Next Steps
+
+- **[Tier 0 — JSON PDA & Healing](/docs/engine-internals/tier0-json-pda-and-healing)** — `JSONPushdownAutomaton`, `TokenMasker`, `TokenHealer`
+- **[Tier 1 — HC4 + AF2 Contractors](/docs/engine-internals/tier1-hc4-and-affine-contractors)** — `Interval`, `AffineForm`, `Hc4AffineContractor`
+- **[Zero-DoF Jump-Forward](/docs/engine-internals/zero-dof-jump-forward)** — `ZeroDofRule`, `splice_and_step`

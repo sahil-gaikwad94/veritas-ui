@@ -1,0 +1,50 @@
+---
+title: HuggingFace Transformers
+description: veritas.bridges.huggingface — hf_transformers LogitsProcessor integration.
+---
+
+import { CodeBlock } from '@/components/mdx-components';
+
+# HuggingFace Transformers Bridge
+
+The HF adapter integrates Veritas with HuggingFace Transformers' `LogitsProcessor` API — masking logits before sampling in any HF model.
+
+---
+
+## LogitsProcessor
+
+### What It Does
+
+`VeritasLogitsProcessor` is a HuggingFace `LogitsProcessor` that applies Veritas PDA + HC4 masks to logits before sampling.
+
+### Example
+
+<CodeBlock language="python" code="from transformers import LogitsProcessor
+from veritas.bridges.huggingface import VeritasLogitsProcessor
+from veritas._native import PdaHandle
+
+processor = VeritasLogitsProcessor(
+    schema=valid_portfolio,
+    tokenizer=tokenizer,
+    pda_handle=PdaHandle.new("{"),
+)
+
+model.generate(
+    prompt_ids,
+    logits_processor=[processor],
+    max_new_tokens=512,
+)`} copyable />
+
+### How It Works
+
+1. Before each token sample, `VeritasLogitsProcessor` is called
+2. It queries the PDA for valid next tokens
+3. It applies a logit mask (0.0 = valid, -inf = invalid)
+4. The LLM samples only from valid tokens
+
+---
+
+## Next Steps
+
+- **[Outlines / Guidance / LMQL](/docs/bridges-and-integrations/outlines-guidance-lmql)** — grammar-based bridges
+- **[Async Stream Proxy](/docs/bridges-and-integrations/async-stream-proxy)** — Cloud API proxy

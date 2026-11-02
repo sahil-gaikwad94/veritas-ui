@@ -1,0 +1,193 @@
+---
+title: Python Public API
+description: Complete reference for all 65+ exported symbols in veritas.__all__.
+---
+
+import { Callout, CodeBlock } from '@/components/mdx-components';
+
+# Python Public API
+
+Complete reference for all exported symbols in `veritas.__all__`. The public API is organized into logical groups — core decorator, constraint verbs, mathematical primitives, engine functions, CLI entry points, cartridges, bridges, and RL.
+
+---
+
+## Core Decorator & Class
+
+| Symbol | Type | Description |
+| :--- | :--- | :--- |
+| `verified_schema` | decorator | Mark a function as a Veritas-verified schema |
+| `VerifiedSchema` | class | Base class for verified schemas |
+
+### `verified_schema`
+
+Transforms a Python function into a verified schema that enforces constraints during LLM token decoding.
+
+<CodeBlock language="python" code="from veritas import verified_schema
+
+@verified_schema
+def my_schema(p: Portfolio):
+    require(sum(p.weights.values()) == 1.0)`} copyable />
+
+### `VerifiedSchema`
+
+The underlying class. Use the decorator syntax for 99% of cases; use the class directly for programmatic schema construction.
+
+<CodeBlock language="python" code="from veritas import VerifiedSchema
+
+schema = VerifiedSchema(func=my_func, constraints=[...], derivations=[...])`} copyable />
+
+---
+
+## Four Constraint Verbs
+
+| Symbol | Type | Description |
+| :--- | :--- | :--- |
+| `require` | function | Hard invariant — must hold for all valid instances |
+| `derive` | function | Zero-DoF deterministic derivation — computed by Veritas |
+| `prefer` | function | Soft preference — guides without causing hard failure |
+| `forall` | function | Universal quantifier over collections |
+
+### `require(expr, tol=1e-6)`
+
+Hard invariant enforced via Tier-1 HC4/AF2 contractors and Tier-2 NanoSolver.
+
+<CodeBlock language="python" code="from veritas import require
+
+require(sum(p.weights.values()) == 1.0, tol=1e-6)
+require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))`} copyable />
+
+### `derive(target == expr, tol=1e-6)`
+
+Zero-DoF deterministic computation. Veritas computes `target` from `expr` — the LLM never samples it.
+
+<CodeBlock language="python" code="from veritas import derive, dot
+
+derive(p.expected_return == dot(p.weights, RETURNS))`} copyable />
+
+### `prefer(expr, weight=1.0, tag=None)`
+
+Soft preference via Weighted MaxSMT. Guides token selection without causing hard failures.
+
+<CodeBlock language="python" code="from veritas import prefer
+
+prefer(p.volatility <= 0.20, weight=0.8, tag="low_volatility")`} copyable />
+
+### `forall(collection, lambda x: ...)`
+
+Universal quantifier over dynamic collections, lowered into `ResidualAccumulator` bounds.
+
+<CodeBlock language="python" code="from veritas import forall
+
+require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))`} copyable />
+
+---
+
+## Mathematical Primitives
+
+| Symbol | Type | Description | Complexity |
+| :--- | :--- | :--- | :--- |
+| `sum` | function | Symbolic summation | $O(n)$ |
+| `dot` | function | Inner product over dictionaries | $O(n)$ |
+| `quad_form` | function | Quadratic form $w^T \Sigma w$ | $O(n^2)$ |
+| `sqrt` | function | Square root with sign-aware lifting | $O(1)$ |
+| `keys_subset` | function | Set-inclusion constraint over keys | $O(k)$ |
+
+### Examples
+
+<CodeBlock language="python" code="from veritas import sum, dot, quad_form, sqrt, keys_subset
+
+require(sum(p.weights.values()) == 1.0, tol=1e-6)
+derive(p.expected_return == dot(p.weights, RETURNS))
+require(quad_form(p.weights, COV) <= 0.04)
+require(sqrt(p.variance) <= 0.20)
+require(keys_subset(p.weights, {"AAPL", "MSFT", "NVDA"}))`} copyable />
+
+---
+
+## Engine Functions
+
+| Symbol | Type | Description |
+| :--- | :--- | :--- |
+| `run_preflight` | function | 0-token SAT check |
+| `decode` | function | Decode with LLM + Veritas masking |
+| `verify_instance` | function | Verify a single instance |
+| `verify_json` | function | Verify a JSON document |
+| `synth` | function | Schema synthesis from JSON |
+| `analyze_containers` | function | Analyze container usage |
+
+### `run_preflight(schema)`
+
+Runs the complete pre-flight check — interval contraction, affine feasibility, circular derivation detection.
+
+<CodeBlock language="python" code="from veritas import run_preflight, InfeasibleSpecError
+
+try:
+    report = run_preflight(my_schema)
+    print(f"SAT: {report.sat}")
+except InfeasibleSpecError as e:
+    print(f"Infeasible: {e.message}")`} copyable />
+
+### `decode(schema, prompt, model, ...)`
+
+Decode with an LLM — Veritas enforces constraints in real time.
+
+<CodeBlock language="python" code="from veritas import decode
+
+result = decode(
+    schema=my_schema,
+    prompt="Create a portfolio",
+    model="gpt-4o",
+    max_tokens=512,
+)`} copyable />
+
+### `synth(samples, ...)`
+
+Auto-generate `@verified_schema` from sample JSON.
+
+<CodeBlock language="python" code="from veritas import synth
+
+schema_code = synth(samples=[{"a": 1.0}, {"a": 2.0}])
+print(schema_code)`} copyable />
+
+---
+
+## CLI Entry Points
+
+| Symbol | Type | Description |
+| :--- | :--- | :--- |
+| `doctor` | function | Engine diagnostics |
+| `check_spec` | function | Pre-flight spec check |
+| `verify` | function | Instance verification |
+| `verify_proof` | function | Proof certificate verification |
+| `inspect` | function | Trace inspection |
+| `synth` | function | Schema synthesis |
+
+---
+
+## Modules
+
+| Module | Description |
+| :--- | :--- |
+| `veritas.cartridges` | Domain cartridges (quant, sql, sec, etc.) |
+| `veritas.bridges` | Runtime bridges (vLLM, SGLang, llama.cpp, etc.) |
+| `veritas.rl` | RL trajectory collector |
+| `veritas.ltlf` | LTLf temporal logic |
+| `veritas.cli` | CLI entry points |
+
+<Callout variant="info" title="65+ Symbols">
+
+The full `veritas.__all__` exports 65+ symbols including all cartridges, bridges, RL collector, and LTLf module. Import what you need:
+
+```python
+from veritas import verified_schema, require, derive
+from veritas.cartridges import quant, sql
+from veritas.bridges import VllmAdapter
+```</Callout>
+
+---
+
+## Next Steps
+
+- **[Rust PyO3 Native API](/docs/api-reference/rust-pyo3-native-api)** — `veritas._native` exports
+- **[WASM Browser API](/docs/api-reference/wasm-browser-api)** — JavaScript/TypeScript API
+- **[Exceptions & Diagnostics](/docs/api-reference/exceptions-and-diagnostics)** — Error hierarchy
