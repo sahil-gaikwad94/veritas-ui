@@ -1,13 +1,10 @@
 ---
 title: Proof Certificates
-description: ProofCertificate, SMT-LIB2 export, SHA-256 witness verification — tamper-proof proof of verified output.
+description: ProofCertificate, SMT-LIB2 export, SHA-256 witness verification — tamper-evident proof of verified output.
 ---
-
 import { CodeBlock, Callout, Badge } from '@/components/mdx-components';
 
-# Proof Certificates
-
-Every verified decode ships with a **tamper-proof SHA-256 witness digest** and an **offline-verifiable SMT-LIB2 proof script**. Verify with `veritas verify-proof` — zero backend storage required.
+Every verified decode ships with a **tamper-evident SHA-256 witness digest** and an **offline-verifiable SMT-LIB2 proof script**. Verify with `veritas verify-proof` — zero backend storage required.
 
 ---
 
@@ -22,73 +19,89 @@ A `ProofCertificate` is a self-contained JSON object that proves:
 
 ---
 
-## ProofCertificate Structure
+## ProofCertificate structure
 
-<CodeBlock language="json" code={`{
-  \"witness_sha256\": \"a3f5c8d2e1f4a7b3c9d8e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1\",
-  \"smtlib2\": \"; SMT-LIB2 proof script\\n(declare-fun weights.AAPL () Real)\\n(assert (= weights.AAPL 0.40))\\n(assert (= weights.MSFT 0.35))\\n(assert (= weights.NVDA 0.25))\\n(assert (= (+ weights.AAPL weights.MSFT weights.NVDA) 1.0))\\n(check-sat)\\n\",
-  \"constraints\": [
-    {\"id\": \"sum_weights\", \"outcome\": \"PASS\", \"expression\": \"sum(weights) == 1.0\"},
-    {\"id\": \"weight_bounds\", \"outcome\": \"PASS\", \"expression\": \"forall(weights, 0.05 <= w <= 0.50)\"},
-    {\"id\": \"expected_return\", \"outcome\": \"SPLICE\", \"expression\": \"derive(expected_return == dot(weights, RETURNS))\"},
-    {\"id\": \"sharpe_ratio\", \"outcome\": \"SPLICE\", \"expression\": \"derive(sharpe_ratio == (expected_return - 0.04) / volatility)\"},
-    {\"id\": \"sharpe_threshold\", \"outcome\": \"PASS\", \"expression\": \"sharpe_ratio >= 0.65\"}
-  ],
-  \"derived_values\": {
-    \"expected_return\": 0.1615,
-    \"volatility\": 0.1892,
-    \"sharpe_ratio\": 0.6422
-  },
-  \"llm_calls_saved\": 24,
-  \"decode_time_ms\": 234.5,
-  \"engine_version\": \"2.0.0\"
+A certificate is a JSON object with exactly these keys — `version`, `sha256`, `spec_sha256`,
+`witness_sha256`, `smt2_sha256`, `witness`, `spec`, `smt2`, `smt2_complete`, `smt2_omitted` and
+`metadata`:
+
+<CodeBlock language="json" title="ticket_proof.json (abridged)" code={`{
+  "version": "2.0",
+  "sha256": "b05a9b6c8b7ecc11f0dfd232e09db1cbfdc2c39902a50624014e1957af7bc2cd",
+  "spec_sha256": "fa7eb9478ab886630f7ae37c0c946c4e1f072481a55f670d69a1167251b5f66b",
+  "witness_sha256": "354732bf8bb87825e25e52e8f64a3a2ba12a83db0332d398e2143073487c7b4c",
+  "smt2_sha256": "fda1ac1aefa5e74f0689a44a3220d3f98e4b161aed274cf51baaa9071c16…",
+  "witness": {"priority": 2, "sla_hours": 12},
+  "spec": {"version": 3, "model": "Ticket", "variables": {...}, "requires": [...]},
+  "smt2": "; veritas proof certificate (v2.0)\n(set-logic ALL)\n(declare-const priority Int)\n…",
+  "smt2_complete": true,
+  "smt2_omitted": [],
+  "metadata": {}
 }`} copyable />
 
-### Fields Reference
+### Fields
 
-| Field | Type | Description |
+| Field | Type | Meaning |
 | :--- | :--- | :--- |
-| `witness_sha256` | `string` | SHA-256 digest of the entire output + constraints |
-| `smtlib2` | `string` | Offline-verifiable SMT-LIB2 proof script |
-| `constraints` | `array` | Per-constraint outcomes (PASS, SPLICE, FAIL) |
-| `derived_values` | `object` | Values computed via Zero-DoF splicing |
-| `llm_calls_saved` | `int` | LLM forward passes saved by Zero-DoF |
-| `decode_time_ms` | `float` | Total decode time in milliseconds |
-| `engine_version` | `string` | Veritas engine version |
+| `version` | string | Certificate format, currently `"2.0"` — checked on load |
+| `sha256` | hex | Digest over the certificate content; any edit breaks it |
+| `spec_sha256` | hex | Digest of the embedded compiled spec |
+| `witness_sha256` | hex | Digest of the witness (the concrete instance) |
+| `smt2_sha256` | hex | Digest of the SMT-LIB2 script |
+| `witness` | object | The values that were verified |
+| `spec` | object | Versioned VIR payload, so re-checking needs no original schema |
+| `smt2` | string | SMT-LIB2 rendering, bound to the spec and witness digests |
+| `smt2_complete` | bool | Whether every constraint could be exported exactly |
+| `smt2_omitted` | array | Constraints left out — still checked by the VIR evaluator |
+| `metadata` | object | Free-form, empty unless you pass it |
 
----
+<Callout variant="warn" title="Coverage is reported, never assumed">
+`sqrt`, `quad_form` and other fragments SMT-LIB cannot express exactly are listed in `smt2_omitted`,
+with `smt2_complete: false`. The certificate still verifies: `verify-proof` re-evaluates those
+constraints from the embedded VIR and says so in the `smt2_coverage` check.
+</Callout>
 
 ## `veritas verify-proof` CLI
 
-### Usage
-
 <CodeBlock language="bash" code={`$ veritas verify-proof proof.json
+certificate: VALID
+  [ok] version: found '2.0', expected '2.0'
+  [ok] sha256: content digest matches
+  [ok] witness_sha256: witness digest matches
+  [ok] smt2: SMT-LIB2 script present
+  [ok] spec_sha256: embedded spec matches its digest
+  [ok] constraints: PASS: 1 satisfied, 0 violated, 0 unevaluated
+  [ok] smt2_coverage: complete SMT export
+  [ok] smt2_binding: SMT script is bound to the embedded spec and witness
+  [ok] portable_model: structural schema is portable`} copyable />
 
-# Expected output:
-# ✓ SHA-256 witness verified
-# ✓ SMT-LIB2 script is SAT
-# ✓ All constraints satisfied
-# ✓ Proof certificate valid
+`--json` returns `{"ok": bool, "checks": [{name, ok, detail}], "errors": [], "report": {...},
+"spec_sha256": "…"}`.
 
-# JSON output
-$ veritas verify-proof proof.json --json
-# {
-#   "valid": true,
-#   "witness_verified": true,
-#   "smtlib2_sat": true,
-#   "constraints_passed": 5,
-#   "constraints_failed": 0
-# }`} copyable />
+### Tamper test
 
-### Offline Browser Verification
+Change one witness value and the digests stop agreeing. The constraints still pass — the edited
+witness was still a legal instance — but the certificate is rejected, and the report says exactly
+which bindings broke:
 
-<Callout variant="check" title="Zero Backend Storage">
+<CodeBlock language="bash" code={`$ veritas verify-proof tampered_proof.json     # witness.sla_hours: 12 -> 11
+certificate: INVALID
+  [ok] version: found '2.0', expected '2.0'
+  [FAIL] sha256: digest mismatch or missing
+  [FAIL] witness_sha256: witness digest mismatch
+  [ok] smt2: SMT-LIB2 script present
+  [ok] spec_sha256: embedded spec matches its digest
+  [ok] constraints: PASS: 1 satisfied, 0 violated, 0 unevaluated
+  [ok] smt2_coverage: complete SMT export
+  [FAIL] smt2_binding: SMT script does not match spec/witness
+  [ok] portable_model: structural schema is portable
+# exit 1`} copyable />
 
-Proof certificates are self-contained JSON. Share them via URL, store them in a database, or print them on paper. Verification is entirely offline — use Web Crypto API + veritas-wasm at **[/verify](/verify)**.
+<Callout variant="warn" title="Hashes are integrity, not authentication">
+Anyone can recompute an unkeyed SHA-256. Bind verification to the spec you trust with
+`vt.verify_proof(cert, expected_spec=portfolio)`, or sign the artifact in your own application.
 
 </Callout>
-
----
 
 ## Why Proof Certificates Matter
 

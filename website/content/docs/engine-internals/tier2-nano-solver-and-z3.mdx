@@ -2,10 +2,7 @@
 title: Tier 2 — NanoSolver & Z3
 description: VeritasNanoSolver (Fourier-Motzkin), SmtBridge, Z3SmtOracle — exact linear solving for feasibility.
 ---
-
 import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
-
-# Tier 2 — NanoSolver & Z3
 
 Tier 2 is the core ring of Veritas's three-tier solver horizon. It provides **exact linear solving** for feasibility checks and contradiction detection — used by the pre-flight gate and CDCL jumpback engine.
 
@@ -27,7 +24,7 @@ Tier 2 never runs per token — it runs at schema compile time (pre-flight) and 
 
 ### What It Does
 
-`VeritasNanoSolver` is a dependency-free nano-solver that handles linear equalities and inequalities using **Fourier-Motzkin elimination**. It's pure Rust — no Z3, no external dependencies.
+`VeritasNanoSolver` is a dependency-free reference decision procedure for linear and difference constraints, using **bounded Fourier–Motzkin elimination** over exact `Fraction` arithmetic. Pure Python — no Z3, no solver dependency — and the module says what it is: a reference procedure, not a dual-simplex engine.
 
 ### Fourier-Motzkin Elimination
 
@@ -40,24 +37,24 @@ Fourier-Motzkin is a variable elimination algorithm for linear systems:
 
 ### Example
 
-<CodeBlock language="python" code={`from veritas._native import VeritasNanoSolver
+<CodeBlock language="python" code={`from veritas import VeritasNanoSolver, SolverStatus
 
+# Rational linear feasibility over named variables
 solver = VeritasNanoSolver()
+solver.assert_constraint(("eq", {"aapl": 1, "msft": 1, "nvda": 1}, 1.0))   # fully invested
+for name in ("aapl", "msft", "nvda"):
+    solver.assert_constraint(("ge", {name: 1}, 0.05))
+    solver.assert_constraint(("le", {name: 1}, 0.50))
 
-# Add linear constraints
-solver.add_constraint('x + y <= 1.0')
-solver.add_constraint('x >= 0.05')
-solver.add_constraint('y >= 0.05')
-solver.add_constraint('x <= 0.50')
-solver.add_constraint('y <= 0.50')
+solver.check()                    # SolverStatus.SAT
+solver.get_float_model()          # {'nvda': 0.275, 'msft': 0.275, 'aapl': 0.1}
 
-# Check feasibility
-result = solver.check()
-# result: SAT with model {x: 0.40, y: 0.35}
-
-# Get the model
-print(result.model)
-# {'x': 0.40, 'y': 0.35}`} copyable />
+# A contradiction yields an unsat core instead of a model
+bad = VeritasNanoSolver()
+bad.assert_constraint(("ge", {"x": 1}, 8))
+bad.assert_constraint(("le", {"x": 1}, 3))
+bad.check()                       # SolverStatus.UNSAT
+bad.get_unsat_core()              # [0, 1]`} copyable />
 
 ### When to Use NanoSolver vs. Z3
 
@@ -118,12 +115,20 @@ The pre-flight gate uses Tier 2 for **exact affine feasibility checking** — pr
 
 ### Example
 
-<CodeBlock language="python" code={`from veritas import run_preflight
+<CodeBlock language="python" code={`import veritas as vt
 
-# This spec is infeasible:
-# sum(weights) == 1.0 AND each weight <= 0.20 (with 6 stocks)
-report = run_preflight(infeasible_spec)
-print(report.sat)  # False
+# This spec is infeasible: sum(x) == 1 with every x <= 0.10 over 6 variables
+try:
+    from infeasible_spec import weights          # pre-flight runs at import
+except vt.InfeasibleSpecError as exc:
+    print(exc.conflicts)                        # [0, 1]
+    print(exc.relaxation["suggestion"])         # 'Relax a listed constraint or a field bound.'
+
+# The same check without the exception path
+report = vt.run_preflight(spec)
+report.status        # 'UNSAT' | 'SAT' | 'UNKNOWN'
+report.is_sat        # True only when a witness was constructed and checked
+report.details       # ['exact rational linear relaxation is infeasible', ...]
 
 # Tier 2 proved this without any LLM tokens`} copyable />
 
@@ -131,31 +136,21 @@ print(report.sat)  # False
 
 ## Complete Example
 
-<CodeBlock language="python" code={`from veritas._native import VeritasNanoSolver
+<CodeBlock language="python" title="pre-flight, then a real decode" code={`import veritas as vt
 
-# Portfolio feasibility check
-solver = VeritasNanoSolver()
+# The same solver backs pre-flight: no model, no tokens, just a verdict
+report = vt.run_preflight(portfolio.spec)
+report.status                  # 'SAT' | 'UNKNOWN' | 'UNSAT'
+report.is_sat                  # True only when a witness was checked
 
-# Weights sum to 1.0 (linearized: sum <= 1.0 AND sum >= 1.0)
-solver.add_constraint('w_AAPL + w_MSFT + w_NVDA <= 1.0')
-solver.add_constraint('w_AAPL + w_MSFT + w_NVDA >= 1.0')
+# During decoding the same core is used for CDCL conflict analysis
+engine = vt.CdclJumpbackEngine()
+outcome = engine.jumpback([2])          # unsat core from the tier-2 check
+outcome["target_clause"], outcome["rewind_to"]
 
-# Each weight between 0.05 and 0.50
-solver.add_constraint('w_AAPL >= 0.05')
-solver.add_constraint('w_AAPL <= 0.50')
-solver.add_constraint('w_MSFT >= 0.05')
-solver.add_constraint('w_MSFT <= 0.50')
-solver.add_constraint('w_NVDA >= 0.05')
-solver.add_constraint('w_NVDA <= 0.50')
-
-# Expected return >= 0.10 (linear)
-solver.add_constraint('0.12*w_AAPL + 0.10*w_MSFT + 0.15*w_NVDA >= 0.10')
-
-result = solver.check()
-if result.sat:
-    print(f\"Feasible! Model: {result.model}\")
-else:
-    print(\"Infeasible — constraints contradict each other\")`} copyable />
+# And the result is verified concretely before it is returned
+result = vt.generate(model=model, prompt="propose a portfolio", spec=portfolio)
+result.report.status           # 'PASS' — checked, not assumed`} copyable />
 
 ---
 
@@ -171,5 +166,5 @@ else:
 
 ## Next Steps
 
-- **[Zero-DoF Jump-Forward](/docs/engine-internals/zero-dof-jump-forward)** — `ZeroDofRule`, `splice_and_step`
+- **[Zero-DoF Jump-Forward](/docs/engine-internals/zero-dof-jump-forward)** — `ZeroDofRule`, `ZeroDofEngine`
 - **[CRANE Dual-Mode Reasoning](/docs/engine-internals/crane-dual-mode-reasoning)** — `CraneModeController`, ShadowParser

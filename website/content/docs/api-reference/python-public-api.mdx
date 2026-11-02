@@ -1,13 +1,10 @@
 ---
 title: Python Public API
-description: Complete reference for all 65+ exported symbols in veritas.__all__.
+description: Complete reference for all 128 exported symbols in veritas.__all__.
 ---
-
 import { Callout, CodeBlock } from '@/components/mdx-components';
 
-# Python Public API
-
-Complete reference for all exported symbols in `veritas.__all__`. The public API is organized into logical groups — core decorator, constraint verbs, mathematical primitives, engine functions, CLI entry points, cartridges, bridges, and RL.
+Reference for the 128 symbols in `veritas.__all__` — the groups below are the ones you will actually call, and the export index at the end lists every name with the module that defines it.
 
 ---
 
@@ -34,7 +31,14 @@ The underlying class. Use the decorator syntax for 99% of cases; use the class d
 
 <CodeBlock language="python" code={`from veritas import VerifiedSchema
 
-schema = VerifiedSchema(func=my_func, constraints=[...], derivations=[...])`} copyable />
+# the decorator is VerifiedSchema(func, **config); config is the engine, not the constraints
+schema = VerifiedSchema(
+    my_func,
+    solver="auto",            # auto | nano | z3
+    reasoning_mode="crane_cot",  # crane_cot | strict
+    backtrack="cdcl_domain_cut",  # cdcl_domain_cut | none
+    preflight_check=True,
+)`} copyable />
 
 ---
 
@@ -44,7 +48,7 @@ schema = VerifiedSchema(func=my_func, constraints=[...], derivations=[...])`} co
 | :--- | :--- | :--- |
 | `require` | function | Hard invariant — must hold for all valid instances |
 | `derive` | function | Zero-DoF deterministic derivation — computed by Veritas |
-| `prefer` | function | Soft preference — guides without causing hard failure |
+| `prefer` | function | Soft preference — guides without causing hard failure (`weight`, `tag`) |
 | `forall` | function | Universal quantifier over collections |
 
 ### `require(expr, tol=1e-6)`
@@ -108,37 +112,52 @@ require(keys_subset(p.weights, {"AAPL", "MSFT", "NVDA"}))`} copyable />
 
 | Symbol | Type | Description |
 | :--- | :--- | :--- |
-| `run_preflight` | function | 0-token SAT check |
-| `decode` | function | Decode with LLM + Veritas masking |
+| `run_preflight` | function | 0-token feasibility check over a compiled `VirSpec` |
+| `generate` | function | Constrained decoding through a model adapter |
 | `verify_instance` | function | Verify a single instance |
 | `verify_json` | function | Verify a JSON document |
 | `synth` | function | Schema synthesis from JSON |
 | `analyze_containers` | function | Analyze container usage |
 
-### `run_preflight(schema)`
+### `run_preflight(spec)` / `schema.preflight`
 
-Runs the complete pre-flight check — interval contraction, affine feasibility, circular derivation detection.
+Pre-flight runs automatically when a `@verified_schema` module is imported (`preflight_check=True`). The
+result is kept on the object, and `run_preflight` re-runs it against a compiled `VirSpec`:
 
-<CodeBlock language="python" code={`from veritas import run_preflight, InfeasibleSpecError
+<CodeBlock language="python" code={`from veritas import run_preflight
 
-try:
-    report = run_preflight(my_schema)
-    print(f"SAT: {report.sat}")
-except InfeasibleSpecError as e:
-    print(f"Infeasible: {e.message}")`} copyable />
+report = my_schema.preflight             # computed at import time
+print(report.status)                     # 'SAT' | 'UNKNOWN' | 'UNSAT'
+print(report.is_sat)                     # True only for a checked witness
+print(report.details)                    # why it is UNKNOWN, when it is
 
-### `decode(schema, prompt, model, ...)`
+fresh = run_preflight(my_schema.spec)    # re-run against the compiled spec
+assert fresh.status == report.status`} copyable />
 
-Decode with an LLM — Veritas enforces constraints in real time.
+`UNSAT` never reaches you as a report: the decorator raises `InfeasibleSpecError` at import, with
+`.conflicts` and a `.relaxation` dict of hints.
 
-<CodeBlock language="python" code={`from veritas import decode
+### `generate(model, prompt, spec, ...)`
 
-result = decode(
-    schema=my_schema,
-    prompt="Create a portfolio",
-    model="gpt-4o",
-    max_tokens=512,
-)`} copyable />
+Decode through any object with `next_logits(prefix_text) -> Mapping[str, float]`. `veritas.testing`
+ships deterministic models; `veritas.bridges` adapts real tokenizers.
+
+<CodeBlock language="python" code={`import veritas as vt
+from veritas.testing import StructuredReasoningModel
+
+result = vt.generate(
+    model=StructuredReasoningModel(),     # or a bridge adapter
+    prompt="propose a portfolio",
+    spec=my_schema,
+    temperature=0.0,
+    return_proof=True,                    # attach a certificate on PASS
+)
+print(result.raw)                         # exact JSON that was decoded
+print(result.value)                       # validated value
+print(result.report.status)               # PASS before the caller sees it`} copyable />
+
+There is no `vt.decode()` function: `veritas.decode` is the module that implements `generate` and
+`VeritasSession`.
 
 ### `synth(samples, ...)`
 
@@ -151,16 +170,19 @@ print(schema_code)`} copyable />
 
 ---
 
-## CLI Entry Points
+## Engine entry points (importable)
 
 | Symbol | Type | Description |
 | :--- | :--- | :--- |
-| `doctor` | function | Engine diagnostics |
-| `check_spec` | function | Pre-flight spec check |
-| `verify` | function | Instance verification |
-| `verify_proof` | function | Proof certificate verification |
-| `inspect` | function | Trace inspection |
-| `synth` | function | Schema synthesis |
+| `doctor` | function | Engine diagnostics: `{'version', 'python', 'engine', 'wire_version'}` |
+| `check_spec(spec)` | function | Pre-flight result for a compiled spec |
+| `verify(spec, instance)` | function | Instance verification |
+| `verify_proof(certificate, expected_spec=None)` | function | Offline certificate check |
+| `synth(samples=None, ...)` | function | Schema synthesis from JSON examples |
+| `build_certificate(spec, instance)` | function | Seal a proof certificate |
+
+The shell equivalents (`check-spec`, `verify`, `verify-proof`, `inspect`, `doctor`, `synth`) live in
+`veritas.cli.main`; `inspect` is **only** a subcommand — there is no importable `vt.inspect`.
 
 ---
 
@@ -174,21 +196,157 @@ print(schema_code)`} copyable />
 | `veritas.ltlf` | LTLf temporal logic |
 | `veritas.cli` | CLI entry points |
 
-<Callout variant="info" title="65+ Symbols">
+<Callout variant="info" title="One import surface">
 
-The full `veritas.__all__` exports 65+ symbols including all cartridges, bridges, RL collector, and LTLf module. Import what you need:
+The top-level package exports the authoring DSL, verification, engine primitives, certificates, LTLf helpers and the RL collector. Bridges and cartridges live in their own namespaces:
 
 ```python
 from veritas import verified_schema, require, derive
 from veritas.cartridges import quant, sql
-from veritas.bridges import VllmAdapter
+from veritas.bridges import patch_vllm, VeritasVLLMBridge
 ```
 </Callout>
 
 ---
 
+## Complete export index
+
+All 128 names in `veritas.__all__`, with the module that defines each one. Generated from the package
+itself, so the list cannot drift from the code:
+
+| Symbol | Type | Defined in | Notes |
+| :--- | :--- | :--- | :--- |
+| `AffineForm` | class | `veritas.interval` | — |
+| `AstTranspiler` | class | `veritas.compiler.ast_transpiler` | — |
+| `ByteTokenizer` | class | `veritas.token_healer` | UTF-8 byte tokenizer: exact, dependency-free, and stable for healing tests. |
+| `CdclJumpbackEngine` | class | `veritas.cdcl_jumpback` | — |
+| `CertificateCheck` | class | `veritas.proof.certificate` | — |
+| `CertificateError` | class | `veritas.proof.certificate` | Raised when a certificate cannot be parsed or verified. |
+| `CertificateVerification` | class | `veritas.proof.certificate` | — |
+| `CircularDerivationError` | class | `veritas.compiler.dependency_graph` | Raised when vt.derive rules contain a cycle. |
+| `Clause` | class | `veritas.linear` | One compiled clause with a stable tracker id. |
+| `ClauseCheckpoint` | class | `veritas.cdcl_jumpback` | — |
+| `ConflictBranchRecord` | class | `veritas.cdcl_jumpback` | — |
+| `ConstraintOutcome` | class | `veritas.instance` | — |
+| `ContainerInfo` | class | `veritas.compiler.vir` | — |
+| `CraneModeController` | class | `veritas.crane_mode` | — |
+| `DeadEnd` | class | `veritas.decode` | Base class for decode failures. |
+| `DecodeConfig` | class | `veritas.decode` | — |
+| `DecodeEngine` | class | `veritas.decode` | One constrained generation over one compiled spec. |
+| `DecodeError` | class | `veritas.decode` | Base class for decode failures. |
+| `DecodeResult` | class | `veritas.decode` | — |
+| `DecodeTelemetry` | class | `veritas.decode` | — |
+| `DependencyGraph` | class | `veritas.compiler.dependency_graph` | — |
+| `Event` | class | `veritas.ltlf` | — |
+| `FAIL` | value | `veritas` | — |
+| `Formula` | class | `veritas.ltlf` | Base class: a predicate over a finite trace. |
+| `Hc4AffineContractor` | class | `veritas.interval` | Hybrid HC4-Revise + AF2 contractor with volume twist support. |
+| `INCOMPLETE` | value | `veritas` | — |
+| `InfeasibleSpecError` | class | `veritas.compiler.preflight` | Inappropriate argument value (of correct type). |
+| `InstanceFormatError` | class | `veritas.instance` | Raised when an instance cannot be interpreted as a mapping of fields. |
+| `Interval` | class | `veritas.interval` | — |
+| `JSONPushdownAutomaton` | class | `veritas.json_pda` | Deterministic JSON prefix recognizer with an explicit container stack. |
+| `JSONSyntaxError` | class | `veritas.json_pda` | Inappropriate argument value (of correct type). |
+| `JumpForwardPrefill` | class | `veritas.token_healer` | Instruction for a batched KV-cache extension. |
+| `LinearForm` | class | `veritas.linear` | ``sum(coeffs[v] * v) + const`` over scalar variables. |
+| `MockCharModel` | class | `veritas.testing` | Prefers a configurable digit order, so unconstrained decoding would fail. |
+| `ModelProtocolError` | class | `veritas.decode` | The supplied model does not implement the text-logit protocol. |
+| `OutlinesAdapter` | class | `veritas` | Minimal adapter exposing the handbook's ``vt.from_outlines`` entry point. |
+| `PASS` | value | `veritas` | — |
+| `PatternConstraint` | class | `veritas.pattern` | An incremental recognizer for one JSON-Schema ``pattern``. |
+| `PreflightResult` | class | `veritas.compiler.vir` | — |
+| `ProofCertificate` | class | `veritas.proof.certificate` | — |
+| `PushdownAutomaton` | class | `veritas.pda` | Byte/char-level JSON PDA with optional vocabulary bitmasks. |
+| `RandomCharModel` | class | `veritas.testing` | Pseudo-random but *deterministic per prefix* logits (for fuzz/property tests). |
+| `ResidualAccumulator` | class | `veritas.interval` | Symbolic residual accumulator for dynamic collections (AGDecode). |
+| `ShadowParser` | class | `veritas.shadow_ast` | — |
+| `SmtBridge` | class | `veritas.smt_bridge` | — |
+| `SoftPreference` | class | `veritas.compiler.vir` | — |
+| `SolverStatus` | class | `veritas.nano_solver` | Enum where members are also (and must be) strings |
+| `StepRecord` | class | `veritas.rl.collector` | — |
+| `StepTrace` | class | `veritas.decode` | — |
+| `StructuredReasoningModel` | class | `veritas.testing` | Emits a ``reasoning`` scratchpad note, mirroring the CRANE idea for tests. |
+| `TabuPrefixTrie` | class | `veritas.cdcl_jumpback` | — |
+| `TokenHealer` | class | `veritas.token_healer` | — |
+| `TokenMasker` | class | `veritas.json_pda` | Exact prefix mask over validated token text, optionally schema-aware. |
+| `TokenizerProtocol` | class | `veritas.token_healer` | Base class for protocol classes. |
+| `Trace` | class | `veritas.ltlf` | An append-only finite trace of named events. |
+| `TranspileError` | class | `veritas.compiler.ast_transpiler` | A schema uses syntax outside the supported, checkable DSL. |
+| `UnsupportedPattern` | class | `veritas.pattern` | The pattern uses a construct this recognizer cannot mask exactly. |
+| `VerificationError` | class | `veritas.instance` | Raised when a concrete instance violates a schema's hard constraints. |
+| `VerificationReport` | class | `veritas.instance` | Result of checking one concrete instance against a compiled spec. |
+| `VerifiedResult` | class | `veritas.proof.certificate` | — |
+| `VerifiedSchema` | class | `veritas.decorators` | — |
+| `VeritasNanoSolver` | class | `veritas.nano_solver` | — |
+| `VeritasRLCollector` | class | `veritas.rl.collector` | — |
+| `VeritasSession` | class | `veritas.decode` | One constrained generation over one compiled spec. |
+| `VirExpr` | class | `veritas.compiler.vir` | — |
+| `VirSpec` | class | `veritas.compiler.vir` | — |
+| `VirType` | class | `veritas.compiler.vir` | — |
+| `WorldState` | class | `veritas.cartridges.sec` | Incremental world state for multi-turn agents and tool guards. |
+| `Z3SmtOracle` | class | `veritas.smt_bridge` | — |
+| `ZeroDofEngine` | class | `veritas.zero_dof` | — |
+| `ZeroDofRule` | class | `veritas.compiler.vir` | — |
+| `ZeroDofRule` | class | `veritas.compiler.vir` | — |
+| `__version__` | value | `veritas` | — |
+| `always` | function | `veritas.ltlf` | — |
+| `analyze_containers` | function | `veritas.compiler.analysis` | Infer container facts from the spec's compiled constraints. |
+| `at_most` | function | `veritas.ltlf` | — |
+| `before` | function | `veritas.ltlf` | — |
+| `build_certificate` | function | `veritas.proof.certificate` | Build a sealed certificate for a concrete instance. |
+| `build_json_key_order` | function | `veritas.compiler.schema_lowering` | — |
+| `check_spec` | function | `veritas.compiler.preflight` | — |
+| `compile_clauses` | function | `veritas.linear` | — |
+| `container_for_name` | function | `veritas.compiler.analysis` | — |
+| `derive` | function | `veritas.decorators` | — |
+| `describe_spec` | function | `veritas.instance` | JSON-able summary used by the CLI and error messages. |
+| `digest_of_instance` | function | `veritas.serde` | — |
+| `doctor` | function | `veritas` | Describe the loaded engine, including whether the native extension is in use. |
+| `dot` | function | `veritas.decorators` | ``vt.dot``: dict·dict, dict·sequence, or sequence·sequence. |
+| `evaluate_formula` | function | `veritas.ltlf` | — |
+| `eventually` | function | `veritas.ltlf` | — |
+| `export_step_dpo` | function | `veritas.rl.collector` | — |
+| `extract_data` | function | `veritas.instance` | Normalize a Pydantic model / mapping / JSON string into a plain dict. |
+| `fill_derived` | function | `veritas.instance` | Evaluate 0-DoF rules in topological order. |
+| `forall` | function | `veritas.decorators` | — |
+| `from_outlines` | function | `veritas` | — |
+| `generate` | function | `veritas.decode` | Run constrained decoding for ``spec`` and return a verified result. |
+| `is_complete_json` | function | `veritas.json_pda` | — |
+| `json_value` | function | `veritas.json_pda` | — |
+| `keys_subset` | function | `veritas.decorators` | — |
+| `linearize` | function | `veritas.linear` | Extract an affine form, or ``None`` when the expression is not affine. |
+| `lower_instance` | function | `veritas.instance` | Return ``(data, env)`` where ``env`` is keyed by both var id and field name. |
+| `lower_pydantic_model` | function | `veritas.compiler.schema_lowering` | — |
+| `mock_model` | function | `veritas.testing` | — |
+| `native` | module | `veritas` | Optional native accelerator: ``crates/veritas-py`` (module name ``veritas_py``). |
+| `never` | function | `veritas.ltlf` | — |
+| `occurred` | function | `veritas.ltlf` | — |
+| `parse_json` | function | `veritas.json_pda` | Strict JSON: no NaN/Infinity, duplicate keys, or unbounded nesting. |
+| `pattern_matches` | function | `veritas.pattern` | Reference ``re``-semantics check (used for tests / non-masked paths). |
+| `prefer` | function | `veritas.decorators` | — |
+| `quad_form` | function | `veritas.decorators` | ``vt.quad_form``: evaluate wᵀΣw, symmetrizing a triangular covariance map. |
+| `render_object` | function | `veritas.json_pda` | — |
+| `render_smt2` | function | `veritas.proof.certificate` | — |
+| `require` | function | `veritas.decorators` | — |
+| `responds` | function | `veritas.ltlf` | — |
+| `run_preflight` | function | `veritas.compiler.preflight` | — |
+| `spec_digest` | function | `veritas.serde` | Content-addressed digest of a spec's *semantics*. |
+| `spec_from_dict` | function | `veritas.serde` | — |
+| `spec_to_dict` | function | `veritas.serde` | — |
+| `sqrt` | function | `veritas.decorators` | — |
+| `sum` | function | `veritas.decorators` | ``vt.sum``: identity for a single iterable, builtin addition for varargs. |
+| `synth` | function | `veritas` | Infer a schema from example JSON objects; see :mod:`veritas.synth`. |
+| `verified_schema` | function | `veritas.decorators` | — |
+| `verified_tool` | function | `veritas` | Wrap a tool so its return value is checked against ``spec`` before use. |
+| `verify` | function | `veritas` | Verify ``instance`` against ``spec`` (a schema object or a ``VirSpec``). |
+| `verify_certificate` | function | `veritas.proof.certificate` | Verify a certificate fully offline. |
+| `verify_instance` | function | `veritas.instance` | Verify a concrete instance against a ``@vt.verified_schema`` or ``VirSpec``. |
+| `verify_json` | function | `veritas.instance` | — |
+| `verify_proof` | function | `veritas` | Verify a proof certificate offline; returns the full check report. |
+| `verify_values` | function | `veritas.instance` | Verify an already-lowered mapping of field values against ``spec``. |
+
 ## Next Steps
 
-- **[Rust PyO3 Native API](/docs/api-reference/rust-pyo3-native-api)** — `veritas._native` exports
-- **[WASM Browser API](/docs/api-reference/wasm-browser-api)** — JavaScript/TypeScript API
-- **[Exceptions & Diagnostics](/docs/api-reference/exceptions-and-diagnostics)** — Error hierarchy
+- **[Rust PyO3 Native API](/docs/api-reference/rust-pyo3-native-api)** — `veritas.native`: availability, wire version, load errors
+- **[WASM Browser API](/docs/api-reference/wasm-browser-api)** — the `veritas-wasm` crate in JavaScript/TypeScript
+- **[Exceptions & Diagnostics](/docs/api-reference/exceptions-and-diagnostics)** — the real hierarchy, telemetry keys and exit codes

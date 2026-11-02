@@ -2,10 +2,7 @@
 title: How Veritas Works
 description: Visual tour of the Veritas pipeline — AST → VIR → PDA/HC4 → 0-DoF → Proof certificate.
 ---
-
 import { Callout, CodeBlock, Badge, Card, CardContent, CardHeader, CardTitle } from '@/components/mdx-components';
-
-# How Veritas Works
 
 This is a guided tour of what happens when you run `decode(schema, prompt, model)`. We'll follow a single token from the LLM all the way to a verified JSON output with a cryptographic proof.
 
@@ -140,32 +137,24 @@ The PDA mask computation runs in Rust and takes just **0.23 milliseconds per tok
 
 </Callout>
 
-### PDA Handle API
+### Pushing a prefix through the PDA
 
-<CodeBlock language="python" code={`from veritas._native import PdaHandle
+<CodeBlock language="python" title="the same machine the decoder runs" code={`from veritas import JSONPushdownAutomaton, TokenMasker
 
-# Create a PDA starting with an open brace
-handle = PdaHandle.new('{')
+machine = JSONPushdownAutomaton()
+assert machine.feed('{"weights": {')
+assert machine.feed('"AAPL": 0.4')
 
-# Feed tokens one at a time
-handle.push('\"')       # Start a string key
-handle.push('w')        # First character of "weights"
-handle.push('e')
-handle.push('i')
-handle.push('g')
-handle.push('h')
-handle.push('t')
-handle.push('s')
-handle.push('\"')       # End the key
-handle.push(':')        # Colon separator
+machine.depth        # 2 — the outer object and the weights object
+machine.state        # 'number' — mid-way through the AAPL value
+machine.accepts()    # False — the document is not closed yet
+machine.is_error()   # False — every prefix so far is legal
 
-# Check what tokens are valid next
-print(handle.accepts('\"'))   # True — can start a value
-print(handle.accepts('}'))    # False — can't close yet, no value
-print(handle.depth())         # 2 — two levels of nesting
-
-# Get the full logit mask
-mask = handle.mask()  # Float32Array: 0.0 for valid, -inf for invalid`} copyable />
+masker = TokenMasker(['"MSFT"', '"NVDA"', '}', ']', '0.1'])
+masker.valid_mask('{"weights": {"AAPL": 0.4')
+# [False, False, True, False, False]
+# Only "}" keeps the prefix parseable: a key needs a comma first,
+# and 0.1 cannot continue the number 0.4.`} copyable />
 
 ---
 
@@ -189,26 +178,34 @@ Tier-1 uses **HC4 (Hull Consistency 4)** interval contractors combined with **Af
 
 3. **Constraint propagation** — If `weight_a + weight_b <= 1.0` and `weight_a` is in `[0.40, 0.50]`, then `weight_b` must be in `[0.00, 0.60]`. Combined with `weight_b >= 0.05`, the interval narrows to `[0.05, 0.60]`.
 
-<CodeBlock language="python" code={`from veritas._native import Interval, AffineForm, Hc4AffineContractor
+<CodeBlock language="python" title="contract a three-way split" code={`from veritas import Interval, AffineForm, Hc4AffineContractor
 
-# Create interval from a numeric prefix
-iv = Interval.from_numeric_prefix('0.47')
-# Interval(lo=0.46999999999999997, hi=0.47000000000000003)
-# Outward rounding: lo rounds down, hi rounds up
-
-# Narrow via HC4 contractor
 contractor = Hc4AffineContractor()
-contractor.contract(iv, constraint='x <= 0.50')
-# Result: Interval(lo=0.469..., hi=0.50) — upper bound tightened
+for var in range(3):
+    contractor.add_variable(var, Interval(0.05, 0.50))
 
-# Affine form tracks noise symbols
-af = AffineForm(value=0.47, noise_symbols=['eps_1'])
-af2 = af * 2.0 + 0.1
-# Noise symbol eps_1 propagates through the computation`} copyable />
+contractor.add_constraint(("sum", [0, 1, 2], 1.0))
+contractor.set_value(0, 0.10)      # the model just emitted weights[0] = 0.10
+contractor.propagate()             # True — the remaining domains are consistent
+
+contractor.get_bounds(1)           # Interval(0.39999999999999997, 0.5)
+
+# A token prefix is rejected only when it cannot reach the contracted interval
+bounds = contractor.get_bounds(1)
+for prefix in ("0.2", "0.4", "0.6"):
+    span = Interval.from_numeric_prefix(prefix, bounds, False)
+    print(prefix, span.is_empty() or span.intersect(bounds).is_empty())
+# 0.2 True    (0.39… – 0.3 cannot reach 0.4)
+# 0.4 False   (outward rounding keeps the boundary reachable — sound, not strict)
+# 0.6 True
+
+# Affine forms carry the first-order error so repeated sums do not drift
+AffineForm.from_interval(Interval(0.40, 0.50))
+# AffineForm(center=0.45, terms=[(0, 0.04999999999999999)], err_radius=0.0)`} copyable />
 
 <Callout variant="check" title="Performance: 3.9 µs">
 
-`Interval.from_numeric_prefix` runs in **3.9 microseconds** — 1.5x faster than the previous 5.7 µs implementation. This is fast enough to run on every single token without adding noticeable latency.
+`Interval.from_numeric_prefix` costs about **5.7 µs per call** on the reference engine and **3.9 µs** with the native accelerator — cheap enough to run on every token, and honest about the fact that the win here is the call boundary, not an algorithm.
 
 </Callout>
 
@@ -233,18 +230,16 @@ You're saying: "expected_return is fully determined by the weights. The LLM does
 1. The `DependencyGraph` knows `expected_return` depends on `weights`
 2. The key ordering puts `weights` before `expected_return`
 3. When the PDA detects that all weight values have been emitted, `ZeroDofRule` triggers
-4. Veritas computes `dot(weights, RETURNS)` deterministically in Rust
+4. Veritas computes `dot(weights, RETURNS)` deterministically (native path when available)
 5. The result is spliced into the token stream — the LLM never samples it
 
-<CodeBlock language="python" code={`from veritas._native import ZeroDofRule, splice_and_step
+<CodeBlock language="text" title="what the decode trace records" code={`state   weights.AAPL=0.40  weights.MSFT=0.35  weights.NVDA=0.25
+rule    derive(expected_return == dot(weights, RETURNS))
+status  READY — all dependencies concrete
 
-rule = ZeroDofRule(vir_spec)
-
-# When all weights are emitted (AAPL=0.40, MSFT=0.35, NVDA=0.25):
-result = splice_and_step(rule, 'expected_return')
-# Computes: 0.40*0.12 + 0.35*0.10 + 0.25*0.15 = 0.1615
-# Splices into token stream: \"expected_return\": 0.1615
-# LLM calls used: 0`} copyable />
+action  splice '"expected_return": 0.1615'
+value   0.40*0.14 + 0.35*0.13 + 0.25*0.24 = 0.1615
+calls   0 LLM forward passes`} copyable />
 
 ### Benefits
 
@@ -252,7 +247,7 @@ result = splice_and_step(rule, 'expected_return')
 | :--- | :--- | :--- |
 | LLM forward passes per derived field | 1+ (LLM guesses) | **0** (computed deterministically) |
 | Numerical guessing | Possible | **Impossible** |
-| Token latency per field | ~50-100 ms | **0.23 ms** |
+| Token latency per field | ~50–100 ms of sampling | **≈ 0** (no forward pass) |
 | Conservation law violations | Possible | **Impossible** |
 
 <Callout variant="check" title="Saves T − 1 Forward Passes">
@@ -281,57 +276,69 @@ Veritas uses **Conflict-Driven Clause Learning (CDCL)**:
 4. **Learn** a half-space domain cut (e.g., `weights.AAPL <= 0.40`)
 5. **Resume** generation with the new constraint in place
 
-<CodeBlock language="python" code={`from veritas._native import CdclJumpbackEngine
+<CodeBlock language="python" code={`import veritas as vt
 
-engine = CdclJumpbackEngine()
+engine = vt.CdclJumpbackEngine()        # lambda_=0.5, gamma=0.1 by default
 
-# On UNSAT conflict at token index 142:
-culprit = engine.find_culprit(trace, conflict_idx=142)
-# culprit.field = 'weights.AAPL'
-# culprit.start_token_idx = 89
-# culprit.entropy_score = 0.94  (high confidence this field caused the conflict)
+# Every sampled clause leaves a checkpoint
+engine.push_checkpoint(
+    vt.ClauseCheckpoint(
+        clause_id=3,
+        var_id="weights.AAPL",
+        committed_val=0.50,
+        start_token_idx=89,
+        mean_shannon_entropy=0.94,
+        token_sequence=['"weights"', ":", "{", '"AAPL"', ":", "0.50"],
+    )
+)
 
-# Rewind and learn
-engine.rewind(culprit.start_token_idx - 1)
-engine.learn_cut(culprit.field, 'weights.AAPL <= 0.40')
-# The model won't try AAPL=0.50 again`} copyable />
+# An UNSAT core names the clauses in conflict; jumpback picks the culprit
+outcome = engine.jumpback([3, 7])
+outcome["target_clause"]   # 3
+outcome["rewind_to"]       # 88
+outcome["tabu_added"]      # True — the pruned prefix will not be retried
+outcome["domain_cut"]      # {'var_id': 'weights.AAPL', 'committed_val': 0.5, 'depth': 3}
+
+engine.apply_domain_cut(outcome["culprit"], "upper")
+# {'var_id': 'weights.AAPL', 'new_upper': 0.5}
+engine.export_records()    # ConflictBranchRecord per conflict, for the trace report`} copyable />
 
 ---
 
 ## Step 6: Proof Certificate
 
-Every verified decode produces a **ProofCertificate** — a tamper-proof record that the output satisfies all constraints.
+Every verified decode can ship with a **ProofCertificate** — a tamper-evident record that the output
+satisfies the constraints, re-checkable offline with no server and no model.
 
-### What's in a Proof
+### What is in a proof
 
-```json
-{
-  "witness_sha256": "a3f5c8d2e1f4...8c21",
-  "smtlib2": "; SMT-LIB2 proof script\n(declare-fun weights.AAPL () Real)\n(assert (= weights.AAPL 0.40))\n(check-sat)",
-  "constraints": [
-    {"id": "sum_weights", "outcome": "PASS", "expression": "sum(weights) == 1.0"},
-    {"id": "sharpe_ratio", "outcome": "SPLICE", "expression": "derive(sharpe_ratio == ...)"}
-  ],
-  "derived_values": {
-    "expected_return": 0.1615,
-    "volatility": 0.1892,
-    "sharpe_ratio": 0.6422
-  },
-  "llm_calls_saved": 24
-}
-```
+<CodeBlock language="json" title="proof.json (abridged)" code={`{
+  "version": "2.0",
+  "sha256": "b05a9b6c8b7ecc11…",
+  "spec_sha256": "fa7eb9478ab88663…",
+  "witness_sha256": "354732bf8bb87825…",
+  "smt2_sha256": "fda1ac1aefa5e74f…",
+  "witness": {"priority": 2, "sla_hours": 12},
+  "spec": {"version": 3, "model": "Ticket", "variables": {...}},
+  "smt2": "; veritas proof certificate (v2.0)\n(set-logic ALL)\n…",
+  "smt2_complete": true,
+  "smt2_omitted": [],
+  "metadata": {}
+}`} copyable />
 
-### Verifying Offline
+### Verifying offline
 
-You can verify this proof without Veritas, without the LLM, and without a server:
-
-```bash
-$ veritas verify-proof proof.json
-✓ SHA-256 witness verified
-✓ SMT-LIB2 script is SAT
-✓ All constraints satisfied
-✓ Proof certificate valid
-```
+<CodeBlock language="bash" code={`$ veritas verify-proof proof.json
+certificate: VALID
+  [ok] version: found '2.0', expected '2.0'
+  [ok] sha256: content digest matches
+  [ok] witness_sha256: witness digest matches
+  [ok] smt2: SMT-LIB2 script present
+  [ok] spec_sha256: embedded spec matches its digest
+  [ok] constraints: PASS: 1 satisfied, 0 violated, 0 unevaluated
+  [ok] smt2_coverage: complete SMT export
+  [ok] smt2_binding: SMT script is bound to the embedded spec and witness
+  [ok] portable_model: structural schema is portable`} copyable />
 
 <Callout variant="check" title="Zero Backend Storage">
 

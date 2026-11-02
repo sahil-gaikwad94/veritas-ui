@@ -2,10 +2,7 @@
 title: Tier 1 — HC4 + AF2 Contractors
 description: Interval, AffineForm, Hc4AffineContractor — outward-rounded interval narrowing for numeric prefixes.
 ---
-
 import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
-
-# Tier 1 — HC4 + AF2 Contractors
 
 Tier 1 is the middle ring of Veritas's three-tier solver horizon. It uses **HC4 (Hull Consistency 4)** interval contractors combined with **Affine Forms** to narrow numeric prefixes in real time — **3.9 µs per contraction**.
 
@@ -31,7 +28,7 @@ Without outward rounding, floating-point errors could make an interval slightly 
 
 ### Example
 
-<CodeBlock language="python" code={`from veritas._native import Interval
+<CodeBlock language="python" code={`from veritas import Interval
 
 # Create interval from a numeric prefix
 iv = Interval.from_numeric_prefix('0.47')
@@ -79,7 +76,7 @@ The noise symbol cancels out exactly, preserving the correlation.
 
 ### Example
 
-<CodeBlock language="python" code={`from veritas._native import AffineForm
+<CodeBlock language="python" code={`from veritas import AffineForm
 
 # Create affine form with noise symbol
 af = AffineForm(value=0.47, noise_symbols=['eps_1'])
@@ -108,7 +105,7 @@ HC4 (Hull Consistency 4) is a constraint propagation algorithm that:
 
 ### Example
 
-<CodeBlock language="python" code={`from veritas._native import Interval, AffineForm, Hc4AffineContractor
+<CodeBlock language="python" code={`from veritas import Interval, AffineForm, Hc4AffineContractor
 
 contractor = Hc4AffineContractor()
 
@@ -134,7 +131,7 @@ contractor.contract([x, y], constraint='x + y <= 1.0')
 
 ## Complete Example: Portfolio Weight Bounds
 
-<CodeBlock language="python" code={`from veritas._native import Interval, Hc4AffineContractor
+<CodeBlock language="python" code={`from veritas import Interval, Hc4AffineContractor
 
 contractor = Hc4AffineContractor()
 

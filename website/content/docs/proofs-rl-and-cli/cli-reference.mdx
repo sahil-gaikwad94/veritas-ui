@@ -1,271 +1,236 @@
 ---
 title: CLI Reference
-description: Complete guide to `doctor`, `check-spec`, `verify`, `verify-proof`, `inspect`, `synth`.
+description: The six subcommands, their real flags, their real output and their exit codes — captured from veritas 2.0.0.
 ---
 
-import { CodeBlock, Callout } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable, StatGrid, Stat } from '@/components/mdx-components';
 
-# CLI Reference
+Six subcommands, one parser, no hidden flags. Every transcript on this page was captured from
+`python -m veritas` 2.0.0 on a reference install, so what you see is what the tool prints.
 
-Complete reference for all 6 Veritas CLI subcommands. Each command is designed for a specific stage of the Veritas workflow.
+<StatGrid>
+  <Stat value="6" label="subcommands" />
+  <Stat value="0/1/2" label="exit codes" tone="pass" />
+  <Stat value="--json" label="on every command" tone="cobalt" />
+  <Stat value="0" label="model calls" />
+</StatGrid>
 
----
-
-## Command Overview
-
-| Command | Purpose | When to Use |
+| Command | Purpose | Typical use |
 | :--- | :--- | :--- |
-| `doctor` | Engine diagnostics | Verify installation, check native extension |
-| `check-spec` | Pre-flight SAT check | Before decoding — verify constraints are satisfiable |
-| `verify` | Instance verification | After decoding — verify a specific output |
-| `verify-proof` | Proof certificate verification | Verify a saved proof offline |
-| `inspect` | Trace inspection | Debug decodes, analyze token-by-token |
-| `synth` | Schema synthesis | Auto-generate `@verified_schema` from JSON samples |
+| `doctor` | Engine, wire version, platform | Install check, deployment health |
+| `check-spec` | Compile + pre-flight a schema | Before generation |
+| `verify` | Verify one JSON instance | After generation, in CI |
+| `verify-proof` | Re-check a certificate offline | Audit trail, tamper detection |
+| `inspect` | Render a decode trace to HTML | Debugging a decode |
+| `synth` | Infer a schema module from examples | Bootstrapping |
 
----
+## `veritas doctor`
 
-## 1. `veritas doctor`
+<CodeBlock language="bash" title="reference engine (default install)" code={`$ veritas doctor
+veritas 2.0.0 on CPython 3.11.2
+  engine    reference python
+  reason    ModuleNotFoundError: No module named 'veritas_py'
+  wire      n/a
+  platform  Linux-6.1.158+-x86_64-with-glibc2.36
+  note      the pure-Python engine is complete; the extension would only be faster.`} copyable />
 
-Inspects engine mode, wire protocol version, platform metadata, and optional Z3 availability.
+`--json` prints the same facts in a stable shape, including the nested engine block:
 
-### Usage
+<CodeBlock language="json" title="veritas doctor --json" code={`{
+  "engine": {
+    "load_error": "ModuleNotFoundError: No module named 'veritas_py'",
+    "name": "python",
+    "native_available": false,
+    "version": "pure",
+    "wire_version": null
+  },
+  "implementation": "CPython",
+  "platform": "Linux-6.1.158+-x86_64-with-glibc2.36",
+  "python": "pure",
+  "python_version": "3.11.2",
+  "version": "2.0.0",
+  "wire_version": null
+}`} copyable />
 
-<CodeBlock language="bash" code={`$ veritas doctor
+<KeyValueTable
+  rows={[
+    { key: '--json', value: 'machine-readable report', note: 'Same keys as veritas.doctor(); sort them yourself' },
+    { key: '--strict', value: 'exit 1 unless accelerated', note: 'Prints error: --strict requires the native extension on stderr' },
+  ]}
+/>
 
-# Expected output:
-# Engine: accelerated (Rust native)
-# Wire Protocol: v2.0
-# Platform: linux-x86_64
-# Z3 Available: true
-# Native Extension: loaded
-# Tests: 499 passing
+<Callout variant="info" title="There are no optional-extras lines here">
+An earlier draft of this page showed `optional z3: available` and a `status OK` line. The command does
+not run the test suite, probe Z3 or print a status keyword — it reports the loaded engine, the wire
+version and the platform, and exits 0 unless `--strict` is set.
+</Callout>
 
-# JSON output (useful for CI/CD scripts)
-$ veritas doctor --json
-# {
-#   "engine": "accelerated",
-#   "wire_protocol": "2.0",
-#   "platform": "linux-x86_64",
-#   "z3": true,
-#   "native": true,
-#   "tests": 499
-# }
+## `veritas check-spec`
 
-# Strict mode — exits with code 1 if Rust native is not loaded
-$ veritas doctor --strict
-# exit code: 0 (if native loaded) or 1 (if native missing)`} copyable />
+<CodeBlock language="bash" title="pre-flight, no tokens" code={`$ veritas check-spec ticket_spec.py
+schema: ticket  (SAT)
+  fields:   priority, sla_hours
+  derived:  -
+  requires: 1  derives: 0
+  digest:   fa7eb9478ab886630f7ae37c0c946c4e1f072481a55f670d69a1167251b5f66b`} copyable />
 
-### Output Fields
+A contradictory schema never gets a report — the compile step raises, the CLI prints the error and
+exits 2:
 
-| Field | Meaning |
-| :--- | :--- |
-| `engine` | `accelerated` = Rust native loaded, `reference` = pure-Python fallback |
-| `wire_protocol` | Internal wire protocol version (currently v2.0) |
-| `platform` | OS and architecture |
-| `z3` | Whether Z3 solver is available |
-| `native` | Whether the Rust `.so`/`.pyd` was loaded |
-| `tests` | Number of passing engine tests |
+<CodeBlock language="bash" code={`$ veritas check-spec window_spec.py
+error: InfeasibleSpecError: Spec window is infeasible at pre-flight
+# exit 2`} copyable />
 
----
+<KeyValueTable
+  rows={[
+    { key: 'target', value: 'path.py[:name] or module[:name]', note: 'Name is only needed when a module declares several schemas' },
+    { key: '--json', value: 'list of described specs', note: 'fields, derived, requires, derives, containers, zero_dof_rules, preflight, digest' },
+  ]}
+/>
 
-## 2. `veritas check-spec`
+<Callout variant="warn" title="UNKNOWN is exit 1, and it is not a failure">
+For a schema whose witness cannot be constructed (a dynamic `dict` container, for example) the verdict
+is `UNKNOWN` and the command exits 1, because it only reports success for a checked `SAT`. Use `--json`
+and read `preflight.status` in CI rather than treating 1 as "the spec is broken": `UNSAT` never gets
+this far, and a real violation shows up in `verify`.
+</Callout>
 
-Compiles a `@verified_schema` into `VirSpec` and runs `run_preflight()` — **0 LLM tokens**.
+## `veritas verify`
 
-### Usage
+<CodeBlock language="bash" title="PASS and FAIL" code={`$ veritas verify ticket_spec.py ticket.json
+ticket: PASS
+  [ok] require: sla_hours <= (24 - (4 * (priority - 1)))
+  digest: fa7eb9478ab886630f7ae37c0c946c4e1f072481a55f670d69a1167251b5f66b
 
-<CodeBlock language="bash" code={`$ veritas check-spec portfolio_spec.py
+$ veritas verify portfolio_spec.py bad_instance.json
+portfolio: FAIL
+  [ok] require: keys_subset(weights, ['AAPL', 'MSFT', 'NVDA'])
+  [ok] require: sum(weights.values()) == 1
+  [FAIL] require: forall(weights.values(), (0.05 <= w ∧ w <= 0.5))
+  ...
+  ! constraint #2 \`forall(weights.values(), (0.05 <= w ∧ w <= 0.5))\` is false
+  digest: 2e8ccb53a6e1981d62f241a080fe044f37bb2eff51057d01c2431f3a08f27591`} copyable />
 
-# Expected output for valid spec:
-# ✓ Spec is SAT — all constraints mutually satisfiable
-# ✓ 0-token pre-flight gate passed
-# ✓ Zero-DoF fields: expected_return, volatility, sharpe_ratio
-# ✓ Interval bounds: weights ∈ [0.05, 0.50]
+`--json` returns the report itself, with the constraint text and residuals:
 
-# Expected output for invalid spec:
-# ✗ Spec is UNSAT — constraints are mutually unsatisfiable
-# ✗ Contradiction: sum(weights) == 1.0 conflicts with forall(weights, w <= 0.20)
+<CodeBlock language="json" title="veritas verify … --json (excerpt)" code={`{
+  "schema": "ticket",
+  "status": "PASS",
+  "summary": "PASS: 1 satisfied, 0 violated, 0 unevaluated",
+  "outcomes": [
+    {
+      "index": 0,
+      "kind": "require",
+      "constraint": "sla_hours <= (24 - (4 * (priority - 1)))",
+      "satisfied": true,
+      "tolerance": 0.0,
+      "residual": -8.0,
+      "detail": ""
+    }
+  ],
+  "derived": {},
+  "unsat_core": [],
+  "relaxation": [],
+  "spec_digest": "fa7eb947…f66b"
+}`} copyable />
 
-# JSON output
-$ veritas check-spec portfolio_spec.py --json
-# {
-#   "sat": true,
-#   "derived_fields": ["expected_return", "volatility", "sharpe_ratio"],
-#   "bounds": {"weights": "[0.05, 0.50]"},
-#   "key_order": ["weights", "expected_return", "volatility", "sharpe_ratio"],
-#   "tokens_saved": 0,
-#   "check_time_ms": 2.3
-# }
+<KeyValueTable
+  rows={[
+    { key: 'instance', value: 'path, or - for stdin', note: 'cat instance.json | veritas verify spec.py -' },
+    { key: '--name', value: 'select a schema', note: 'When the module declares more than one' },
+    { key: '--no-derive', value: 'do not fill derived fields', note: 'Useful to prove the input was complete on its own' },
+    { key: '--json', value: 'VerificationReport as JSON', note: 'status, summary, outcomes, unsat_core, relaxation, digest' },
+  ]}
+/>
 
-# Strict mode for CI
-$ veritas check-spec portfolio_spec.py --strict
-# exit code: 0 (SAT) or 1 (UNSAT)`} copyable />
+`as_dict()` names the constraint text `constraint`, while the dataclass field is `text` — worth knowing
+when you switch between the two.
 
-### Options
+## `veritas verify-proof`
 
-| Option | Description |
-| :--- | :--- |
-| `--json` | JSON output for scripting |
-| `--strict` | Exit code 1 if UNSAT (for CI/CD) |
+<CodeBlock language="bash" title="offline, every check named" code={`$ veritas verify-proof ticket_proof.json
+certificate: VALID
+  [ok] version: found '2.0', expected '2.0'
+  [ok] sha256: content digest matches
+  [ok] witness_sha256: witness digest matches
+  [ok] smt2: SMT-LIB2 script present
+  [ok] spec_sha256: embedded spec matches its digest
+  [ok] constraints: PASS: 1 satisfied, 0 violated, 0 unevaluated
+  [ok] smt2_coverage: complete SMT export
+  [ok] smt2_binding: SMT script is bound to the embedded spec and witness
+  [ok] portable_model: structural schema is portable`} copyable />
 
----
+Coverage is reported, not implied: a certificate whose SMT export omits a constraint still verifies,
+and the check says so — `SMT export omits 1 constraint(s); VIR verification remains authoritative`.
 
-## 3. `veritas verify`
+<CodeBlock language="json" title="veritas verify-proof … --json" code={`{
+  "ok": true,
+  "checks": [{ "name": "version", "ok": true, "detail": "found '2.0', expected '2.0'" }, …],
+  "errors": [],
+  "report": { "status": "PASS", "summary": "PASS: 1 satisfied, 0 violated, 0 unevaluated", … },
+  "spec_sha256": "fa7eb947…"
+}`} copyable />
 
-Runs `verify_instance()` / `verify_json()` — outputs a `VerificationReport` with per-constraint outcomes.
-
-### Usage
-
-<CodeBlock language="bash" code={`$ veritas verify portfolio_spec.py instance.json
-
-# Expected output:
-# VerificationReport:
-#   Status: PASS
-#   Constraints: 5/5 passed
-#   Derived: expected_return=0.1615, volatility=0.1892, sharpe_ratio=0.6422
-#   Witness SHA-256: a3f5c8...8c21
-#   LLM calls saved: 24
-
-# JSON output
-$ veritas verify portfolio_spec.py instance.json --json
-# {
-#   "status": "PASS",
-#   "constraints": [
-#     {"id": "sum_weights", "outcome": "PASS"},
-#     {"id": "sharpe_ratio", "outcome": "SPLICE"}
-#   ],
-#   "derived_values": {"expected_return": 0.1615, ...},
-#   "witness_sha256": "a3f5c8...8c21"
-# }`} copyable />
-
-### Verification Statuses
-
-| Status | Meaning |
-| :--- | :--- |
-| `PASS` | All constraints satisfied |
-| `FAIL` | At least one constraint violated |
-| `INCOMPLETE` | Document is incomplete (not all fields present) |
-
-### Constraint Outcomes
-
-| Outcome | Meaning |
-| :--- | :--- |
-| `PASS` | Constraint verified as true |
-| `FAIL` | Constraint violated |
-| `SPLICE` | Zero-DoF derived field (computed, not sampled) |
-
----
-
-## 4. `veritas verify-proof`
-
-Offline cryptographic verification of a saved `ProofCertificate`.
-
-### Usage
-
-<CodeBlock language="bash" code={`$ veritas verify-proof proof.json
-
-# Expected output:
-# ✓ SHA-256 witness verified
-# ✓ SMT-LIB2 script is SAT
-# ✓ All constraints satisfied
-# ✓ Proof certificate valid
-
-# JSON output
-$ veritas verify-proof proof.json --json
-# {
-#   "valid": true,
-#   "witness_verified": true,
-#   "smtlib2_sat": true,
-#   "constraints_passed": 5,
-#   "constraints_failed": 0
-# }`} copyable />
-
-### What It Verifies
-
-1. **SHA-256 witness** — The digest matches the output
-2. **SMT-LIB2 script** — The proof script is satisfiable
-3. **All constraints** — Every `require` and `derive` is satisfied
-
----
-
-## 5. `veritas inspect`
-
-Generates a standalone dark-mode HTML execution trace viewer.
-
-### Usage
+## `veritas inspect`
 
 <CodeBlock language="bash" code={`$ veritas inspect trace.json --out report.html
-# Generated: report.html
+trace: trace.json
+  status: PASS
+  steps: 25  backtracks: 1  jump-forward fields: 6
+  report: report.html`} copyable />
 
-# JSON output
-$ veritas inspect trace.json --out report.html --json
-# {
-#   "total_steps": 142,
-#   "backtracks": 3,
-#   "splices": 7,
-#   "final_status": "PASS"
-# }`} copyable />
+The viewer is a single standalone HTML file — no server, no assets. Without `--out` the report is written
+next to the trace with an `.html` suffix. `--json` returns the trace path, the HTML path and the whole
+telemetry dictionary.
 
-### What the Viewer Shows
+## `veritas synth`
 
-| Element | Description |
-| :--- | :--- |
-| Summary KPI cards | Total steps, backtracks, jump-forward fields, final status |
-| Step-by-step table | Step #, field, token, kind (sample/splice/backtrack), notes |
-| Shannon entropy bars | Visual entropy at each step |
-| Token classification | Blue=sample, Green=splice, Amber/Red=backtrack |
+<CodeBlock language="bash" code={`$ veritas synth --from-json examples.json --out generated_schema.py
+wrote generated_schema.py
 
-<Callout variant="info" title="Interactive Viewer on Website">
+$ veritas check-spec generated_schema.py
+schema: synthesized  (SAT)
+  fields:   sku, quantity, unit_price
+  derived:  -
+  requires: 2  derives: 0`} copyable />
 
-The [/playground](/playground) includes an interactive trace viewer with timeline scrubbing — step forward/backward token-by-token.
+The generated module is a normal `@vt.verified_schema` with bounded ranges inferred from the examples:
+
+<CodeBlock language="python" title="generated_schema.py (excerpt)" code={`class Synthesized(BaseModel):
+    sku: str = 'ABC-1234'
+    quantity: int = 2
+    unit_price: float = 19.5
+
+@vt.verified_schema()
+def synthesized(p: Synthesized):
+    vt.require((1 <= p.quantity) & (p.quantity <= 5))
+    vt.require((-19.325 <= p.unit_price) & (p.unit_price <= 263.575))`} copyable />
+
+<KeyValueTable
+  rows={[
+    { key: '--from-json', value: 'examples file', note: 'Required for this build' },
+    { key: '--from-doc', value: 'refuses without a model adapter', note: 'error: --from-doc requires a model adapter (not available in this build)' },
+    { key: '--name', value: 'class name', note: 'Defaults to Synthesized' },
+    { key: '--out', value: 'write to a file', note: 'Omit to print the module to stdout' },
+    { key: '--no-ranges', value: 'skip range inference', note: 'Keeps only the types' },
+  ]}
+/>
+
+## Exit codes
+
+| Code | Meaning | When |
+| :--- | :--- | :--- |
+| 0 | Success | PASS, VALID, SAT, healthy `doctor` |
+| 1 | Failed check | FAIL, invalid certificate, `UNKNOWN`/`UNSAT` pre-flight, `doctor --strict` without the accelerator |
+| 2 | Bad input | `InfeasibleSpecError` at import, missing argument, unreadable file |
+
+<Callout variant="tip" title="Scripting without guessing">
+`--json` is available on all six commands, and stdout carries only the payload while errors go to
+stderr. In CI, parse `status`/`ok`/`preflight.status` rather than matching English strings.
 
 </Callout>
 
----
-
-## 6. `veritas synth`
-
-Auto-infers `@verified_schema` from sample JSON payloads.
-
-### Usage
-
-<CodeBlock language="bash" code={`$ veritas synth --from-json examples.json --out generated_schema.py
-# Inferred 3 samples, 7 fields, 2 conservation laws
-# Generated: generated_schema.py
-
-# JSON output
-$ veritas synth --from-json examples.json --json
-# {
-#   "samples": 3,
-#   "fields": 7,
-#   "conservation_laws": 2,
-#   "inferred_bounds": {...},
-#   "schema": "@verified_schema\\ndef inferred_schema(obj: dict):\\n    ..."
-# }`} copyable />
-
-### Options
-
-| Option | Description | Default |
-| :--- | :--- | :--- |
-| `--from-json <file>` | Path to JSONL file with samples | Required |
-| `--out <file>` | Output Python file path | stdout |
-| `--tolerance <float>` | Numeric bound tolerance | `1e-6` |
-| `--conservation-laws` | Auto-detect linear conservation laws | `true` |
-
----
-
-## Exit Codes
-
-| Code | Meaning |
-| :--- | :--- |
-| 0 | Success |
-| 1 | Verification failure / UNSAT |
-| 2 | Invalid schema or arguments |
-| 3 | Pre-flight gate failure |
-
----
-
 ## Next Steps
 
-- **[API Reference — Python](/docs/api-reference/python-public-api)** — All 65+ exported symbols
-- **[API Reference — WASM](/docs/api-reference/wasm-browser-api)** — JavaScript/TypeScript API
+- **[Python API](/docs/api-reference/python-public-api)** — all 128 exported symbols
+- **[Exceptions & Diagnostics](/docs/api-reference/exceptions-and-diagnostics)** — hierarchy and telemetry

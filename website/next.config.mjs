@@ -4,16 +4,15 @@ import { createMDX } from 'fumadocs-mdx/next';
 const config = {
   reactStrictMode: true,
   output: 'standalone',
+  poweredByHeader: false,
+  allowedDevOrigins: ['*.e2b.app'],
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'framer-motion'],
+  },
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'github.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'raw.githubusercontent.com',
-      },
+      { protocol: 'https', hostname: 'github.com' },
+      { protocol: 'https', hostname: 'raw.githubusercontent.com' },
     ],
   },
 };

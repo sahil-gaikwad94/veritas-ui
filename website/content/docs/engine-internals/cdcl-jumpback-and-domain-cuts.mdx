@@ -2,10 +2,7 @@
 title: CDCL Jumpback & Domain Cuts
 description: CdclJumpbackEngine, entropy culprit score, TabuPrefixTrie — conflict-driven backjumping without full prompt retry.
 ---
-
 import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
-
-# CDCL Jumpback & Domain Cuts
 
 When a UNSAT conflict is detected during decoding, Veritas doesn't retry the whole prompt — wasting all tokens generated so far. Instead, it uses **Conflict-Driven Clause Learning (CDCL)** to pinpoint the exact field responsible, rewind the token stream, and learn a half-space domain cut.
 
@@ -38,7 +35,7 @@ The CDCL jumpback engine analyzes UNSAT conflicts and:
 
 ### Example
 
-<CodeBlock language="python" code={`from veritas._native import CdclJumpbackEngine
+<CodeBlock language="python" code={`from veritas import CdclJumpbackEngine
 
 engine = CdclJumpbackEngine()
 
@@ -161,7 +158,7 @@ CDCL jumpback typically saves 60-90% of tokens compared to full prompt retry —
 
 ## Complete Example
 
-<CodeBlock language="python" code={`from veritas._native import CdclJumpbackEngine
+<CodeBlock language="python" code={`from veritas import CdclJumpbackEngine
 
 engine = CdclJumpbackEngine()
 

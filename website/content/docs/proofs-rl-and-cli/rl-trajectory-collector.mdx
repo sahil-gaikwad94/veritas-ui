@@ -1,128 +1,103 @@
 ---
-title: RL Trajectory Collector
-description: Exporting CDCL jumpbacks to DPO / Process-GRPO datasets — free post-training data from every decode.
+title: RL trajectory collector
+description: Turn conflict branches and repair steps into DPO / Process-GRPO rows with a manifest and SHA-256 digest.
 ---
 
-import { CodeBlock, Callout } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
-# RL Trajectory Collector
+Every UNSAT branch is a rejected completion. Every repair is a chosen one. `VeritasRLCollector` records
+those pairs while you decode and exports them as training rows — with a digest so the dataset is
+reproducible.
 
-Veritas automatically turns every CDCL jumpback into step-level **DPO / Process-GRPO preference trajectories** — free post-training data from every decode, zero annotation cost.
-
----
-
-## What Is the RL Collector?
-
-The `rl.collector` module collects preference data from Veritas decodes:
-
-- **Accepted completions** (verified, all constraints PASS) → positive examples
-- **Rejected branches** (CDCL jumpback targets, UNSAT) → negative examples
-- **Preference scores** (entropy-weighted culprit scores) → weighting for training
-
----
-
-## `Collector` API
-
-<CodeBlock language="python" code={`from veritas.rl import Collector
-
-collector = Collector(output_dir=\"./dpo_dataset\")
-
-# After each decode, collect trajectories
-collector.collect(
-    trace=trace,
-    accepted=accepted_completion,   # Verified output
-    rejected=rejected_branch,       # CDCL jumpback target
-    preference_score=culprit_entropy,  # How confident we are
-)
-
-# Export as JSONL for DPO / Process-GRPO training
-collector.export_jsonl(\"preferences.jsonl\")`} copyable />
-
-### Collector Methods
-
-| Method | Description |
-| :--- | :--- |
-| `collect(trace, accepted, rejected, preference_score)` | Collect one preference pair |
-| `export_jsonl(path)` | Export all collected pairs as JSONL |
-| `export_dpo(path)` | Export in DPO format |
-| `export_process_grpo(path)` | Export in Process-GRPO format |
-| `clear()` | Clear collected data |
-
----
-
-## Trajectory Format
-
-### JSONL Format
-
-```jsonl
-{"prompt": "Create a portfolio", "chosen": "{\"weights\": {\"AAPL\": 0.40, \"MSFT\": 0.35, \"NVDA\": 0.25}, \"expected_return\": 0.1615}", "rejected": "{\"weights\": {\"AAPL\": 0.50, \"MSFT\": 0.45, \"NVDA\": 0.30}, \"expected_return\": 0.2100}", "score": 0.94}
-{"prompt": "Create a low-volatility portfolio", "chosen": "{\"weights\": {\"AAPL\": 0.30, \"MSFT\": 0.40, \"NVDA\": 0.30}}", "rejected": "{\"weights\": {\"AAPL\": 0.60, \"MSFT\": 0.20, \"NVDA\": 0.20}}", "score": 0.87}
-```
-
-### DPO Format
-
-| Field | Meaning |
-| :--- | :--- |
-| `prompt` | The user's request |
-| `chosen` | Verified completion (all constraints PASS) |
-| `rejected` | Rejected branch (CDCL jumpback target) |
-| `score` | Preference score (0.0 to 1.0) |
-
----
-
-## Why Free RL Data Matters
-
-<Callout variant="check" title="Zero Annotation Cost">
-
-Every Veritas decode generates training data:
-
-- Every **rejected UNSAT branch** = negative example (what NOT to do)
-- Every **verified completion** = positive example (what TO do)
-- Every **CDCL jumpback** = preference pair with confidence score
-
-No human annotation needed — the data is generated automatically during normal usage.
-
+<Callout variant="warn" title="A record is not automatically a pair">
+`record_conflict_branch(...)` without a chosen completion is an **incomplete** record. It is kept, but
+`export_step_dpo()` skips it: a rejected branch with no accepted counterpart is not a preference pair.
+Only `record_repair(...)` or `add_preference(...)` completes it.
 </Callout>
 
-### DPO vs. Process-GRPO
+## API
 
-| Format | Use Case | Best For |
-| :--- | :--- | :--- |
-| **DPO** | Direct Preference Optimization | Pairwise preferences, simple alignment |
-| **Process-GRPO** | Process-level reward | Step-by-step credit assignment, complex reasoning |
+<KeyValueTable
+  rows={[
+    { key: 'VeritasRLCollector()', value: 'records, steps' },
+    { key: 'add_preference(prompt, chosen, rejected, *, unsat_core=None, margin=0.0, metadata=None)', value: 'ConflictBranchRecord' },
+    { key: 'record_conflict_branch(state, clause, core_nodes, *, prompt, rejected, margin)', value: 'ConflictBranchRecord' },
+    { key: 'record_repair(record, chosen)', value: 'same record, now complete' },
+    { key: 'record_step(step)', value: 'StepRecord' },
+    { key: 'process_reward(...)', value: 'step-level reward' },
+    { key: 'export_step_dpo(path="traces/")', value: 'dict with file, num_records, sha256, manifest' },
+    { key: 'export_grpo(path="traces/")', value: 'dict with file, num_records, sha256, manifest' },
+    { key: 'to_hf_dataset(kind="dpo")', value: 'payload for datasets without importing it' },
+    { key: 'clear()', value: 'drop all records' },
+  ]}
+/>
 
----
+<CodeBlock language="python" title="collect and export" code={`from veritas.rl.collector import VeritasRLCollector
 
-## Complete Example
+collector = VeritasRLCollector()
 
-<CodeBlock language="python" code={`from veritas import decode
-from veritas.rl import Collector
+# A branch that failed, and the completion that replaced it
+record = collector.record_conflict_branch(
+    state=None, clause=None, core_nodes=["weights.sum"],
+    prompt="propose a portfolio",
+    rejected='{"weights": {"AAPL": 0.5, "MSFT": 0.45, "NVDA": 0.3}}',
+    margin=0.25,
+)
+collector.record_repair(record, chosen='{"weights": {"AAPL": 0.40, "MSFT": 0.35, "NVDA": 0.25}}')
 
-collector = Collector(output_dir=\"./dpo_dataset\")
-
-# Decode with Veritas
-result = decode(
-    schema=valid_portfolio,
-    prompt="Create a low-volatility portfolio",
-    model="gpt-4o",
+# Or record a pair directly
+collector.add_preference(
+    prompt="propose a low-volatility portfolio",
+    chosen='{"weights": {"AAPL": 0.45, "MSFT": 0.40, "NVDA": 0.15}}',
+    rejected='{"weights": {"AAPL": 0.60, "MSFT": 0.20, "NVDA": 0.20}}',
+    unsat_core=["volatility <= 0.20"],
 )
 
-# Collect trajectory if there was a CDCL jumpback
-if result.trace.has_backtracks:
-    collector.collect(
-        trace=result.trace,
-        accepted=result.output,
-        rejected=result.trace.rejected_branch,
-        preference_score=result.trace.culprit_entropy,
+dpo = collector.export_step_dpo("./traces")
+print(dpo["num_records"], dpo["sha256"], dpo["manifest"])
+# 2  <sha256>  ./traces/manifest.json`} copyable />
+
+<Callout variant="info" title="Manifest, not vibes">
+Each export writes a JSONL file plus a manifest containing the file digest and row count. That lets you
+point at an exact dataset revision during training and reproduce the collection run.
+</Callout>
+
+## What gets exported
+
+| Export | File | Rows |
+| :--- | :--- | :--- |
+| `export_step_dpo` | `step_dpo.jsonl` | `{prompt, chosen, rejected, metadata{unsat_core, violation_margin}}` |
+| `export_grpo` | `process_grpo.jsonl` | one row per recorded step with its reward |
+
+`export_step_dpo` refuses records where `prompt`, `chosen` or `rejected` is empty, or where
+`chosen == rejected`. `total_conflicts` in the returned dict tells you how many raw records existed, so
+the difference is auditable.
+
+## Wiring it into a decode
+
+<CodeBlock language="python" title="collect from a real run" code={`import veritas as vt
+from veritas.rl.collector import VeritasRLCollector
+
+collector = VeritasRLCollector()
+result = vt.generate(model=model, prompt="propose a portfolio", spec=portfolio)
+
+if result.report.status != "PASS":
+    collector.record_conflict_branch(
+        core_nodes=result.report.unsat_core or [],
+        prompt="propose a portfolio",
+        rejected=result.raw,
+        margin=0.1,
     )
+# then complete the pair with the next verified attempt via record_repair(...)
 
-# Export for training
-collector.export_jsonl(\"./preferences.jsonl\")
-# 1,247 preference pairs collected`} copyable />
+collector.export_grpo("./traces")`} copyable />
 
----
+## Limits
 
-## Next Steps
+- This is **data plumbing**, not a trainer. No loss, no optimiser, no model.
+- Rewards and margins are values you supply; the collector does not estimate them.
+- Metadata is copied verbatim — never put credentials or personal data there.
+- The `datasets` extra is only needed if you feed the exported files into Hugging Face tooling; the
+  collector itself has no such dependency.
 
-- **[CLI Reference](/docs/proofs-rl-and-cli/cli-reference)** — All 6 CLI subcommands
-- **[Proof Certificates](/docs/proofs-rl-and-cli/proof-certificates)** — SHA-256 verification
+Next: [CLI reference](/docs/proofs-rl-and-cli/cli-reference).

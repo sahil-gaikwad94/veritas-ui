@@ -1,214 +1,172 @@
 ---
 title: Pre-Flight SAT Gate
-description: run_preflight, check_spec, InfeasibleSpecError, CircularDerivationError — 0-token contradiction checking before any LLM call.
+description: run_preflight, PreflightResult, InfeasibleSpecError — 0-token contradiction checking before any model call.
 ---
 
-import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable, StatGrid, Stat } from '@/components/mdx-components';
 
-# Pre-Flight SAT Gate
+Before Veritas touches a GPU or spends a token, it checks whether the constraints can be satisfied at
+all. That is the whole promise of the gate: **0 LLM tokens**, pure local computation, and a verdict you
+can put in CI.
 
-Before Veritas ever touches the GPU or spends a single LLM token, it proves that your constraints are **mutually satisfiable**. The pre-flight gate runs in **0 LLM tokens** — it's pure local computation that catches infeasible specs, circular derivations, and contradictory bounds up front.
+<StatGrid>
+  <Stat value="0" label="tokens spent" tone="pass" />
+  <Stat value="SAT" label="checked witness" tone="cobalt" />
+  <Stat value="UNKNOWN" label="never a guess" />
+  <Stat value="2" label="exit codes that matter" />
+</StatGrid>
 
----
+## Why it matters
 
-## Why Pre-Flight Matters
+Six weights capped at 15% cannot sum to 100%. Without pre-flight you would pay for every token of a
+decode that can never succeed:
 
-Without a pre-flight check, you might spend hundreds of LLM tokens trying to generate an output that's mathematically impossible. For example:
+<CodeBlock language="python" title="contradiction by arithmetic" code={`require(sum(p.weights.values()) == 1.0)                     # 100% invested
+require(forall(p.weights.values(), lambda w: w <= 0.15))    # 6 x 0.15 = 0.90 < 1.0
 
-```python
-# These constraints can never both be true:
-require(sum(p.weights.values()) == 1.0)           # 6 stocks must sum to 100%
-require(forall(p.weights.values(), lambda w: w <= 0.20))  # But each ≤ 20% (max 120% total with 6)
-# 6 × 0.20 = 1.20, but sum must be 1.0 — CONTRADICTION
-```
+# InfeasibleSpecError: Spec portfolio is infeasible at pre-flight`} copyable />
 
-Without pre-flight, the LLM would generate tokens forever, never finding a valid solution. With pre-flight, Veritas detects the contradiction instantly and tells you exactly what's wrong.
+## Where the verdict comes from
 
----
+Compilation and pre-flight happen when a `@verified_schema` module is imported, not when you first call
+`verify`. The check runs the pipeline in this order:
 
-## `run_preflight()`
+1. transpile the decorated function into a `VirSpec` and build the dependency graph;
+2. contract numeric domains with the HC4/interval layer;
+3. check container feasibility for dynamic maps and residual sums;
+4. solve the exact rational linear relaxation, including strict-bound refutation;
+5. synthesise and *check* string/format witnesses;
+6. only then — if a concrete witness survived — report `SAT`.
 
-### What It Does
+A step that cannot decide returns `UNKNOWN`. It never turns "unsupported" into "true".
 
-`run_preflight()` runs the complete pre-flight check pipeline:
+## `schema.preflight` and `run_preflight(spec)`
 
-1. **Compiles** your Python schema into `VirSpec` (Veritas Intermediate Representation)
-2. **Builds the dependency graph** and determines key ordering
-3. **Runs interval contraction** to verify numeric bounds are feasible
-4. **Checks exact affine feasibility** to ensure linear constraints don't contradict
-5. **Detects circular derivations** (e.g., A derives B, B derives A)
-6. **Performs strict-bound refutation** — proves no solution exists if bounds are too tight
-7. **Synthesizes regex/format string witnesses** — verifies string constraints are satisfiable
+<CodeBlock language="python" title="reading the result" code={`from portfolio_spec import portfolio          # pre-flight already ran at import
+from veritas import run_preflight
 
-### Syntax
+report = portfolio.preflight                  # PreflightResult, computed once
+print(report.status)                          # 'SAT' | 'UNKNOWN' | 'UNSAT'
+print(report.is_sat)                          # True only for a checked witness
+print(report.witness)                         # the witness that was checked, when there is one
+print(report.details)                         # why it is UNKNOWN, in English
 
-```python
-from veritas import run_preflight, InfeasibleSpecError, CircularDerivationError
+fresh = run_preflight(portfolio.spec)         # re-run against the compiled spec
+assert fresh.status == report.status`} copyable />
 
-try:
-    report = run_preflight(my_schema)
-    print(f\"SAT: {report.sat}\")
-    print(f\"Derived fields: {report.derived_fields}\")
-    print(f\"Bounds: {report.bounds}\")
-except InfeasibleSpecError as e:
-    print(f\"Infeasible: {e.message}\")
-    print(f\"Minimal relaxation: {e.minimal_relaxation}\")
-except CircularDerivationError as e:
-    print(f\"Circular: {e.derivation_chain}\")`} copyable />
+<KeyValueTable
+  rows={[
+    { key: 'status', value: "'SAT' | 'UNKNOWN' | 'UNSAT'", note: 'UNSAT never escapes the decorator: it raises instead' },
+    { key: 'witness', value: 'dict | None', note: 'The concrete assignment that was verified for SAT' },
+    { key: 'domains', value: 'dict[int, tuple]', note: 'Post-contraction interval per variable id' },
+    { key: 'conflicts', value: 'list[int]', note: 'Constraint indices implicated in an UNSAT core' },
+    { key: 'relaxation', value: 'dict | None', note: 'details, hints and a suggestion when a conflict is understood' },
+    { key: 'details', value: 'list[str]', note: 'Human-readable reasons, including the witness check failure' },
+    { key: 'constraint_indices', value: 'list[int]', note: 'Constraints the check actually examined' },
+  ]}
+/>
 
-### Return Value: PreflightReport
+<Callout variant="warn" title="UNKNOWN is not a failure">
+`UNKNOWN` means pre-flight could not construct a witness — the usual cause is a dynamic `dict`
+container, whose key set is not known until values arrive. The spec can still be perfectly good: `verify`
+decides every concrete instance, and generation has its own masks. Treat `UNKNOWN` as "not proved here",
+not as "broken".
+</Callout>
 
-| Field | Type | Description |
-| :--- | :--- | :--- |
-| `sat` | `bool` | Whether the spec is satisfiable |
-| `derived_fields` | `List[str]` | Fields that will be Zero-DoF spliced |
-| `bounds` | `Dict[str, Interval]` | Inferred bounds for each numeric field |
-| `key_order` | `List[str]` | Topologically sorted JSON key order |
-| `contradictions` | `List[str]` | Any detected contradictions (empty if SAT) |
+## The CLI: `veritas check-spec`
 
----
+<CodeBlock language="bash" title="a scalar schema: SAT, exit 0" code={`$ veritas check-spec ticket_spec.py
+schema: ticket  (SAT)
+  fields:   priority, sla_hours
+  derived:  -
+  requires: 1  derives: 0
+  digest:   fa7eb9478ab886630f7ae37c0c946c4e1f072481a55f670d69a1167251b5f66b`} copyable />
 
-## `check-spec` CLI
+<CodeBlock language="bash" title="a dynamic container: UNKNOWN, exit 1" code={`$ veritas check-spec portfolio_spec.py
+schema: portfolio  (UNKNOWN)
+  fields:   weights, expected_return, volatility, sharpe
+  derived:  expected_return, volatility, sharpe
+  requires: 4  derives: 3
+  digest:   8578b89ceb5e41bef703919daf8242338cb963442908cecdb24e0475e96d28c0`} copyable />
 
-The `veritas check-spec` command runs the pre-flight check from the command line — ideal for CI/CD pipelines and pre-commit hooks.
+<CodeBlock language="bash" title="a contradiction: exit 2, no report" code={`$ veritas check-spec window_spec.py
+error: InfeasibleSpecError: Spec window is infeasible at pre-flight
+# exit 2`} copyable />
 
-### Basic Usage
+`--json` returns one object per schema with `fields`, `derived`, `requires`, `derives`, `containers`,
+`zero_dof_rules`, `preflight: {status, conflicts, relaxation}` and `digest` — parse `preflight.status`
+rather than the exit code when you need to distinguish `UNKNOWN` from `UNSAT`.
 
-<CodeBlock language="bash" code={`$ veritas check-spec portfolio_spec.py
+<Callout variant="info" title="There is no --strict on check-spec">
+Only `doctor` has `--strict`. `check-spec` exits 0 for `SAT`, 1 for `UNKNOWN`/`UNSAT`, and 2 when the
+module raises at import.
+</Callout>
 
-# Expected output for a valid spec:
-# ✓ Spec is SAT — all constraints mutually satisfiable
-# ✓ 0-token pre-flight gate passed
-# ✓ Zero-DoF fields: expected_return, volatility, sharpe_ratio
-# ✓ Interval bounds: weights ∈ [0.05, 0.50]
-
-# Expected output for an invalid spec:
-# ✗ Spec is UNSAT — constraints are mutually unsatisfiable
-# ✗ Contradiction: sum(weights) == 1.0 conflicts with forall(weights, w <= 0.20)
-# ✗ Suggested relaxation: increase max weight to 0.25 or reduce stock count`} copyable />
-
-### JSON Output (for CI/CD)
-
-<CodeBlock language="bash" code={`$ veritas check-spec portfolio_spec.py --json
-# {
-#   "sat": true,
-#   "derived_fields": ["expected_return", "volatility", "sharpe_ratio"],
-#   "bounds": {"weights": "[0.05, 0.50]"},
-#   "key_order": ["weights", "expected_return", "volatility", "sharpe_ratio"],
-#   "tokens_saved": 0,
-#   "check_time_ms": 2.3
-# }`} copyable />
-
-### Strict Mode for CI
-
-<CodeBlock language="bash" code={`# Exits with code 1 if the spec is not SAT — ideal for CI
-$ veritas check-spec portfolio_spec.py --strict
-# exit code: 0 (SAT) or 1 (UNSAT)`} copyable />
-
----
-
-## Error Types
+## Errors
 
 ### `InfeasibleSpecError`
 
-**When:** Your constraints are mutually unsatisfiable — no assignment of values can satisfy all of them.
+Raised at import when the spec cannot be satisfied. It carries the indices that conflict and, when the
+cause is understood, a structured relaxation hint:
 
-**What it provides:**
-- `e.message` — Human-readable description of the conflict
-- `e.minimal_relaxation` — Suggested change to make the spec feasible
-- `e.conflicting_constraints` — List of constraint IDs that conflict
-
-<CodeBlock language="python" code={`from veritas import run_preflight, InfeasibleSpecError
+<CodeBlock language="python" code={`import veritas as vt
 
 try:
-    report = run_preflight(bad_schema)
-except InfeasibleSpecError as e:
-    print(f\"Message: {e.message}\")
-    # \"sum(weights) == 1.0 conflicts with forall(weights, w <= 0.20) for 6 stocks\"
-    print(f\"Relaxation: {e.minimal_relaxation}\")
-    # \"Increase max weight to 0.17 or reduce to 5 stocks\"
-    print(f\"Conflicts: {e.conflicting_constraints}\")
-    # [\"sum_weights == 1.0\", \"weight_bounds <= 0.20\"]`} copyable />
+    from window_spec import window        # end >= 8 and end <= 3
+except vt.InfeasibleSpecError as exc:
+    print(exc)                            # Spec window is infeasible at pre-flight
+    print(exc.conflicts)                  # [0, 1]
+    print(exc.relaxation["details"])
+    # ['exact rational linear relaxation is infeasible',
+    #  "'end' has lower bound 8 above upper bound 3"]
+    print(exc.relaxation["hints"])
+    # ['constraint #0 \`end >= 8\` participates in a conflict', ...]
+    print(exc.relaxation["suggestion"])
+    # 'Relax a listed constraint or a field bound.'`} copyable />
+
+It subclasses `ValueError`, so `except ValueError` also catches it — and so does `except Exception`,
+which is why the specific class is worth naming.
 
 ### `CircularDerivationError`
 
-**When:** Your `derive` statements form a cycle — A derives B, and B derives A (directly or indirectly).
+A `derive` chain that feeds back into itself. The exception is plain: one message, no attributes.
 
-**What it provides:**
-- `e.derivation_chain` — The chain of fields forming the cycle
-- `e.fields` — List of fields involved in the cycle
+<CodeBlock language="python" code={`try:
+    from circular_spec import circular
+except vt.CircularDerivationError as exc:
+    print(exc)     # Cycle detected in vt.derive dependency graph`} copyable />
 
-<CodeBlock language="python" code={`from veritas import run_preflight, CircularDerivationError
-
-# This schema has a circular derivation:
-#   derive(p.a == p.b + 1)
-#   derive(p.b == p.a + 1)
-
-try:
-    report = run_preflight(circular_schema)
-except CircularDerivationError as e:
-    print(f\"Chain: {e.derivation_chain}\")
-    # [\"a -> b -> a\"]
-    print(f\"Fields: {e.fields}\")
-    # [\"a\", \"b\"]`} copyable />
-
-### `StrictBoundRefutation`
-
-**When:** The affine feasibility check proves that no solution exists within the given bounds.
-
-**What it provides:**
-- `e.bound_field` — The field whose bounds are too tight
-- `e.current_bounds` — The current `[lo, hi]` interval
-- `e.required_bounds` — The bounds needed for feasibility
-
----
-
-## Error Type Summary
-
-| Error | Meaning | Common Cause | Resolution |
-| :--- | :--- | :--- | :--- |
-| `InfeasibleSpecError` | No solution satisfies all constraints | Contradictory `require` statements | Relax bounds, remove contradictions |
-| `CircularDerivationError` | `derive` cycle detected | A derives B, B derives A | Break the cycle, reorder derivations |
-| `StrictBoundRefutation` | Bounds too tight for feasibility | Interval bounds exclude all solutions | Widen intervals, reduce precision |
-
-<Callout variant="warn" title="Always Run Pre-Flight">
-
-Always run `veritas check-spec` before deploying a schema to production. A failed pre-flight check saves **every token** that would have been wasted on an infeasible decode.
-
+<Callout variant="warn" title="No StrictBoundRefutation, no derived_fields">
+Earlier drafts of this page described a `StrictBoundRefutation` class and read `report.sat`,
+`report.derived_fields` and `report.bounds`. None of those exist: strict-bound refutation is a step
+inside pre-flight that contributes to `status` and `details`, and the report fields are the ones in the
+table above.
 </Callout>
 
----
+## Complete example
 
-## Complete Example
+<CodeBlock language="python" title="pre-flight before decode" code={`import veritas as vt
+from pydantic import BaseModel, Field
 
-<CodeBlock language="python" code={`from veritas import verified_schema, require, derive, sum, dot, forall
-from veritas import run_preflight, InfeasibleSpecError, CircularDerivationError
+RETURNS = {"AAPL": 0.12, "MSFT": 0.10, "NVDA": 0.15}
 
-RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15}
+class Portfolio(BaseModel):
+    weights: dict
+    expected_return: float
 
-@verified_schema
+@vt.verified_schema()
 def portfolio(p: Portfolio):
-    require(sum(p.weights.values()) == 1.0, tol=1e-6)
-    require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
-    derive(p.expected_return == dot(p.weights, RETURNS))
-    require(p.expected_return >= 0.10)
+    vt.require(vt.keys_subset(p.weights, {"AAPL", "MSFT", "NVDA"}))
+    vt.require(vt.sum(p.weights.values()) == 1.0, tol=1e-6)
+    vt.require(vt.forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.60)))
+    vt.derive(p.expected_return == vt.dot(p.weights, RETURNS), tol=1e-5)
+    vt.require(p.expected_return >= 0.10)
 
-# Run pre-flight before decoding
-try:
-    report = run_preflight(portfolio)
-    print(f\"✓ Spec is SAT\")
-    print(f\"  Zero-DoF fields: {report.derived_fields}\")
-    print(f\"  Bounds: {report.bounds}\")
-except InfeasibleSpecError as e:
-    print(f\"✗ Infeasible: {e.message}\")
-    print(f\"  Suggestion: {e.minimal_relaxation}\")
-except CircularDerivationError as e:
-    print(f\"✗ Circular: {e.derivation_chain}\")`} copyable />
-
----
+print(portfolio.preflight.status)   # UNKNOWN for a dynamic map, never a guessed SAT
+print(portfolio.preflight.details)`} copyable />
 
 ## Next Steps
 
-- **[Schema Synthesis](/docs/authoring-schemas/schema-synthesis)** — Auto-generate `@verified_schema` from sample JSON
-- **[Proof Certificates](/docs/proofs-rl-and-cli/proof-certificates)** — SHA-256 + SMT-LIB2 verification
-- **[CLI Reference](/docs/proofs-rl-and-cli/cli-reference)** — All 6 CLI subcommands
+- **[Schema Synthesis](/docs/authoring-schemas/schema-synthesis)** — generate a schema from examples
+- **[Proof Certificates](/docs/proofs-rl-and-cli/proof-certificates)** — carry the result out of the process
+- **[CLI Reference](/docs/proofs-rl-and-cli/cli-reference)** — every subcommand and exit code

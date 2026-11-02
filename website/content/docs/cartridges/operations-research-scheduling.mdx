@@ -1,84 +1,105 @@
 ---
-title: Operations Research Scheduling
-description: veritas.cartridges.or_sched — job-shop scheduling, capacity bounds, non-overlap logic.
+title: Scheduling & operations research
+description: veritas.cartridges.or_sched — precedence DAGs, earliest schedules, deadlines, interval capacity and critical paths.
 ---
 
-import { CodeBlock, Callout } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable, FeatureGrid, Feature } from '@/components/mdx-components';
 
-# Operations Research Cartridge
+An LLM asked for a schedule produces something that looks like a schedule. `or_sched` checks that it
+**is** one: acyclic precedence, resource capacity, release times and deadlines.
 
-The `or_sched` cartridge provides scheduling and resource allocation constraints: job-shop scheduling, capacity bounds, and non-overlap difference logic.
+## Surface
 
----
+<KeyValueTable
+  rows={[
+    { key: 'SchedulingProblem(horizon=None)', value: 'add_task, add_precedence, set_capacity' },
+    { key: 'task graph queries', value: 'topological_order, earliest_schedule, makespan, critical_path' },
+    { key: 'validate(starts)', value: 'list[Violation] — missing, negative, release, deadline, precedence, horizon, capacity' },
+    { key: 'feasible() / solve()', value: 'bool / deterministic earliest schedule' },
+    { key: 'free functions', value: 'no_overlap, precedence_ok, capacity_ok' },
+  ]}
+/>
 
-## Core Constraints
+<FeatureGrid>
+  <Feature title="DAG, not a list" icon="git">
+    Cycles are rejected by `topological_order`; precedence violations are named by task pair.
+  </Feature>
+  <Feature title="Deadlines are hard" icon="check">
+    `validate` reports every task whose end passes its deadline or the horizon.
+  </Feature>
+  <Feature title="Resource windows" icon="database">
+    A task can declare a resource and demand; capacity is checked over every overlapping interval.
+  </Feature>
+  <Feature title="Critical path" icon="zap">
+    `critical_path()` returns the longest chain and its duration — the lower bound on makespan.
+  </Feature>
+</FeatureGrid>
 
-### Non-Overlap
+## Build and validate a plan
 
-Ensures tasks sharing a resource don't overlap in time:
+<CodeBlock language="python" title="a small job shop" code={`from veritas.cartridges.or_sched import SchedulingProblem
 
-<CodeBlock language="python" code={`from veritas.cartridges.or_sched import non_overlap
+plan = SchedulingProblem(horizon=12.0)
+plan.add_task("design", duration=2.0, resource="engineer", demand=1, deadline=4.0)
+plan.add_task("build", duration=3.0, predecessors=["design"], resource="engineer", demand=1)
+plan.add_task("test", duration=2.0, predecessors=["build"], resource="tester", demand=1)
+plan.set_capacity("engineer", 1)
+plan.set_capacity("tester", 1)
 
-@verified_schema
-def schedule(s: Schedule):
-    require(non_overlap(s.tasks, s.resources))`} copyable />
+print(plan.topological_order())      # ['design', 'build', 'test']
+print(plan.earliest_schedule())      # {'design': 0.0, 'build': 2.0, 'test': 5.0}
+print(plan.makespan())               # 7.0
+print(plan.critical_path())          # (7.0, ['design', 'build', 'test'])
 
-### Capacity Bounds
+assert plan.feasible()
+assert plan.validate(plan.solve()) == []
 
-Ensures total resource usage never exceeds limits:
+bad = {"design": 0.0, "build": 0.0, "test": 7.0}
+for violation in plan.validate(bad):
+    print(violation.as_dict())
+# {'kind': 'precedence', 'message': 'build starts before design ends', 'tasks': ['design', 'build']}`} copyable />
 
-<CodeBlock language="python" code={`from veritas.cartridges.or_sched import capacity_bounds
-
-require(capacity_bounds(s.resources, s.limits))`} copyable />
-
-### Precedence
-
-Ensures task ordering constraints:
-
-<CodeBlock language="python" code={`from veritas.cartridges.or_sched import precedence
-
-require(precedence(s.tasks, s.dependencies))`} copyable />
-
----
-
-## Complete Example: Job-Shop Scheduling
-
-<CodeBlock language="python" code={`from veritas import verified_schema, require
-from veritas.cartridges.or_sched import non_overlap, capacity_bounds, precedence
-
-@verified_schema
-def job_shop_schedule(s: Schedule):
-    # No resource conflicts
-    require(non_overlap(s.tasks, s.resources))
-
-    # Capacity respected at all times
-    require(capacity_bounds(s.resources, s.limits))
-
-    # Task ordering constraints
-    require(precedence(s.tasks, s.dependencies))
-
-    # All tasks complete within time horizon
-    require(forall(s.tasks.values(), lambda t: t.end_time <= s.horizon))`} copyable />
-
-<Callout variant="tip" title="Difference Constraints">
-
-Non-overlap constraints are difference constraints ($x_j - x_i \ge d_{ij}$) — efficiently solvable by Fourier-Motzkin in Tier-2.
-
+<Callout variant="info" title="Replace the solver, keep the verifier">
+`earliest_schedule` and `solve` are a deterministic baseline. If your planner produces a different
+answer, pass its `starts` mapping to `validate` — the checks do not care who produced the schedule.
 </Callout>
 
----
+## Free-standing checks
 
-## Key Functions Reference
+<CodeBlock language="python" code={`from veritas.cartridges.or_sched import no_overlap, precedence_ok, capacity_ok
 
-| Function | Signature | Description |
-| :--- | :--- | :--- |
-| `non_overlap` | `(tasks, resources) -> bool` | No resource conflicts |
-| `capacity_bounds` | `(resources, limits) -> bool` | Capacity never exceeded |
-| `precedence` | `(tasks, dependencies) -> bool` | Task ordering constraints |
+assert no_overlap([(0, 2), (2, 4), (4, 5)])
+assert not no_overlap([(0, 2), (1, 3)])          # touching is fine, overlap is not
 
----
+assert precedence_ok(
+    starts={"a": 0, "b": 2},
+    durations={"a": 2, "b": 1},
+    preds={"b": ["a"]},
+)
+assert capacity_ok(loads=[1, 2, 1], capacity=2)
+assert not capacity_ok(loads=[1, 2, 3], capacity=2)`} copyable />
 
-## Next Steps
+## Enforce it during decoding
 
-- **[Chemistry (SMILES)](/docs/cartridges/chemistry-smiles)** — chem cartridge
-- **[Physics](/docs/cartridges/physics-dimensional-analysis)** — phys cartridge
+Scheduling is mostly linear, so the constraints you cannot afford to violate belong in the DSL:
+
+<CodeBlock language="python" title="mask the wrong start times" code={`import veritas as vt
+
+@vt.verified_schema()
+def schedule(s: Schedule):
+    vt.require(vt.forall(s.starts.values(), lambda t: t >= 0))
+    vt.require(s.starts["build"] - s.starts["design"] >= s.durations["design"])
+    vt.require(s.starts["test"] - s.starts["build"] >= s.durations["build"])
+    vt.require(vt.sum(s.engineer_loads) <= 1.0)`} copyable />
+
+Use `or_sched` afterwards for the parts that are combinatorial — capacity over intervals and the
+critical path.
+
+## Limits
+
+- Durations are deterministic; there is no stochastic or resumable scheduling.
+- Capacity checks assume piecewise-constant demand over `[start, start + duration)`.
+- `solve()` is an earliest-start heuristic, not a global optimiser. It is a reference, not an oracle.
+- Resource calendars, setup times and sequence-dependent changeovers are out of scope.
+
+Next: [Statistics](/docs/cartridges/statistics-and-distributions).

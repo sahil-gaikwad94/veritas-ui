@@ -1,93 +1,101 @@
 ---
-title: Statistics & Distributions
-description: veritas.cartridges.stat — probability simplexes, confidence intervals, moment constraints.
+title: Statistics & distributions
+description: veritas.cartridges.stat — probability simplex, Fréchet bounds, Bayes consistency, PSD matrices and d-separation.
 ---
 
-import { CodeBlock, Callout } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable, FeatureGrid, Feature } from '@/components/mdx-components';
 
-# Statistics Cartridge
+A model can write `P(A) = 0.6`, `P(B) = 0.7`, `P(A ∧ B) = 0.05` without noticing that the last number is
+impossible. `stat` checks the arithmetic of probability: coherence, bounds, consistency and graphical
+independence.
 
-The `stat` cartridge provides probability simplex constraints, confidence intervals, and moment constraints for statistical modeling.
+<KeyValueTable
+  rows={[
+    { key: 'probability_simplex(probs, tol=1e-9)', value: 'non-negative and sums to 1' },
+    { key: 'frechet_lower / frechet_upper(p_a, p_b)', value: 'bounds on P(A ∧ B)' },
+    { key: 'frechet_ok(p_a, p_b, p_joint, tol=1e-9)', value: 'joint inside the Fréchet interval' },
+    { key: 'bayes_consistency(p_a_given_b, p_b, p_b_given_a, p_a)', value: 'both directions agree' },
+    { key: 'joint_table_valid(table)', value: 'every cell valid, table sums to 1' },
+    { key: 'matrix_psd / covariance_psd', value: 'covariance is positive semidefinite' },
+    { key: 'is_d_separated(graph, x, y, z=())', value: 'ancestral moral graph test' },
+    { key: 'mutually_exclusive / independence_implies_joint', value: 'edge-case checks' },
+  ]}
+/>
 
----
+<FeatureGrid>
+  <Feature title="Impossible is detected" icon="check">
+    `P(A∧B) = 0.05` with `P(A)=0.6, P(B)=0.7` violates the Fréchet lower bound and is rejected.
+  </Feature>
+  <Feature title="Both directions" icon="git">
+    Bayes consistency catches a conditional that disagrees with its inverse.
+  </Feature>
+  <Feature title="Graphical models" icon="layers">
+    d-separation is decided on the ancestral moral graph, the standard criterion — not a path heuristic.
+  </Feature>
+  <Feature title="No NumPy" icon="cpu">
+    Dense PSD tests and table checks are pure Python and deterministic.
+  </Feature>
+</FeatureGrid>
 
-## Core Constraints
+## Coherence checks
 
-### Probability Simplex
+<CodeBlock language="python" title="probability, bounds and Bayes" code={`from veritas.cartridges.stat import (
+    probability_simplex, frechet_ok, bayes_consistency, joint_table_valid,
+)
 
-`probability_simplex` ensures values form a valid probability distribution:
+assert probability_simplex([0.2, 0.3, 0.5])
+assert not probability_simplex([0.2, 0.3, 0.6])
+assert not probability_simplex([0.7, 0.4, -0.1])
 
-<CodeBlock language="python" code={`from veritas.cartridges.stat import probability_simplex
+assert frechet_ok(0.6, 0.7, 0.4)      # lower bound max(0, .6+.7-1) = .3
+assert not frechet_ok(0.6, 0.7, 0.05)
 
-@verified_schema
-def distribution(d: Distribution):
-    require(probability_simplex(d.probs))`} copyable />
+assert bayes_consistency(0.5, 0.2, 0.25, 0.4)   # P(A|B)P(B) == P(B|A)P(A)
+assert not bayes_consistency(0.5, 0.2, 0.9, 0.4)
 
-This enforces: $\sum p_i = 1.0$ and $0 \le p_i \le 1$ for all $i$.
+assert joint_table_valid([[0.1, 0.2], [0.3, 0.4]])`} copyable />
 
-### Confidence Intervals
+## Covariance and independence
 
-`confidence_interval` enforces estimated means within confidence bounds:
+<CodeBlock language="python" title="PSD and d-separation" code={`from veritas.cartridges.stat import matrix_psd, covariance_psd, is_d_separated
 
-<CodeBlock language="python" code={`from veritas.cartridges.stat import confidence_interval
+assert matrix_psd([[1.0, 0.5], [0.5, 1.0]])
+assert not matrix_psd([[1.0, 2.0], [2.0, 1.0]])     # negative eigenvalue
+assert covariance_psd([0.04, 0.03, 0.01])           # eigenvalues must be >= 0
 
-require(confidence_interval(d.mean, d.ci))`} copyable />
+# DAG: A -> B, A -> C, B -> D, C -> D
+graph = {"A": [], "B": ["A"], "C": ["A"], "D": ["B", "C"]}
 
-### Moment Constraints
+assert is_d_separated(graph, "B", "C", {"A"})    # blocked by the common cause
+assert not is_d_separated(graph, "B", "C", ())   # open path through the collider D
+assert not is_d_separated(graph, "A", "D", ())   # ancestor -> connected`} copyable />
 
-`moment_constraint` enforces sample moments match theoretical values:
-
-<CodeBlock language="python" code={`from veritas.cartridges.stat import moment_constraint
-
-# 2nd moment = variance
-require(moment_constraint(d.samples, 2, d.variance))
-
-# 1st moment = mean
-require(moment_constraint(d.samples, 1, d.mean))`} copyable />
-
----
-
-## Complete Example
-
-<CodeBlock language="python" code={`from veritas import verified_schema, require, derive
-from veritas.cartridges.stat import probability_simplex, confidence_interval, moment_constraint
-
-@verified_schema
-def statistical_model(d: Distribution):
-    # Valid probability distribution
-    require(probability_simplex(d.probs))
-
-    # Mean within confidence interval
-    require(confidence_interval(d.mean, d.ci))
-
-    # Variance matches 2nd moment
-    require(moment_constraint(d.samples, 2, d.variance))
-
-    # Skewness within bounds
-    require(abs(d.skewness) <= 1.0)
-
-    # Kurtosis within bounds
-    require(d.kurtosis <= 10.0)`} copyable />
-
-<Callout variant="check" title="Statistically Sound">
-
-Every generated distribution satisfies its statistical constraints — no post-hoc rejection sampling needed.
-
+<Callout variant="warn" title="d-separation needs the right graph">
+`is_d_separated` takes a DAG mapping each node to its **parents**. A conditioning set that opens a
+collider (or its descendant) can connect variables that look independent. Pass the graph you actually
+believe, not the one that makes the answer convenient.
 </Callout>
 
----
+## In a schema
 
-## Key Functions Reference
+Probability coherence is cheap to state symbolically and should be enforced during decoding:
 
-| Function | Signature | Description |
-| :--- | :--- | :--- |
-| `probability_simplex` | `(probs: list) -> bool` | $\sum p_i = 1.0$, $0 \le p_i \le 1$ |
-| `confidence_interval` | `(mean, ci) -> bool` | Mean within confidence bounds |
-| `moment_constraint` | `(samples, order, value) -> bool` | Sample moment matches theoretical |
+<CodeBlock language="python" title="mask incoherent probabilities" code={`import veritas as vt
 
----
+@vt.verified_schema()
+def beliefs(b: Beliefs):
+    vt.require(vt.forall(b.probs.values(), lambda p: (0.0 <= p) & (p <= 1.0)))
+    vt.require(vt.sum(b.probs.values()) == 1.0, tol=1e-9)
+    vt.derive(b.joint_ab == b.probs["A"] * b.probs["B"], tol=1e-9)`} copyable />
 
-## Next Steps
+Then call `frechet_ok`, `bayes_consistency` or `is_d_separated` on the concrete result for the parts that
+are easier to express as code.
 
-- **[Code Analysis](/docs/cartridges/code-analysis-and-synthesis)** — code cartridge
-- **[Bridges & Integrations](/docs/bridges-and-integrations/vllm)** — vLLM adapter
+## Limits
+
+- Fréchet bounds cover two events; higher-order coherence needs the full joint.
+- `bayes_consistency` checks the identity up to tolerance — it does not estimate parameters.
+- `matrix_psd` is dense and cubic; use it for small covariance matrices, not large graphs.
+- d-separation assumes a DAG and a correctly declared parent map; cycles are not detected.
+
+Next: [Code analysis](/docs/cartridges/code-analysis-and-synthesis).

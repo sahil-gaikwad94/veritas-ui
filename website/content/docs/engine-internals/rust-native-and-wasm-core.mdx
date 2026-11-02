@@ -1,233 +1,127 @@
 ---
-title: Rust Native & WASM Core
-description: crates/veritas-core, veritas-py, veritas-wasm — 15-module dependency-free Rust engine explained.
+title: Rust core, PyO3 and WASM
+description: Three crates, one semantics — the dependency-free Rust port, its Python bindings and the browser build.
 ---
 
-import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
-# Rust Native & WASM Core
+The Python engine is the reference. The Rust engine is a **port of the same layers** used as an
+accelerator, and the WASM build brings the grammar and numeric primitives to the browser. Nothing here
+is a second public API you must learn.
 
-The Veritas engine is implemented in Rust across three crates. The core crate has **zero external dependencies** — it's pure, self-contained Rust.
+## `crates/veritas-core`
 
----
+No external crates, no C toolchain. Fifteen modules:
 
-## `crates/veritas-core` (15 Modules, Zero External Crates)
+<KeyValueTable
+  rows={[
+    { key: 'json, pda', value: '721 + 591 lines — grammar, prefix classification, token masks' },
+    { key: 'interval, contractor, expr, num', value: '364 + 562 + 508 + 283 — outward-rounded intervals, HC4, expressions' },
+    { key: 'nano_solver, solver', value: '365 + 572 — exact linear feasibility and search' },
+    { key: 'cdcl_jumpback, crane_mode, zero_dof', value: '295 + 223 + 327 — backtracking, dual mode, splicing' },
+    { key: 'token_healer, smt_bridge, wire, lib', value: '290 + 339 + 405 + 46 — boundaries, SMT-LIB emission, wire protocol' },
+  ]}
+/>
 
-The core engine contains 15 modules, each responsible for a specific part of the pipeline:
-
-| Module | Purpose | Lines |
-| :--- | :--- | :--- |
-| `pda.rs` | JSON Pushdown Automaton | ~400 |
-| `json.rs` | JSON grammar & token masking | ~350 |
-| `interval.rs` | Outward-rounded IEEE-754 intervals | ~300 |
-| `num.rs` | Numeric utilities | ~200 |
-| `expr.rs` | Symbolic expression trees | ~250 |
-| `contractor.rs` | HC4 + AF2 interval contractors | ~450 |
-| `nano_solver.rs` | Fourier-Motzkin linear solver | ~400 |
-| `solver.rs` | Search & SAT solving | ~300 |
-| `cdcl_jumpback.rs` | Conflict-driven jumpback | ~350 |
-| `crane_mode.rs` | Dual-mode reasoning controller | ~250 |
-| `zero_dof.rs` | Zero-DoF jump-forward splicing | ~300 |
-| `token_healer.rs` | BPE token boundary healing | ~200 |
-| `smt_bridge.rs` | Z3 SMT bridge | ~250 |
-| `wire.rs` | Wire protocol serialization | ~200 |
-| `lib.rs` | Crate root & public API | ~150 |
-
-**Total: ~4,500 lines of dependency-free Rust**
-
-### Soundness Testing
-
-<Callout variant="check" title="68 Unit Tests + 12 Property Tests">
-
-All core logic is tested in `crates/veritas-core/tests/soundness.rs`:
-
-- **68 unit tests** — Individual function correctness
-- **12 property tests** — Invariant-based testing (e.g., "interval always contains true value")
-
+<Callout variant="check" title="Tested like a reference implementation">
+68 unit tests plus 12 property tests in `crates/veritas-core/tests/soundness.rs`: randomised
+constraints are refuted against a brute-force grid, every UNSAT core is re-checked standalone, and the
+automaton is cross-checked against the prefix classifier. CI also runs `clippy -D warnings`.
 </Callout>
 
----
+## `crates/veritas-py`
 
-## `crates/veritas-py` (PyO3 Bindings)
+The extension module is named **`veritas_py`** and is loaded by `veritas.native`. Its `PdaHandle` and
+top-level functions are implementation details; use the documented `veritas.native` wrappers instead of
+importing them directly.
 
-Python bindings that expose the Rust engine to Python. The main interface is `PdaHandle` and top-level convenience functions.
+<KeyValueTable
+  rows={[
+    { key: 'prefix_status(text)', value: '"complete" | "incomplete" | "invalid"' },
+    { key: 'validate_document(text)', value: 'bool' },
+    { key: 'canonical_document(text)', value: 'str | None' },
+    { key: 'document_value(text)', value: 'JSON string' },
+    { key: 'allowed_tokens(prefix, vocabulary, eos)', value: 'list of indices' },
+    { key: 'numeric_prefix(text, lo, hi, allow_exp)', value: '(lo, hi)' },
+    { key: 'contract(domains_json, constraints_json, rounds)', value: 'JSON' },
+    { key: 'solve_linear / solve_linear_exact', value: 'JSON / pairs' },
+    { key: 'engine_info()', value: 'JSON metadata' },
+  ]}
+/>
 
-### `PdaHandle` API
+In Python, always go through the public module:
 
-| Method | Signature | Description |
+<CodeBlock language="python" title="public wrappers" code={`import veritas.native as native
+
+print(native.info())
+print(native.prefix_status('{"w'))          # 'incomplete'
+print(native.numeric_prefix('0.2', (0, 1))) # Interval(0.2, 0.3)
+print(native.mask('{"a":', ['{', '}', '"a"', '1']))`} copyable />
+
+See [Native accelerator API](/docs/api-reference/rust-pyo3-native-api) for the full wrapper surface.
+
+## `crates/veritas-wasm`
+
+`wasm32-unknown-unknown` bindings for browser-side grammar work. Build with `wasm-pack` or the wasm cargo
+target. The exported functions:
+
+| Export | Signature | Notes |
 | :--- | :--- | :--- |
-| `new` | `(seed: str) -> PdaHandle` | Create a new PDA handle |
-| `push` | `(token: str) -> bool` | Feed a token into the PDA |
-| `is_alive` | `() -> bool` | PDA still in valid state |
-| `is_complete` | `() -> bool` | JSON document complete |
-| `accepts` | `(token: str) -> bool` | Token is syntactically valid next |
-| `depth` | `() -> int` | Current stack depth |
-| `last_event` | `() -> str` | Last PDA transition event |
-| `candidates` | `() -> List[str]` | Top candidate next tokens |
-| `mask` | `() -> List[float]` | Full logit mask tensor |
-| `clone_handle` | `() -> PdaHandle` | Deep copy for speculative decoding |
+| `version` | `() -> string` | Crate version |
+| `prefix_status` | `(text) -> string` | Returns a **string**, not an object |
+| `is_valid_document` | `(text) -> boolean` | Complete JSON only |
+| `canonical_document` | `(text) -> string \| undefined` | Canonical rendering |
+| `numeric_prefix` | `(text, lo, hi, allow_exp) -> Float64Array` | `[lo, hi]` bounds |
+| `solve_linear_json` | `(json) -> string` | Linear solve result |
+| `PdaHandle` | class | Incremental handle |
+| `?` error shape | `{ status: "error", reason }` | Returned as a JSON string by mask helpers |
 
-### Top-Level Functions
-
-| Function | Signature | Description |
-| :--- | :--- | :--- |
-| `prefix_status` | `(text: str) -> dict` | PDA status for a token prefix |
-| `validate_document` | `(text: str) -> bool` | Validate a complete JSON document |
-| `canonical_document` | `(text: str) -> str` | Canonical JSON form |
-| `document_value` | `(text: str) -> Any` | Extract document value |
-| `allowed_tokens` | `(text: str) -> List[str]` | Allowed next tokens |
-| `numeric_prefix` | `(prefix: str) -> dict` | `[lo, hi, valid]` interval bounds |
-| `contract` | `(spec_json: str) -> str` | Run interval contraction |
-| `log_volume` | `(spec_json: str) -> float` | Log volume of feasible region |
-| `solve_linear` | `(spec_json: str) -> dict` | Solve linear constraints |
-| `solve_linear_exact` | `(spec_json: str) -> dict` | Exact linear solution |
-| `engine_info` | `() -> dict` | Engine version & metadata |
-
-### Example Usage
-
-<CodeBlock language="python" code={`from veritas._native import PdaHandle, prefix_status, engine_info
-
-# Check engine info
-info = engine_info()
-print(info)
-# {'version': '2.0.0', 'wire_protocol': '2.0', 'rust_core': True}
-
-# Create PDA and check prefix status
-handle = PdaHandle.new('{')
-handle.push('\"')
-handle.push('w')
-
-status = prefix_status('{\"w')
-print(status)
-# {'valid': True, 'depth': 2, 'complete': False, 'allowed_tokens': [...]}`} copyable />
-
----
-
-## `crates/veritas-wasm` (WebAssembly Bindings)
-
-Browser-compatible WASM bindings for the client-side playground. Compiled with `wasm-pack build --target web`.
-
-### JavaScript/TypeScript API
-
-| Function | Signature | Description |
-| :--- | :--- | :--- |
-| `version` | `() => string` | Engine version string |
-| `prefix_status` | `(text: string) => object` | PDA prefix status |
-| `is_valid_document` | `(text: string) => boolean` | Document validity check |
-| `PdaHandle` | class | Full PDA handle |
-
-### `PdaHandle` Class (TypeScript)
+### `PdaHandle` (WASM)
 
 ```typescript
 class PdaHandle {
-  constructor(seed: string);
-  push(token: string): boolean;
+  constructor();
+  push(text: string): boolean;
   isAlive(): boolean;
   isComplete(): boolean;
-  accepts(token: string): boolean;
+  accepts(): boolean;
   depth(): number;
-  lastEvent(): string;
-  candidates(): string[];
-  mask(): Float32Array;
-  cloneHandle(): PdaHandle;
+  maskJson(vocabularyJson: string, eos: string): string;
 }
 ```
 
-### Example Usage
+<CodeBlock language="typescript" title="browser usage" code={`import init, { PdaHandle, prefix_status, is_valid_document } from 'veritas-wasm';
 
-<CodeBlock language="typescript" code={`import { PdaHandle, prefix_status, is_valid_document, version } from 'veritas-wasm';
+await init();
 
-console.log(version()); // "2.0.0"
+const handle = new PdaHandle();
+handle.push('{"w');
+console.log(handle.depth(), handle.isAlive(), handle.accepts());
 
-const handle = new PdaHandle("{");
-handle.push('"');
-handle.push('w');
+const mask = JSON.parse(handle.maskJson(JSON.stringify(['"a"', '1', '}', '']), ''));
+console.log(prefix_status('{"w'));            // 'incomplete'
+console.log(is_valid_document('{"a": 1}'));  // true`} copyable />
 
-console.log(handle.depth());      // 2
-console.log(handle.isAlive());    // true
-console.log(handle.accepts('e')); // true
+There is **no npm package** published for this build; vendor the generated `pkg/` directory or build it
+in your pipeline.
 
-const mask = handle.mask(); // Float32Array of logit mask
-const status = prefix_status('{"w');
-// { valid: true, depth: 2, complete: false, allowed_tokens: [...] }
+## Kill switch
 
-console.log(is_valid_document('{"weights": {"AAPL": 0.40}}')); // true/false`} copyable />
+<CodeBlock language="bash" code={`VERITAS_NO_NATIVE=1 python -m veritas doctor
+VERITAS_NO_NATIVE=1 python -m pytest tests/test_native_backend.py -q`} copyable />
 
-### Web Worker Usage
+Checked per call. The native path is preferred only when `veritas.native.available()` is true; every
+wrapper falls back, and `tests/test_native_backend.py` pins the parity.
 
-<CodeBlock language="typescript" code={`const worker = new Worker(new URL('./veritas-wasm.worker.ts', import.meta.url));
+## What is and is not accelerated
 
-worker.postMessage({ method: 'prefix_status', args: ['{'] });
-worker.onmessage = (e) => {
-  console.log(e.data.result);
-};`} copyable />
-
----
-
-## `VERITAS_NO_NATIVE=1`
-
-Force pure-Python reference execution for A/B debugging and fault isolation testing.
-
-<CodeBlock language="bash" code={`# Force pure-Python engine
-VERITAS_NO_NATIVE=1 python -m veritas doctor
-# Engine: reference (pure Python)
-# Native: disabled
-
-# Normal mode (Rust native if available)
-python -m veritas doctor
-# Engine: accelerated (Rust native)
-# Native: loaded`} copyable />
-
-### When to Use
-
-| Scenario | Setting |
+| Accelerated | Stays in Python |
 | :--- | :--- |
-| Production | Don't set (use Rust native) |
-| Debugging native crashes | `VERITAS_NO_NATIVE=1` |
-| Comparing Python vs. Rust results | Run both, compare |
-| Environment without Rust compilation | `VERITAS_NO_NATIVE=1` |
+| Prefix classification, token masks | Full decode orchestration, telemetry, traces |
+| Numeric prefix intervals, HC4 contraction | Schema compilation and Pydantic lowering |
+| Linear feasibility, exact solves | Instance evaluation and derived fill |
+| CDCL jumpback, zero-DoF splices | Certificates and SMT export orchestration |
 
-<Callout variant="tip" title="Fault Isolation">
-
-If a native Rust call ever panics, Veritas automatically falls back to the pure-Python reference engine. Your application never crashes — it just slows down temporarily (17.9x slower for PDA masking).
-
-</Callout>
-
----
-
-## Crate Architecture Diagram
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Python / JavaScript / TypeScript                           │
-│  (veritas-py, veritas-wasm bindings)                        │
-└─────────────────────────────────────────────────────────────┘
-                           ↓ PyO3 / wasm-bindgen
-┌─────────────────────────────────────────────────────────────┐
-│  crates/veritas-py     crates/veritas-wasm                  │
-│  (Python bindings)     (WASM bindings)                      │
-└─────────────────────────────────────────────────────────────┘
-                           ↓ FFI
-┌─────────────────────────────────────────────────────────────┐
-│  crates/veritas-core (15 modules, zero external deps)       │
-│  ├── pda.rs          JSON Pushdown Automaton                │
-│  ├── json.rs         JSON grammar & masking                 │
-│  ├── interval.rs     Outward-rounded intervals              │
-│  ├── contractor.rs   HC4 + AF2 contractors                  │
-│  ├── nano_solver.rs  Fourier-Motzkin solver                 │
-│  ├── cdcl_jumpback.rs Conflict-driven jumpback              │
-│  ├── zero_dof.rs     Zero-DoF splicing                      │
-│  ├── crane_mode.rs   Dual-mode reasoning                    │
-│  ├── token_healer.rs BPE boundary healing                   │
-│  ├── smt_bridge.rs   Z3 SMT bridge                          │
-│  └── ...                                                     │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Next Steps
-
-- **[Proof Certificates](/docs/proofs-rl-and-cli/proof-certificates)** — SHA-256 + SMT-LIB2 verification
-- **[WASM Browser API](/docs/api-reference/wasm-browser-api)** — JavaScript/TypeScript API reference
-- **[Exceptions & Diagnostics](/docs/api-reference/exceptions-and-diagnostics)** — Error hierarchy & telemetry
+Speedups quoted elsewhere (17.9× on `TokenMasker.valid_mask`, 1.5× on `Interval.from_numeric_prefix`)
+come from `benchmarks/native_speedup.py` on a GitHub Actions runner. Measure your own workload before
+promising anything.

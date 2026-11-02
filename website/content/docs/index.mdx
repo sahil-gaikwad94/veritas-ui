@@ -1,180 +1,202 @@
 ---
-title: Overview & Architecture At-a-Glance
-description: Veritas — dependency-free Rust theorem proving for LLMs. Enforces algebraic equations, temporal logic, and domain invariants inside the token-generation loop.
+title: Overview
+description: What Veritas is, why grammar masking is not enough, and how the five engine layers fit together.
 ---
 
-import { Callout, Badge, Card, CardContent, CardHeader, CardTitle, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/mdx-components';
+import { Callout, StatGrid, Stat, FeatureGrid, Feature, Tabs, TabsContent, TabsList, TabsTrigger, Card, CardContent, CardHeader, CardTitle, Badge, DocsMap } from '@/components/mdx-components';
 
-# Veritas
+**Veritas turns plausible LLM output into checked output.** You write a Pydantic model and a few
+constraint statements; Veritas compiles them into a specification that every layer of decoding can
+read — grammar, interval arithmetic, a small exact solver, and a final concrete evaluator.
 
-## What Is Veritas?
+It is not a validator you run afterwards. The specification is inside the token loop.
 
-**Veritas turns LLM guessing into verified mathematical truth.**
+<StatGrid>
+  <Stat value="0.23 ms" label="JSON mask per step" tone="cobalt" />
+  <Stat value="3.9 µs" label="Interval contraction" />
+  <Stat value="0" label="Preflight LLM tokens" tone="pass" />
+  <Stat value="0" label="Calls for derived fields" tone="pass" />
+</StatGrid>
 
-When you ask a large language model (LLM) to generate structured data — like a portfolio allocation, a SQL query, or a molecular structure — the model produces text one token at a time. It doesn't "know" math the way you do. It predicts the next most likely character based on patterns it saw during training.
+<DocsMap />
 
-This means an LLM can easily output:
+## The problem with valid JSON
+
+A JSON schema can promise that `weights` is an object of numbers. It cannot promise that the numbers
+add up to one, that a Sharpe ratio agrees with a covariance matrix, or that a probability distribution
+is still a distribution. An LLM will happily produce this:
 
 ```json
 {
   "weights": { "AAPL": 0.50, "MSFT": 0.45, "NVDA": 0.30 },
+  "expected_return": 0.2100,
   "sharpe_ratio": 1.214
 }
 ```
 
-This looks perfectly valid. It's valid JSON. But look closely: the weights sum to **1.25**, not 1.0. The Sharpe ratio is mathematically inconsistent with the weights. The model **hallucinated** the math.
+The JSON is valid. The arithmetic is not: the weights sum to **1.25**, and the Sharpe ratio is
+inconsistent with the weights. Grammar-constrained decoders accept it. Pydantic raises after you have
+paid for every token. Retrying is a gamble with the same odds.
 
-Standard tools like Pydantic or OpenAI JSON Mode catch this **after** the entire response is generated — which is too late. You've already paid for the tokens, and you have to throw the result away and try again.
+Veritas eliminates the guess. While the model is choosing tokens, a compiled spec:
 
-**Veritas is different.** Veritas enforces mathematical, logical, and cross-field invariants **during** token decoding — not after. As the model generates each token, Veritas:
+1. **masks** tokens that would break JSON grammar (Tier 0 — pushdown automaton);
+2. **contracts** numeric domains with outward-rounded intervals (Tier 1 — HC4 + affine forms);
+3. **splices** derived values instead of sampling them (zero degrees of freedom);
+4. **jumps back** with a learned domain cut when a branch is unsatisfiable (CDCL);
+5. **verifies** the finished object and can emit an offline certificate.
 
-1. **Masks** tokens that would produce invalid JSON (Tier 0 — Pushdown Automaton)
-2. **Narrows** numeric ranges using interval math (Tier 1 — HC4/AF2 Contractors)
-3. **Computes** derived fields deterministically (Zero-DoF Splicing)
-4. **Detects** and resolves contradictions (CDCL Jumpback)
-5. **Issues** a cryptographic proof certificate (SHA-256 + SMT-LIB2)
+## A schema that cannot lie
 
-The result? The LLM never gets a chance to emit invalid math.
+```python
+import veritas as vt
+from pydantic import BaseModel
 
----
+class Portfolio(BaseModel):
+    weights: dict
+    expected_return: float
+    volatility: float
+    sharpe: float
 
-## The 30-Second Developer "Aha!" Loop
+RETURNS = {"AAPL": 0.14, "MSFT": 0.13, "NVDA": 0.24}
+COV = {
+    ("AAPL", "AAPL"): 0.048, ("AAPL", "MSFT"): 0.031, ("AAPL", "NVDA"): 0.042,
+    ("MSFT", "MSFT"): 0.039, ("MSFT", "NVDA"): 0.036, ("NVDA", "NVDA"): 0.095,
+}
 
-When you land on the Veritas website, you have three questions. Here are the answers:
+@vt.verified_schema()
+def portfolio(p: Portfolio):
+    vt.require(vt.keys_subset(p.weights, {"AAPL", "MSFT", "NVDA"}))
+    vt.require(vt.sum(p.weights.values()) == 1.0, tol=1e-6)
+    vt.require(vt.forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
 
-<Callout variant="info" title="Question 1: How is this different from Pydantic / OpenAI Structured Outputs / Outlines?">
+    vt.derive(p.expected_return == vt.dot(p.weights, RETURNS), tol=1e-5)
+    vt.derive(p.volatility == vt.sqrt(vt.quad_form(p.weights, COV)), tol=1e-5)
+    vt.derive(p.sharpe == (p.expected_return - 0.04) / p.volatility, tol=1e-5)
 
-**Grammar-based tools** (Outlines, llguidance, OpenAI JSON mode) only enforce **syntax** — they ensure the output is valid JSON where "this field is a float."
+report = portfolio.verify({"weights": {"AAPL": 0.40, "MSFT": 0.35, "NVDA": 0.25}})
+print(report.status)        # PASS
+print(report.values)        # derived fields were filled
+```
 
-**Pydantic** only validates **after** the entire string is generated. If the math is wrong, you pay for all the tokens and must retry.
+`@verified_schema` (with or without parentheses) compiles the function body into **VIR**, a typed
+intermediate representation with a dependency graph. Compilation also runs **preflight**: if the
+constraints contradict each other, construction raises `InfeasibleSpecError` before a model is loaded.
 
-**Veritas** enforces **mathematical, logical (LTLf), and cross-field invariants during token decoding** — and deterministically computes derived (Zero-DoF) fields so the LLM never guesses arithmetic.
-
+<Callout variant="check" title="The contract">
+A generated result is returned only when the final report is `PASS`. `INCOMPLETE` — a missing or
+not-yet-evaluable field — is never silently promoted to a pass.
 </Callout>
 
-<Callout variant="info" title="Question 2: Does running a solver per token destroy inference latency?">
+## What makes it different
 
-**No.** Veritas never calls Z3 per token. Its 3-tier dependency-free Rust engine:
+<FeatureGrid>
+  <Feature title="It reasons across fields" icon="layers">
+    `sum(weights) == 1`, `dot`, `quad_form`, `sqrt`, `keys_subset` and `forall` are compiled into the
+    decode, not checked after it.
+  </Feature>
+  <Feature title="It computes instead of guessing" icon="zap">
+    When a field has zero degrees of freedom, Veritas computes it and splices the bytes in. No forward
+    pass, no arithmetic hallucination.
+  </Feature>
+  <Feature title="It recovers from dead ends" icon="git">
+    CDCL jumpback identifies the field responsible for an UNSAT branch, rewinds the stream and stores a
+    half-space cut plus a tabu prefix.
+  </Feature>
+  <Feature title="It proves what it returned" icon="shield">
+    Certificates embed the versioned spec, the witness, an SMT-LIB2 rendering and SHA-256 digests for
+    offline re-verification.
+  </Feature>
+  <Feature title="It stays dependency-friendly" icon="cpu">
+    The Python engine is the complete product surface. The Rust core is an optional accelerator with no
+    external crates and a pure-Python fallback.
+  </Feature>
+  <Feature title="It knows your domain" icon="database">
+    Eight cartridges cover finance, SQL, agent policy, scheduling, statistics, units, SMILES and code
+    safety — as composable constraint modules.
+  </Feature>
+</FeatureGrid>
 
-- Masks tokens via a byte-level JSON Pushdown Automaton in **0.23 ms** (**17.9x faster** than Python)
-- Narrows numeric prefixes via HC4/Affine (`AF2`) contractors in **3.9 µs**
-- **Saves _T_ − 1 LLM forward passes** per derived field via Zero-DoF token splicing
+## The answers you need in 30 seconds
 
-</Callout>
-
-<Callout variant="info" title="Question 3: Do I have to learn SMT-LIB2 or C++ theorem provers?">
-
-**Zero new syntax.** If you can write a Pydantic `BaseModel` and Python `require()` / `derive()` assertions, you already know Veritas.
-
-</Callout>
-
----
-
-## Competitive Positioning Matrix
-
-<Tabs defaultValue="capabilities">
+<Tabs defaultValue="difference">
 <TabsList>
-<TabsTrigger value="capabilities">Capability Matrix</TabsTrigger>
-<TabsTrigger value="superpowers">The 5 Superpowers</TabsTrigger>
+<TabsTrigger value="difference">Vs. Pydantic & JSON mode</TabsTrigger>
+<TabsTrigger value="latency">Latency</TabsTrigger>
+<TabsTrigger value="syntax">Learning curve</TabsTrigger>
 </TabsList>
 
-<TabsContent value="capabilities">
+<TabsContent value="difference">
 
-This table shows how Veritas compares to the alternatives across the capabilities that matter most for verified LLM generation:
-
-| Capability | Pydantic / Instructor | Outlines / llguidance | Raw Microsoft Z3 | **Veritas** |
-| :--- | :--- | :--- | :--- | :--- |
-| **JSON Schema & Grammar Masking** | Post-hoc validation only | Yes (CFG / Regex / PDA) | No | **Yes (`JSONPushdownAutomaton`, 0.23 ms in Rust)** |
-| **Cross-Field Math & Inequality Invariants** | Post-hoc retry loop | No | Manual SMT-LIB coding | **Yes (Live HC4 + Affine `AF2` Interval Contractors)** |
-| **0-DoF Deterministic Field Splicing** | No (LLM guesses math) | Jump-forward syntax only | No | **Yes (`ZeroDofRule` computes & splices derived math)** |
-| **0-Token Pre-Flight Contradiction Check** | No | No | Manual setup | **Yes (`run_preflight` / `veritas check-spec`)** |
-| **Conflict-Driven Jumpback (CDCL)** | Whole-prompt retry | No | No | **Yes (Entropy culprit score + half-space domain cuts)** |
-| **Chain-of-Thought Preservation (CRANE)** | Separate prompt | Breaks on strict JSON | N/A | **Yes (`CraneModeController` ∫ → `<emit>`)** |
-| **Cryptographic Proof Certificates** | No | No | UnsatCore only | **Yes (Tamper-proof SHA-256 + offline SMT-LIB2)** |
+Grammar tools constrain **syntax**. Pydantic validates **after generation**. Veritas additionally
+reasons about cross-field algebra, inequalities and domain invariants **during** generation — and
+computes derived fields deterministically, so the model never has to guess arithmetic.
 
 </TabsContent>
 
-<TabsContent value="superpowers">
+<TabsContent value="latency">
 
-These are the five capabilities that make Veritas a category-defining tool for verified LLM generation:
+No solver runs per token. The JSON pushdown automaton builds an exact mask in **0.23 ms per step**
+(native, 605-token vocabulary), interval contraction costs **3.9 µs**, and zero-DoF splicing removes
+forward passes rather than adding them. Z3 is optional and never in the token loop.
 
-1. **CRANE Dual-Mode Reasoning** — Let the model reason freely in `∫` (thinking tokens) without grammar lock-in degrading accuracy, then engage strict solver-guided decoding on `<emit>`.
+</TabsContent>
 
-2. **Zero-DoF Deterministic Splicing** — Topologically sorts JSON keys so inputs precede outputs, eliminating 30–60% of numerical LLM forward passes.
+<TabsContent value="syntax">
 
-3. **Entropy-Weighted CDCL Jumpback** — Pinpoints the exact field responsible for a UNSAT conflict, rewinds the token stream, and learns a half-space domain cut so the model never repeats the same algebraic dead end.
-
-4. **Tamper-Proof Verification Certificates** — Every decoded object ships with a SHA-256 witness digest and offline-verifiable SMT-LIB2 proof script (`veritas verify-proof`).
-
-5. **Free RL Post-Training Data** — Automatically turns every CDCL jumpback (rejected UNSAT branch vs. verified completion) into step-level DPO / Process-GRPO preference trajectories.
+Zero new languages. If you can write a Pydantic model and Python comparisons, you can write a
+specification. SMT-LIB2, Rust and theorem-prover knowledge are not prerequisites.
 
 </TabsContent>
 </Tabs>
 
----
+## How the layers fit
 
-## Three-Tier Solver Horizon
+| Layer | What it does | Cost |
+| :--- | :--- | :--- |
+| Preflight | Refutes contradictory specs with interval, container and affine reasoning | 0 tokens |
+| Tier 0 · grammar | Exact JSON mask over your vocabulary, pattern NFAs, format witnesses | ~0.23 ms / step |
+| Tier 1 · numerics | Outward-rounded HC4 + affine contraction of numeric prefixes and residuals | ~3.9 µs / prefix |
+| Tier 2 · search | Deterministic nano-solver, minimal unsat cores, CDCL jumpback, zero-DoF splices | bounded search |
+| Verify | Total concrete evaluation, derived fill, PASS / FAIL / INCOMPLETE, certificate | once per object |
 
-Veritas's engine is organized into three tiers, like concentric rings of increasing mathematical rigor:
+Read [How Veritas works](/docs/getting-started/how-veritas-works) for the full walkthrough, or
+[Engine internals](/docs/engine-internals/vir-compiler-and-dag) for the mathematics.
 
-<Card>
-<CardHeader>
-<CardTitle>Tier 0 — JSON Pushdown Automaton</CardTitle>
-</CardHeader>
-<CardContent>
-The outermost ring. A byte-level JSON Pushdown Automaton (PDA) tracks the JSON grammar stack as tokens are generated. It masks any token that would produce invalid JSON syntax — ensuring the output is always structurally valid.
+## Where it fits
 
-**Performance:** 0.23 ms per step in Rust (17.9x faster than Python).
-</CardContent>
-</Card>
+- **Structured generation** — portfolios, invoices, schedules, API payloads, SQL, agent tool calls.
+- **High-stakes pipelines** — anything where a numeric inconsistency downstream is expensive.
+- **Evaluation and data collection** — every backtrack can become a step-level preference pair for
+  DPO / Process-GRPO training.
 
-<Card>
-<CardHeader>
-<CardTitle>Tier 1 — HC4 + AF2 Interval Contractors</CardTitle>
-</CardHeader>
-<CardContent>
-The middle ring. Outward-rounded IEEE-754 interval arithmetic and Affine Form noise-symbol propagation narrow numeric prefixes in real time. If you specify `0.05 <= weight <= 0.50`, the contractor prunes any digit that would push a weight outside that range.
+It is **not** a general-purpose theorem prover, an arbitrary context-free grammar engine, or a
+replacement for your integration tests. Grammar support is JSON with a documented schema subset. The
+[scope and limitations](/docs/getting-started/troubleshooting) page is explicit about the edges.
 
-**Performance:** 3.9 µs per contraction.
-</CardContent>
-</Card>
+## Start here
 
-<Card>
-<CardHeader>
-<CardTitle>Tier 2 — NanoSolver + CDCL + 0-DoF</CardTitle>
-</CardHeader>
-<CardContent>
-The core ring. A dependency-free Fourier-Motzkin nano-solver handles exact linear feasibility. The CDCL jumpback engine detects contradictions and rewinds the token stream. Zero-DoF splicing computes derived fields deterministically — zero LLM calls.
-</CardContent>
-</Card>
+<FeatureGrid>
+  <Feature title="Installation" icon="terminal">
+    Install from source, add optional extras, and confirm the live engine with `veritas doctor`.
+    → [Installation](/docs/getting-started/installation)
+  </Feature>
+  <Feature title="Quickstart" icon="zap">
+    A runnable portfolio schema with `require`, `derive`, preflight and verification in about 60
+    seconds. → [Quickstart](/docs/getting-started/quickstart)
+  </Feature>
+  <Feature title="Compared to alternatives" icon="check">
+    An honest capability matrix against Pydantic, Outlines, llguidance, Z3 and OpenAI structured
+    outputs. → [Comparisons](/docs/getting-started/comparisons)
+  </Feature>
+  <Feature title="Playground" icon="sparkles">
+    Move the constraints, watch tokens mask and splice, and break a spec to see preflight refuse it.
+    → [Open the decode lab](/playground)
+  </Feature>
+</FeatureGrid>
 
----
-
-## Quick Start
-
-Here's the fastest path to your first verified schema:
-
-<Callout variant="check" title="60 seconds to your first verified schema">
-
-1. Install: `pip install veritas-ai`
-2. Write a schema with `@verified_schema`, `require`, and `derive`
-3. Run `veritas check-spec my_schema.py` to verify it's satisfiable
-4. Decode with an LLM — Veritas enforces constraints in real time
-
+<Callout variant="info" title="Version">
+This documentation describes **Veritas 2.0.0** (Apache-2.0). The package metadata ships as
+`veritas-ai`; install from GitHub until the PyPI release lands. See
+[Installation](/docs/getting-started/installation) for exact commands.
 </Callout>
-
-<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
-<Badge variant="cobalt" size="lg">pip install veritas-ai</Badge>
-<Badge variant="success" size="lg">499 Passing Tests</Badge>
-<Badge variant="default" size="lg">Dependency-Free Rust</Badge>
-<Badge variant="default" size="lg">v2.0 Release</Badge>
-</div>
-
----
-
-## Next Steps
-
-- **[Installation](/docs/getting-started/installation)** — `pip install veritas-ai` and `veritas doctor`
-- **[Quickstart](/docs/getting-started/quickstart)** — Your first `@verified_schema` in 60 seconds
-- **[How Veritas Works](/docs/getting-started/how-veritas-works)** — Visual tour of the 3-tier engine
-- **[Authoring Schemas](/docs/authoring-schemas/verified-schema-decorator)** — `require`, `derive`, `prefer`, `forall`

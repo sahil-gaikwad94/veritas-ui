@@ -1,6 +1,7 @@
 import { Callout } from '@/components/docs/callout';
 import { CodeBlock } from '@/components/docs/code-block';
-import { Steps } from '@/components/docs/steps';
+import { Steps, Step } from '@/components/docs/steps';
+import { Feature, FeatureGrid, KeyValueTable, Stat, StatGrid } from '@/components/docs/feature-grid';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -10,23 +11,23 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import { SchemaSynthWidget } from '@/components/landing/schema-synth-widget';
-import { TokenMaskHoverBox } from '@/components/docs/token-mask-hover-box';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InteractiveTraceViewer } from '@/components/docs/interactive-trace-viewer';
+import { DecodeLab } from '@/components/playground/decode-lab';
+import { DocsMap } from '@/components/docs/docs-map';
 
-export function getMDXComponents(components?: any) {
+export function getMDXComponents(components?: Record<string, unknown>) {
   return {
     ...components,
-    // Custom Veritas components
     Callout,
     CodeBlock,
     Steps,
+    Step,
+    FeatureGrid,
+    Feature,
+    StatGrid,
+    Stat,
+    KeyValueTable,
     Badge,
     Card,
     CardContent,
@@ -38,10 +39,32 @@ export function getMDXComponents(components?: any) {
     TabsContent,
     TabsList,
     TabsTrigger,
-    SchemaSynthWidget,
-    TokenMaskHoverBox,
     InteractiveTraceViewer,
-  } as any;
+    DecodeLab,
+  } as Record<string, unknown>;
 }
 
-export { Callout, CodeBlock, Badge, Card, CardContent, CardHeader, CardTitle, Tabs, TabsContent, TabsList, TabsTrigger };
+export {
+  Callout,
+  CodeBlock,
+  Badge,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Steps,
+  Step,
+  Feature,
+  FeatureGrid,
+  Stat,
+  StatGrid,
+  KeyValueTable,
+  InteractiveTraceViewer,
+  DecodeLab,
+  DocsMap,
+};
+export { getMDXComponents as MDXComponents } from './mdx-components';

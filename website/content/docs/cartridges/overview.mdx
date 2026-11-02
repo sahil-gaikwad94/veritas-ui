@@ -1,161 +1,104 @@
 ---
-title: Domain Cartridges Overview
-description: How domain cartridges work and composing multiple cartridges together.
+title: Domain cartridges
+description: Nine deterministic domain checkers that ship with Veritas — what they verify, and how to call them after a decode.
 ---
 
-import { Callout, Badge, Card, CardContent, CardHeader, CardTitle } from '@/components/mdx-components';
+import { Callout, FeatureGrid, Feature, KeyValueTable, CodeBlock } from '@/components/mdx-components';
 
-# Domain Cartridges
+Cartridges are **plain Python modules with deterministic checks**. They do not change the decoder and
+they are not symbolic DSL predicates; they are concrete reference implementations you call on the
+verified object — in a guard, a test, an audit script, or a `vt.verified_tool` handler.
 
-## What Are Domain Cartridges?
-
-Domain cartridges are **composable constraint modules** for specific domains. Each cartridge exports pre-built `@verified_schema` templates, mathematical primitives, and validation rules for a particular domain — finance, SQL, security, chemistry, physics, statistics, code, and more.
-
-Think of cartridges like "Veritas plugins" — they add domain-specific knowledge to the core engine without modifying it.
-
----
-
-## How Cartridges Work
-
-Cartridges are Python modules that extend Veritas with domain-specific constraints. They can be **composed** — you can use multiple cartridges in a single schema, and Veritas's solver combines all their constraints into a single feasible region.
-
-### Composition Example
-
-<CodeBlock language="python" code={`from veritas.cartridges import quant, sql, sec
-
-@verified_schema
-def trading_bot(p: Portfolio):
-    # From quant cartridge
-    require(quant.simplex(p.weights))
-    require(quant.quad_form_limit(p.weights, COV, max_risk=0.04))
-
-    # From sec cartridge
-    require(sec.least_privilege(p.tools, ALLOWED_TOOLS))
-
-    # From sql cartridge
-    require(sql.no_injection(p.query))
-    require(sql.fk_integrity(p.query, SCHEMA))
-
-    # All constraints combined into one feasible region
-    # Veritas solves them together`} copyable />
-
-<Callout variant="check" title="Cartridge Composition">
-
-Cartridges compose cleanly — each contributes constraints, and Veritas's solver combines them into a single feasible region. No conflicts between cartridges.
-
+<Callout variant="info" title="Two layers, one spec">
+Use the DSL (`vt.require`, `vt.dot`, `vt.quad_form`, `vt.forall`) for constraints that must hold
+*during* decoding. Use cartridges for domain logic that is easier to express as code — SMILES parsing,
+SQL tokenisation, scheduling feasibility, dimensional algebra — then run it on the `PASS` object.
 </Callout>
 
----
+## The nine modules
 
-## The 9 Domain Cartridges
+| Module | Concrete checks | Detail |
+| :--- | :--- | :--- |
+| `quant` | Simplex and concentration limits, covariance PSD, portfolio statistics, Black–Scholes, implied volatility, no-arbitrage, accounting identities | [Finance](/docs/cartridges/quantitative-finance) |
+| `sql` | Tokenisation, table/column/alias resolution, foreign keys, tenant predicates, read-only enforcement | [SQL safety](/docs/cartridges/sql-and-database-safety) |
+| `sec` | Declared tools, preconditions/effects, budgets, snapshots, LTLf policy evaluation | [Security & IAM](/docs/cartridges/security-and-iam-policies) |
+| `or_sched` | Precedence DAG, earliest schedule, deadlines, interval capacity, critical path | [Scheduling](/docs/cartridges/operations-research-scheduling) |
+| `stat` | Probability simplex, Fréchet bounds, Bayes consistency, covariance PSD, d-separation | [Statistics](/docs/cartridges/statistics-and-distributions) |
+| `phys` | Rational-exponent dimensional algebra over $\mathbb{Q}^7$, AST equation checks, quantities | [Physics](/docs/cartridges/physics-dimensional-analysis) |
+| `chem` | SMILES tokenisation/parsing, ring closures, charges, implicit hydrogens, valence, formula, weight | [Chemistry](/docs/cartridges/chemistry-smiles) |
+| `code` | Scope-aware undefined identifiers, literal division by zero, literal index bounds, syntax errors | [Code analysis](/docs/cartridges/code-analysis-and-synthesis) |
+| `code_synth` | The implementation module; `code` re-exports it (`from .code_synth import *`) | [Code analysis](/docs/cartridges/code-analysis-and-synthesis) |
 
-<Card>
-<CardHeader>
-<CardTitle>quant — Quantitative Finance</CardTitle>
-</CardHeader>
-<CardContent>
-Portfolio simplex, Cholesky covariance `quad_form`, Black-Scholes, Value-at-Risk.
-</CardContent>
-</Card>
+<KeyValueTable
+  rows={[
+    { key: 'Dependencies', value: 'None beyond the core package', note: 'no mandatory NumPy, z3 or SymPy' },
+    { key: 'Determinism', value: 'Pure functions over concrete values', note: 'safe inside guards and tests' },
+    { key: 'Failure style', value: 'Return bool / report object', note: 'raise only for malformed input' },
+    { key: 'Scope', value: 'Reference implementations', note: 'not vendor-certified parsers or solvers' },
+  ]}
+/>
 
-<Card>
-<CardHeader>
-<CardTitle>sql — Text-to-SQL Safety</CardTitle>
-</CardHeader>
-<CardContent>
-Catalog-aware schema alignment, FK join validation, SQL injection blocking.
-</CardContent>
-</Card>
+## The composition pattern
 
-<Card>
-<CardHeader>
-<CardTitle>sec — Security & IAM</CardTitle>
-</CardHeader>
-<CardContent>
-Cloud IAM / RBAC least-privilege policies & tool-call guardrails.
-</CardContent>
-</Card>
+A single object can be checked by several domains. Verify the math with the engine, then run the domain
+guards on the concrete result:
 
-<Card>
-<CardHeader>
-<CardTitle>or_sched — Operations Research</CardTitle>
-</CardHeader>
-<CardContent>
-Job-shop scheduling, resource capacity bounds, non-overlap difference logic.
-</CardContent>
-</Card>
+<CodeBlock language="python" title="one verified object, several domain guards" code={`import veritas as vt
+from veritas.cartridges import quant, sec, sql
 
-<Card>
-<CardHeader>
-<CardTitle>chem — Chemistry (SMILES)</CardTitle>
-</CardHeader>
-<CardContent>
-SMILES molecular parser, atomic valence limits, formal charge & molecular weight.
-</CardContent>
-</Card>
+report = trading_action.verify(candidate)
+report.raise_if_failed()
 
-<Card>
-<CardHeader>
-<CardTitle>phys — Physics</CardTitle>
-</CardHeader>
-<CardContent>
-SI dimensional analysis group $\mathbb{Q}^7$ & conservation laws.
-</CardContent>
-</Card>
+# finance: weights + concentration
+assert quant.portfolio_weights_valid(
+    candidate["weights"], allowed={"AAPL", "MSFT", "NVDA"}, lo=0.05, hi=0.50
+)
+assert quant.concentration_ok(candidate["weights"], max_weight=0.50)
 
-<Card>
-<CardHeader>
-<CardTitle>stat — Statistics</CardTitle>
-</CardHeader>
-<CardContent>
-Probability simplexes, confidence intervals & moment constraints.
-</CardContent>
-</Card>
+# security: the policy that governed the tools
+state = sec.WorldState()
+state.declare_tool("transfer", requires=["authenticated"], cost=10.0, budget_key="usd")
+state.assert_fact("authenticated")
+assert state.can_call("transfer")
 
-<Card>
-<CardHeader>
-<CardTitle>code & code_synth — Code Analysis</CardTitle>
-</CardHeader>
-<CardContent>
-AST complexity limits, forbidden node detection & grammar-safe synthesis.
-</CardContent>
-</Card>
+# SQL: read-only, tenant-scoped, known tables
+verifier = sql.SqlVerifier({"orders": ["id", "tenant_id", "total"]})
+result = verifier.verify(candidate["query"])
+assert result.ok, result.errors`} copyable />
 
----
+<Callout variant="warn" title="Guards are not the decoder">
+A cartridge guard runs **after** the object exists. It cannot mask a token or rewind a branch. If a
+condition must be enforced during decoding, express it in the schema with `vt.require`; keep cartridges
+for domain logic that is clearer as code.
+</Callout>
 
-## Cartridge Quick Reference
+## When a cartridge is the right tool
 
-| Cartridge | Module | Key Constraints | Best For |
-| :--- | :--- | :--- | :--- |
-| **quant** | `veritas.cartridges.quant` | simplex, quad_form, black_scholes, var | Portfolio optimization, risk |
-| **sql** | `veritas.cartridges.sql` | no_injection, fk_integrity, schema_alignment | Text-to-SQL, database |
-| **sec** | `veritas.cartridges.sec` | least_privilege, tool_guardrail, rbac_policy | AI agents, tool use |
-| **or_sched** | `veritas.cartridges.or_sched` | non_overlap, capacity_bounds, precedence | Scheduling, resource allocation |
-| **chem** | `veritas.cartridges.chem` | parse_smiles, valence_limits, formal_charge | Molecular design, chemistry |
-| **phys** | `veritas.cartridges.phys` | dimensional_analysis, conservation_law, si_unit | Physics equations, engineering |
-| **stat** | `veritas.cartridges.stat` | probability_simplex, confidence_interval, moment_constraint | Statistical modeling, ML |
-| **code** | `veritas.cartridges.code` | ast_complexity, forbidden_nodes, max_depth | Code generation, security |
-| **code_synth** | `veritas.cartridges.code_synth` | grammar_safe_synthesis, ast_validation | Code synthesis, compilers |
+<FeatureGrid>
+  <Feature title="Parsing is the constraint" icon="database">
+    SMILES, SQL and dimensional expressions need real parsers. The cartridges provide them without
+    pulling NumPy or z3 into the hot path.
+  </Feature>
+  <Feature title="You need a readable audit" icon="check">
+    Returning `SqlVerification` or `CodeReport` gives an operator something to read — errors, warnings,
+    line and column.
+  </Feature>
+  <Feature title="You already have the object" icon="cpu">
+    Post-hoc checks are cheap and composable: run them in your service, in CI, or in a nightly audit of
+    stored generations.
+  </Feature>
+  <Feature title="You need in-decode enforcement" icon="layers">
+    Use the DSL. `vt.require` compiles into the mask and contractors, which is the only way to prevent
+    rather than detect.
+  </Feature>
+</FeatureGrid>
 
----
+## Next
 
-## Installing Cartridge Dependencies
-
-Some cartridges require optional extras:
-
-<CodeBlock language="bash" code={`# quant needs sympy + numpy for quad_form
-pip install 'veritas-ai[cas]'
-
-# stat needs numpy for moment constraints
-pip install 'veritas-ai[cas]'
-
-# Most cartridges work with just veritas-ai
-pip install veritas-ai`} copyable />
-
----
-
-## Next Steps
-
-- **[Quantitative Finance](/docs/cartridges/quantitative-finance)** — quant cartridge deep dive
-- **[Text-to-SQL Safety](/docs/cartridges/sql-and-database-safety)** — sql cartridge
-- **[Security & IAM](/docs/cartridges/security-and-iam-policies)** — sec cartridge
+- [Finance](/docs/cartridges/quantitative-finance) · [SQL](/docs/cartridges/sql-and-database-safety) ·
+  [Security](/docs/cartridges/security-and-iam-policies) ·
+  [Scheduling](/docs/cartridges/operations-research-scheduling)
+- [Statistics](/docs/cartridges/statistics-and-distributions) ·
+  [Physics](/docs/cartridges/physics-dimensional-analysis) ·
+  [Chemistry](/docs/cartridges/chemistry-smiles) ·
+  [Code](/docs/cartridges/code-analysis-and-synthesis)

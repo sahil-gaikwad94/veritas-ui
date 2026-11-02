@@ -1,0 +1,154 @@
+---
+title: Compared to alternatives
+description: Pydantic, Instructor, Outlines, llguidance, OpenAI structured outputs and Z3 — what each one guarantees, and when Veritas is the wrong tool.
+---
+
+import { Callout, Tabs, TabsContent, TabsList, TabsTrigger, FeatureGrid, Feature } from '@/components/mdx-components';
+
+Most "structured output" tools solve one of three problems: **shape**, **syntax**, or **proof**. Veritas
+is built for the fourth: constraints that span fields and must hold mathematically during generation.
+
+## Capability matrix
+
+| Capability | Pydantic / Instructor | Outlines / llguidance | Raw Z3 | **Veritas** |
+| :--- | :--- | :--- | :--- | :--- |
+| JSON grammar masking | Post-hoc validation | Yes (CFG / regex / PDA) | No | **Yes — exact mask over your vocabulary** |
+| Cross-field algebra & inequalities | Retry after failure | No | Manual SMT-LIB | **Yes — HC4 + affine contractors** |
+| Derived fields without sampling | No | Syntax jump-forward only | No | **Yes — zero-DoF splice** |
+| Preflight contradiction check | No | No | Manual setup | **Yes — `run_preflight` / `check-spec`** |
+| Conflict-directed backtracking | Whole-prompt retry | No | No | **Yes — entropy-weighted CDCL** |
+| Reasoning mode (`<think>` → `<emit>`) | Separate prompt | Grammar lock applies throughout | N/A | **Yes — CRANE dual mode** |
+| Offline verification artefact | No | No | Unsat core | **Yes — certificate + SMT-LIB2** |
+| Domain logic | Hand-written validators | None | None | **8 composable cartridges** |
+| Optional solver | No | No | Is the solver | Yes — nano-solver first, Z3 optional |
+| Learning curve | Pydantic | Grammar/schema | SMT-LIB | Pydantic + Python comparisons |
+
+<Callout variant="warn" title="Read the column headings honestly">
+Every row above is a capability, not a quality judgement. Outlines is excellent at grammar masking and
+far more mature at ecosystem breadth. Z3 is a superb general solver. Veritas optimises for a narrower
+promise: the arithmetic in your output is checked while it is produced.
+</Callout>
+
+## Pydantic and Instructor
+
+You already describe shapes with Pydantic. Veritas uses the same models, so the incremental cost is the
+constraint block:
+
+```python
+class Portfolio(BaseModel):
+    weights: dict
+    expected_return: float
+
+@vt.verified_schema()
+def portfolio(p: Portfolio):
+    vt.require(vt.sum(p.weights.values()) == 1.0, tol=1e-6)
+    vt.derive(p.expected_return == vt.dot(p.weights, RETURNS), tol=1e-5)
+```
+
+| | Pydantic alone | Pydantic + Veritas |
+| :--- | :--- | :--- |
+| Type errors | Caught after generation | Prevented during generation |
+| Cross-field equations | Custom validator, then retry | Compiled into the decode |
+| Derived values | Model guesses, validator compares | Computed and spliced |
+| Failure cost | Entire response + retry | One masked token |
+
+Instructor and `patch_openai` are useful when you cannot touch logits. Veritas exposes the same
+post-hoc verification path — but it cannot prevent the tokens, so treat it as a guard, not a decoder.
+
+## Outlines, llguidance and JSON mode
+
+Grammar-constrained decoding proves that the output **parses**. It says nothing about whether
+`weights` sum to one. The difference is easiest to see in a trace:
+
+| Trace event | Grammar-only | Veritas |
+| :--- | :--- | :--- |
+| `"NVDA": 0.3` crosses the simplex residual | Accepted | Prefix masked |
+| `expected_return` emitted | Sampled digit by digit | Spliced value |
+| Branch contradicts `sharpe >= 0.55` | Not noticed | CDCL rewind + domain cut |
+| Final object | Valid JSON | Valid JSON **and** re-evaluated constraints |
+
+If your only requirement is "valid JSON matching this schema", a grammar tool is simpler and has a
+broader supported grammar surface. Veritas deliberately supports JSON only.
+
+## Raw Z3 and SMT solvers
+
+Z3 is more expressive than Veritas's nano-solver, especially for non-linear arithmetic and quantified
+formulas. The trade-off is integration: Z3 expects SMT-LIB (or an API) and a model of your problem, and
+it is not designed to be called once per token.
+
+Veritas does two things differently:
+
+1. **It stays cheap per step.** Grammar and interval layers are deterministic Rust/Python paths; Z3 is
+   an optional fallback when installed.
+2. **It speaks your schema.** Constraints come from Python comparisons over Pydantic fields, not a
+   separate SMT-LIB file.
+
+If you already have a Z3 model and only need to validate completed objects, use Z3 directly.
+
+## OpenAI structured outputs
+
+Provider-side structured outputs give you reliable JSON shape and are the right default when you do not
+control the runtime. They do not evaluate cross-field arithmetic, cannot splice derived values, and give
+you no decode trace.
+
+```python
+# practical pattern: provider enforces shape, Veritas verifies arithmetic
+result = client.responses.create(...)
+report = portfolio.verify(json.loads(result.output_text))
+report.raise_if_failed()
+```
+
+## When Veritas is the wrong tool
+
+<FeatureGrid>
+  <Feature title="You need arbitrary grammars" icon="check">
+    Support is JSON plus a documented JSON-Schema subset. Unsupported keywords fail loudly rather than
+    pretending.
+  </Feature>
+  <Feature title="You cannot touch decoding" icon="cpu">
+    Post-hoc verification still helps, but you lose masking, contraction and splicing — the parts that
+    prevent the error rather than detect it.
+  </Feature>
+  <Feature title="Your constraints are mostly non-linear" icon="layers">
+    The nano-solver is aimed at small linear systems. Complex non-linear problems are better expressed
+    directly in Z3.
+  </Feature>
+  <Feature title="You need a mature ecosystem today" icon="database">
+    Veritas 2.0 is a young project: 419 tests with the native extension, adapter-tested bridges, and a
+    deliberately documented scope.
+  </Feature>
+</FeatureGrid>
+
+## Decision guide
+
+<Tabs defaultValue="grammar">
+<TabsList>
+<TabsTrigger value="grammar">Shape only</TabsTrigger>
+<TabsTrigger value="math">Arithmetic matters</TabsTrigger>
+<TabsTrigger value="proof">You need evidence</TabsTrigger>
+</TabsList>
+
+<TabsContent value="grammar">
+
+Use the simplest tool that guarantees the shape. If a JSON-schema-constrained provider or a grammar
+decoder already meets your needs, adding a solver is unnecessary complexity.
+
+</TabsContent>
+
+<TabsContent value="math">
+
+Use Veritas. The value is proportional to how expensive a wrong number is — portfolios, invoices,
+schedules, safety policies, scientific units.
+
+</TabsContent>
+
+<TabsContent value="proof">
+
+Use Veritas certificates in addition to your own integration tests. Remember that digests are unkeyed
+integrity checks: bind them to a trusted spec or sign the artefact in your application.
+
+</TabsContent>
+</Tabs>
+
+Continue with [How Veritas works](/docs/getting-started/how-veritas-works) or read the
+[scope and limitations](/docs/getting-started/troubleshooting).

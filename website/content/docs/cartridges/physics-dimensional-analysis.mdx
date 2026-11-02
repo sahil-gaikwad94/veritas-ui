@@ -1,103 +1,94 @@
 ---
-title: Physics Dimensional Analysis
-description: veritas.cartridges.phys — SI dimensional analysis Q⁷ & conservation laws.
+title: Physics & dimensional analysis
+description: veritas.cartridges.phys — rational-exponent dimensions over Q^7, AST equation checks and unit-aware quantities.
 ---
 
-import { CodeBlock, Callout } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
-# Physics Cartridge
+Dimensions are a type system for equations. `phys` represents them as a vector in $\mathbb{Q}^7$ over
+the SI base quantities — length, mass, time, current, temperature, amount and luminous intensity — so
+fractional exponents are exact and multiplication is vector addition.
 
-The `phys` cartridge provides SI dimensional analysis (7 base dimensions: $\mathbb{Q}^7$) and conservation law constraints.
+<KeyValueTable
+  rows={[
+    { key: 'Base dimensions', value: 'LENGTH, MASS, TIME, CURRENT, TEMPERATURE, AMOUNT, LUMINOUS' },
+    { key: 'Derived constants', value: 'VELOCITY, ACCELERATION, FORCE, ENERGY, POWER, PRESSURE, MOMENTUM' },
+    { key: 'Algebra', value: 'add_dim, sub_dim, mul_dim, div_dim, pow_dim' },
+    { key: 'Comparisons', value: 'homogeneous, is_dimensionless, dim_to_str' },
+    { key: 'AST checks', value: 'dimension_of_expression, check_equation, check_expression' },
+    { key: 'Quantities', value: 'Quantity(value, dim) with + − × ÷' },
+  ]}
+/>
 
----
-
-## SI Dimensional Analysis
-
-### The 7 Base Dimensions
-
-Every physical quantity is represented as a 7-tuple of rational exponents:
-
-| Dimension | Symbol | SI Unit |
-| :--- | :--- | :--- |
-| Length | L | meter (m) |
-| Mass | M | kilogram (kg) |
-| Time | T | second (s) |
-| Current | I | ampere (A) |
-| Temperature | $\Theta$ | kelvin (K) |
-| Amount | N | mole (mol) |
-| Luminous Intensity | J | candela (cd) |
-
-### Dimensional Analysis
-
-`dimensional_analysis` verifies both sides of an equation have the same dimensions:
-
-<CodeBlock language="python" code={`from veritas.cartridges.phys import dimensional_analysis
-
-@verified_schema
-def equation(e: PhysicsEquation):
-    require(dimensional_analysis(e.lhs, e.rhs))`} copyable />
-
-### Conservation Laws
-
-`conservation_law` enforces conservation of energy, momentum, charge, or mass:
-
-<CodeBlock language="python" code={`from veritas.cartridges.phys import conservation_law
-
-require(conservation_law(e, CONSERVATION_ENERGY))`} copyable />
-
-### SI Unit Validation
-
-`si_unit` ensures a result has the expected unit:
-
-<CodeBlock language="python" code={`from veritas.cartridges.phys import si_unit
-
-require(si_unit(e.result, "N"))  # Result in Newtons`} copyable />
-
----
-
-## Complete Example
-
-<CodeBlock language="python" code={`from veritas import verified_schema, require, derive
-from veritas.cartridges.phys import dimensional_analysis, conservation_law, si_unit
-
-CONSERVATION_ENERGY = {"energy": 1.0}
-
-@verified_schema
-def physics_equation(e: PhysicsEquation):
-    # Dimensional homogeneity: both sides have same dimensions
-    require(dimensional_analysis(e.lhs, e.rhs))
-
-    # Energy conservation
-    require(conservation_law(e, CONSERVATION_ENERGY))
-
-    # Result must be in Newtons
-    require(si_unit(e.result, "N"))
-
-    # Derive force from mass and acceleration (F = ma)
-    derive(e.force == e.mass * e.acceleration)
-
-    # Force must be in Newtons (kg·m/s²)
-    require(si_unit(e.force, "N"))`} copyable />
-
-<Callout variant="tip" title="Dimensional Homogeneity">
-
-Equations that are dimensionally inconsistent are rejected at the grammar level — the LLM cannot emit dimensionally invalid physics.
-
+<Callout variant="info" title="Exact rational exponents">
+`pow_dim(AREA, Fraction(1, 2))` stays a fraction. No floating-point drift turns a valid equation into a
+mismatch, and square roots of dimensions behave the way algebra says they should.
 </Callout>
 
----
+## Check an equation
 
-## Key Functions Reference
+<CodeBlock language="python" title="F = m·a, and a wrong E = m·v" code={`from veritas.cartridges.phys import (
+    FORCE, MASS, ACCELERATION, ENERGY, VELOCITY,
+    check_equation, check_expression, dimension_of_expression,
+)
 
-| Function | Signature | Description |
-| :--- | :--- | :--- |
-| `dimensional_analysis` | `(lhs, rhs) -> bool` | Dimensions match |
-| `conservation_law` | `(equation, law_type) -> bool` | Conservation enforced |
-| `si_unit` | `(value, unit) -> bool` | Correct SI unit |
+symbols = {"F": FORCE, "m": MASS, "a": ACCELERATION, "E": ENERGY, "v": VELOCITY}
 
----
+print(check_equation("F", "m*a", symbols))
+# (True, 'dimensionally consistent: L·M·T^-2')
 
-## Next Steps
+print(check_equation("E", "m*v", symbols))
+# (False, 'dimension mismatch: LHS is L^2·M·T^-2, RHS is L·M·T^-1')
 
-- **[Statistics](/docs/cartridges/statistics-and-distributions)** — stat cartridge
-- **[Code Analysis](/docs/cartridges/code-analysis-and-synthesis)** — code cartridge
+print(dimension_of_expression("m*a**2", symbols))   # Dim(L^2·M·T^-2)
+print(check_expression("0.5*m*v**2", symbols))      # (True, 'L^2·M·T^-2')`} copyable />
+
+`check_equation` parses both sides as Python expressions, so `**`, parentheses and rational exponents
+work as expected. Anything it cannot parse returns `(False, reason)` instead of raising.
+
+## Dimension algebra
+
+<CodeBlock language="python" title="products, powers and square roots stay exact" code={`from fractions import Fraction
+from veritas.cartridges.phys import (
+    LENGTH, TIME, MASS, VELOCITY, ACCELERATION, FORCE,
+    mul_dim, div_dim, pow_dim, homogeneous, is_dimensionless, dim_to_str,
+)
+
+assert homogeneous(mul_dim(ACCELERATION, TIME), VELOCITY)
+assert homogeneous(div_dim(FORCE, ACCELERATION), MASS)
+
+area = mul_dim(LENGTH, LENGTH)
+print(dim_to_str(area))                        # L^2
+print(pow_dim(area, Fraction(1, 2)))           # (1, 0, 0, 0, 0, 0, 0)
+print(is_dimensionless(div_dim(LENGTH, LENGTH)))   # True`} copyable />
+
+<Callout variant="info" title="Quantity is a pair, not a unit system">
+`Quantity(value, dim)` stores a value with its dimension and supports construction plus same-dimension
+addition and subtraction. Products and powers are expressed with `mul_dim`, `div_dim` and `pow_dim`;
+there is no unit conversion layer.
+</Callout>
+
+## What it does not do
+
+- **No unit conversion.** Dimensions are not units: `Quantity(1, LENGTH)` does not know metres from
+  inches. Convert before constructing.
+- **No value solving.** It checks dimensional consistency, not numerical equality or solvability.
+- **No dimensional inference for arbitrary code.** Only expressions it can parse as Python ASTs.
+- **Constants are a fixed convenience set.** Define your own dimensions with `_dim`/`add_dim` if you
+  need more.
+
+## Schema guard
+
+<CodeBlock language="python" title="reject a formula before it reaches a calculator" code={`from veritas.cartridges.phys import check_equation, FORCE, MASS, ACCELERATION
+
+report = formula_spec.verify(candidate)
+report.raise_if_failed()
+
+ok, reason = check_equation(
+    candidate["lhs"], candidate["rhs"],
+    {"F": FORCE, "m": MASS, "a": ACCELERATION},
+)
+if not ok:
+    raise ValueError(reason)`} copyable />
+
+Next: [Chemistry](/docs/cartridges/chemistry-smiles).

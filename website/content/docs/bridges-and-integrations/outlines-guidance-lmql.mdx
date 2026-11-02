@@ -1,57 +1,78 @@
 ---
-title: Outlines, Guidance & LMQL
-description: OutlinesAdapter, GuidanceAdapter, LmqlAdapter — grammar-based bridge adapters.
+title: OpenAI, Instructor & Outlines
+description: Post-hoc verification for provider APIs, and the OutlinesAdapter entry point.
 ---
 
-import { CodeBlock, Callout } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
-# Outlines, Guidance & LMQL Bridges
+When you cannot touch logits, verification happens after the response. `patch_openai` wraps a client,
+requests a JSON schema, verifies the body and raises before a bad value reaches your code.
 
-Adapters for grammar-based generation libraries — Outlines, Guidance, and LMQL. These enforce **syntax** (CFG/Regex); Veritas enforces **semantics** (math, logic, cross-field invariants). Use them together for maximum safety.
+<KeyValueTable
+  rows={[
+    { key: 'patch_openai(client, spec=None, mode=INSTRUCTOR_MODE)', value: 'VeritasOpenAIProxy' },
+    { key: 'from_openai(client, mode, spec=None)', value: 'no-op unless mode is veritas' },
+    { key: 'InstructorBridge(client=None, spec=None, mode=INSTRUCTOR_MODE)', value: '.create(**kwargs)' },
+    { key: 'VerificationError(message, report=None, response=None)', value: 'raised on FAIL / INCOMPLETE' },
+    { key: 'vt.from_outlines(model, spec=None)', value: 'OutlinesAdapter with .generate(prompt)' },
+  ]}
+/>
 
----
+<CodeBlock language="python" title="wrap an OpenAI-compatible client" code={`from openai import OpenAI
+from veritas.bridges import patch_openai, VerificationError
 
-## Available Adapters
+client = patch_openai(OpenAI(), spec=portfolio)
 
-| Adapter | Library | Integration |
-| :--- | :--- | :--- |
-| `OutlinesAdapter` | Outlines | CFG/Regex grammar masking |
-| `GuidanceAdapter` | Guidance | Programmatic generation |
-| `LmqlAdapter` | LMQL | SQL-like query language |
+try:
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": "propose a portfolio"}],
+    )
+    print(response.veritas_report.status)     # PASS
+except VerificationError as exc:
+    print(exc.report.constraints)             # what failed, field by field`} copyable />
 
----
+The proxy sets `response_format` to a JSON schema and injects `veritas_vir` into `extra_body` so a
+compatible server can enforce the spec server-side. Any other attribute is delegated to the wrapped
+client unchanged.
 
-## Example Usage
-
-<CodeBlock language="python" code={`from veritas.bridges import OutlinesAdapter, GuidanceAdapter, LmqlAdapter
-
-# Outlines — CFG grammar masking
-outlines_adapter = OutlinesAdapter(schema=valid_portfolio)
-outlines_adapter.mask_logits(logits, tokenizer)
-
-# Guidance — programmatic generation
-guidance_adapter = GuidanceAdapter(schema=valid_portfolio)
-guidance_adapter.generate(program, model)
-
-# LMQL — SQL-like queries
-lmql_adapter = LmqlAdapter(schema=valid_portfolio)
-lmql_adapter.query(
-    \"SELECT portfolio WHERE sharpe_ratio > 0.65\",
-    model,
-)`} copyable />
-
-<Callout variant="info" title="Why Veritas Over Grammar-Only">
-
-Outlines/Guidance enforce **syntax** (valid JSON, valid Python). Veritas enforces **semantics** (weights sum to 1.0, Sharpe ratio computed correctly). Use them together:
-
-- Outlines/Guidance: "This is valid JSON"
-- Veritas: "This is mathematically correct"
-
+<Callout variant="warn" title="Post-hoc is a guard, not a decoder">
+The provider has already sampled the tokens. A violation costs the whole response and a retry. Use a
+logits-processor bridge (vLLM, SGLang, HF) when prevention matters, and keep this path for providers you
+do not control.
 </Callout>
 
----
+## Instructor
 
-## Next Steps
+<CodeBlock language="python" code={`from veritas.bridges import InstructorBridge
 
-- **[Async Stream Proxy](/docs/bridges-and-integrations/async-stream-proxy)** — Cloud API proxy
-- **[Diffusion LLMs](/docs/bridges-and-integrations/diffusion-llms)** — Diffusion model support
+bridge = InstructorBridge(client=openai_client, spec=portfolio)
+response = bridge.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "propose a portfolio"}],
+)`} copyable />
+
+## Outlines
+
+`OutlinesAdapter` is a thin route into `vt.generate` — it does not reimplement Outlines. Use it when your
+Outlines-backed model can expose next-token logits:
+
+<CodeBlock language="python" code={`import veritas as vt
+
+adapter = vt.from_outlines(model, spec=portfolio)
+result = adapter.generate("propose a portfolio")
+print(result.raw, result.report.status)`} copyable />
+
+## Guidance and LMQL
+
+This release has **no Guidance or LMQL adapters**. Earlier drafts of this page described them; there is
+no module, test or entry point behind that claim. If you need those runtimes, drive them with a JSON
+schema plus `spec.verify(...)` and treat the result as post-hoc verification.
+
+## Adapter status
+
+Tested with deterministic fake clients: request shaping, schema injection and violation raising. Not
+tested against live vendor endpoints, which may reject unknown `extra_body` keys — confirm with your
+provider before enabling the spec injection in production.
+
+Next: [Async stream supervisor](/docs/bridges-and-integrations/async-stream-proxy).

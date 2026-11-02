@@ -2,10 +2,7 @@
 title: CRANE Dual-Mode Reasoning
 description: CraneModeController, ∫ → <emit>, ShadowParser — chain-of-thought preservation during verified generation.
 ---
-
 import { Callout, CodeBlock } from '@/components/mdx-components';
-
-# CRANE Dual-Mode Reasoning
 
 CRANE (**C**hain-of-Thought **R**easoning with **A**daptive **N**on-strict **E**ngagement) lets the model reason freely in thinking tokens (`∫`) without grammar lock-in degrading accuracy, then engages strict solver-guided decoding on `<emit>`.
 
@@ -37,7 +34,7 @@ The `CraneModeController` manages the transition between reasoning and emit mode
 
 ### Example
 
-<CodeBlock language="python" code={`from veritas._native import CraneModeController
+<CodeBlock language="python" code={`from veritas import CraneModeController
 
 crane = CraneModeController()
 
@@ -81,7 +78,7 @@ While the model is in reasoning mode, the `ShadowParser` passively scans the rea
 
 ### Example
 
-<CodeBlock language="python" code={`from veritas._native import ShadowParser
+<CodeBlock language="python" code={`from veritas import ShadowParser
 
 shadow = ShadowParser()
 

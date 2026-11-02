@@ -1,94 +1,64 @@
 ---
-title: vLLM Integration
-description: veritas.bridges.vllm — VllmAdapter & logit processor integration.
+title: vLLM
+description: Attach an exact JSON token mask to vLLM with VLLMLogitsProcessor or patch_vllm.
 ---
 
-import { CodeBlock, Callout } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
-# vLLM Bridge
+vLLM accepts logits processors per request. Veritas supplies one that masks every token against the
+JSON grammar — and against your schema when a spec is supplied.
 
-The `vLLM` adapter integrates Veritas with vLLM's logit processor — masking tokens at the vLLM level for maximum throughput.
+## API
 
----
+<KeyValueTable
+  rows={[
+    { key: 'VLLMLogitsProcessor(tokenizer=None, spec=None, vocabulary=None, eos_token_id=None)', value: 'callable logits processor' },
+    { key: 'VeritasVLLMBridge(model=None, spec=None, tokenizer=None)', value: 'bridge object' },
+    { key: 'bridge.sampling_params()', value: '{"logits_processors": [processor]}' },
+    { key: 'bridge.patch(engine=None)', value: 'appends to host list, or raises TypeError' },
+    { key: 'patch_vllm(engine, spec=None, tokenizer=None)', value: 'one-line patch' },
+  ]}
+/>
 
-## VllmAdapter
+<CodeBlock language="python" title="pass the processor through SamplingParams" code={`from vllm import LLM, SamplingParams
+from veritas.bridges import VeritasVLLMBridge
 
-### What It Does
+model = LLM(model="meta-llama/Llama-3.1-8B-Instruct")
+bridge = VeritasVLLMBridge(model, spec=portfolio, tokenizer=model.get_tokenizer())
 
-`VllmAdapter` registers Veritas as a logit processor in vLLM's sampling pipeline. This means token masking happens inside vLLM's C++/CUTH kernel — no Python overhead per token.
+params = SamplingParams(temperature=0.7, max_tokens=512, **bridge.sampling_params())
+outputs = model.generate(["produce a portfolio"], params)
 
-### Example
+# the mask enforced grammar + spec during generation
+report = portfolio.verify(outputs[0].outputs[0].text)
+report.raise_if_failed()`} copyable />
 
-<CodeBlock language="python" code={`from veritas.bridges.vllm import VllmAdapter
-from vllm import LLM, SamplingParams
+## Patching an engine
 
-adapter = VllmAdapter(schema=valid_portfolio)
+<CodeBlock language="python" title="mutating an existing host" code={`from veritas.bridges import patch_vllm
 
-# Register with vLLM sampling params
-sampling_params = adapter.create_sampling_params()
-# Includes logits_processors=[adapter.logit_processor]
+try:
+    patch_vllm(model, spec=portfolio, tokenizer=model.get_tokenizer())
+except TypeError as exc:
+    # host has no logits_processors list — use sampling_params() instead
+    print(exc)`} copyable />
 
-llm = LLM(model="meta-llama/Llama-3.1-8B-Instruct")
-
-outputs = llm.generate(
-    prompts=["Create a low-volatility portfolio with AAPL, MSFT, NVDA"],
-    sampling_params=sampling_params,
-)`} copyable />
-
-### Integration Points
-
-| Integration | Description |
-| :--- | :--- |
-| `logit_processor` | Masks logits before sampling in vLLM |
-| `create_sampling_params` | vLLM `SamplingParams` with Veritas hooks |
-| `prefix_status` | Real-time PDA status for monitoring |
-
-<Callout variant="check" title="Zero Per-Token Overhead">
-
-The vLLM adapter runs the PDA mask in Rust (0.23 ms) — no Python overhead per token. vLLM's continuous batching means Veritas adds negligible latency.
-
+<Callout variant="warn" title="Fail closed">
+`patch()` raises `TypeError` when the host exposes no logits processor list rather than silently
+running unconstrained. Prefer the explicit `sampling_params()` path; it survives vLLM version changes
+better than attribute patching.
 </Callout>
 
----
+## Adapter status
 
-## Complete Example
+The bridge is tested with deterministic fake tokenizers and hosts, not against a live vLLM deployment.
+Tokenizer vocabulary extraction varies by version — verify one request end to end before relying on the
+mask in production, and keep `report.raise_if_failed()` as the last line of defence.
 
-<CodeBlock language="python" code={`from veritas import verified_schema, require, derive, sum, dot
-from veritas.bridges.vllm import VllmAdapter
-from vllm import LLM
+## What the mask does not do
 
-RETURNS = {"AAPL": 0.12, "MSFT": 0.10, "NVDA": 0.15}
+- It does not call the model or manage sampling parameters other than the processor.
+- It does not verify the final object — do that with `spec.verify(...)`.
+- With no `spec`, the processor enforces JSON grammar only (no cross-field constraints).
 
-@verified_schema
-def portfolio(p: Portfolio):
-    require(sum(p.weights.values()) == 1.0, tol=1e-6)
-    require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
-    derive(p.expected_return == dot(p.weights, RETURNS))
-    require(p.expected_return >= 0.10)
-
-# Create adapter
-adapter = VllmAdapter(schema=portfolio)
-
-# Create vLLM engine
-llm = LLM(model="meta-llama/Llama-3.1-8B-Instruct")
-
-# Generate with Veritas masking
-sampling_params = adapter.create_sampling_params()
-outputs = llm.generate(
-    prompts=["Create a portfolio with AAPL, MSFT, NVDA"],
-    sampling_params=sampling_params,
-)
-
-# Result is Veritas-verified
-result = outputs[0].outputs[0].text
-import json
-data = json.loads(result)
-print(data["weights"])   # Verified: sums to 1.0, each in [0.05, 0.50]
-print(data["expected_return"])  # Zero-DoF spliced`} copyable />
-
----
-
-## Next Steps
-
-- **[SGLang](/docs/bridges-and-integrations/sglang)** — SGLang adapter
-- **[llama.cpp](/docs/bridges-and-integrations/llama-cpp)** — llama.cpp adapter
+Next: [SGLang](/docs/bridges-and-integrations/sglang).
