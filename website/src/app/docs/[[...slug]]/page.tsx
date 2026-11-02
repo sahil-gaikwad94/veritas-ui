@@ -1,5 +1,5 @@
 import { source } from '@/lib/source';
-import { DocsPage, DocsBody, DocsTitle, DocsDescription } from 'fumadocs-ui/layouts/docs/page';
+import { DocsPage, DocsBody, DocsTitle, DocsDescription } from 'fumadocs-ui/page';
 import { notFound } from 'next/navigation';
 import { getMDXComponents } from '@/components/mdx-components';
 import { createRelativeLink } from 'fumadocs-ui/mdx';

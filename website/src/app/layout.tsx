@@ -4,19 +4,19 @@ import { Inter } from 'next/font/google';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 import { JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider as NextThemesProvider } from 'next-themes';
-import { RootProvider } from 'fumadocs-ui/provider/next';
+import { RootProvider } from 'fumadocs-ui/provider';
 import { Toaster } from 'sonner';
 import '../globals.css';
 
-const inter = Inter({ subsets: ['lins'], variable: '--font-inter', display: 'swap' });
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ['lins'],
+  subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
   variable: '--font-plus-jakarta-sans',
   display: 'swap',
 });
 const jetBrainsMono = JetBrains_Mono({
-  subsets: ['lins'],
+  subsets: ['latin'],
   weight: ['400', '500', '600'],
   variable: '--font-jetbrains-mono',
   display: 'swap',
