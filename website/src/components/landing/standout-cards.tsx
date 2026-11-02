@@ -93,19 +93,10 @@ export function StandoutCards() {
   const reduce = useReducedMotion();
 
   return (
-    <section id="standout" className="section-y relative overflow-hidden border-y border-border-subtle bg-bg-inset/50">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -inset-px rounded-[36px] bg-gradient-to-tr from-cobalt-500 via-accent-violet to-accent-acid blur opacity-20"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 left-1/4 w-[600px] h-[600px] rounded-full bg-cobalt-500/20 blur-[80px]"
-        />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -bottom-24 right-1/4 w-[500px] h-[500px] rounded-full bg-accent-violet/20 blur-[64px]"
-      />
+    <section id="standout" className="section-y relative overflow-hidden border-y border-border-subtle bg-bg-inset/30">
+      {/* airy aura + halftone (mizu ref) instead of heavy violet blur */}
+      <div aria-hidden className="glow-orb -top-56 left-[6%] opacity-50" />
+      <div aria-hidden className="halftone-ring -right-64 top-1/3 h-[460px] w-[460px] opacity-60" />
 
       <div className="container-page relative">
         <div className="mx-auto max-w-2xl text-center mb-14">
@@ -130,10 +121,7 @@ export function StandoutCards() {
             return (
               <motion.div
                 key={card.id}
-                className={cn(
-                  'group relative overflow-hidden rounded-[26px] border p-6 shadow-[var(--vt-shadow-card)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[var(--vt-shadow-lift)] sm:p-8',
-                  toneBg,
-                )}
+                className="group relative overflow-hidden rounded-[26px] border border-border-subtle bg-bg-elevated p-6 shadow-[var(--vt-shadow-card)] transition-all duration-300 hover:-translate-y-1 hover:border-border-cobalt hover:shadow-[var(--vt-shadow-lift)] sm:p-8"
                 initial={reduce ? false : { opacity: 0, y: 24 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: '-60px' }}
@@ -141,7 +129,7 @@ export function StandoutCards() {
               >
                 <div
                   aria-hidden
-                  className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-white/20 blur-xl transition-opacity group-hover:opacity-40"
+                  className="pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-cobalt-500/10 blur-xl transition-opacity group-hover:opacity-70"
                 />
                 <div className="relative z-10 flex items-center gap-2 mb-4">
                   <div className={`flex shrink-0 items-center justify-center rounded-lg p-1.5 ${toneBg}`}>
