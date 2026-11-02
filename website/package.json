@@ -18,7 +18,7 @@
     "wasm:build": "wasm-pack build ../../crates/veritas-wasm --target web --out-dir ./public/wasm",
     "wasm:watch": "wasm-pack build ../../crates/veritas-wasm --target web --out-dir ./public/wasm --watch",
     "docs:build-index": "node scripts/build-search-index.mjs",
-    "render:build": "npm install && npm run build",
+    "render:build": "npm install --legacy-peer-deps && npm run build",
     "render:start": "npm start",
     "postinstall": "patch-package"
   },
