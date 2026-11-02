@@ -235,7 +235,7 @@ export default function BenchmarksPage() {
           </table>
         </div>
         <p className="mt-2.5 text-[10.5px] text-ink-muted">
-          Counts reflect the repository README for version 2.0.0. Run the suites to confirm on your checkout.
+          Counts reflect the repository README for version veritas1.1. Run the suites to confirm on your checkout.
         </p>
       </section>
 

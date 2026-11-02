@@ -12,7 +12,7 @@ import { siteConfig } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'Examples — five schemas that say no',
   description:
-    'Five runnable Veritas examples, beginner to expert: invoice arithmetic, GPU scheduling, portfolio risk, text-to-SQL tenant isolation and an agent refund policy. Every transcript captured from veritas 2.0.0.',
+    'Five runnable Veritas examples, beginner to expert: invoice arithmetic, GPU scheduling, portfolio risk, text-to-SQL tenant isolation and an agent refund policy. Every transcript captured from veritas1.1.',
   alternates: { canonical: '/examples' },
 };
 
@@ -67,7 +67,7 @@ export default function ExamplesPage() {
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <CopyCommand command={siteConfig.installCommand} />
             <span className="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-bg-elevated px-2.5 py-1 font-mono text-[9.5px] text-ink-muted">
-              <CircleCheck className="h-2.5 w-2.5 text-verify-pass" /> engine 2.0.0 · CPython 3.11.2
+              <CircleCheck className="h-2.5 w-2.5 text-verify-pass" /> engine veritas1.1 · CPython 3.11.2
             </span>
             <span className="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-bg-elevated px-2.5 py-1 font-mono text-[9.5px] text-ink-muted">
               <Terminal className="h-2.5 w-2.5 text-cobalt-500" /> captured, not composed
@@ -285,7 +285,7 @@ export default function ExamplesPage() {
                 </p>
               </div>
               <p className="mt-4 border-t border-border-subtle pt-3 font-mono text-[9.5px] leading-relaxed text-ink-muted">
-                scripts and stdout captured 2026 · veritas 2.0.0 · Linux x86_64 · CPython 3.11.2
+                scripts and stdout captured 2026 · veritas1.1 · Linux x86_64 · CPython 3.11.2
               </p>
             </div>
           </Reveal>

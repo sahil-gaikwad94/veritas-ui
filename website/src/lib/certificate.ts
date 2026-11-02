@@ -527,7 +527,7 @@ const SAMPLE_WITNESS: JsonValue = {
 };
 
 const SAMPLE_SMT2 = [
-  '; veritas proof certificate (v2.0)',
+  '; veritas proof certificate (veritas1.1)',
   '; synthetic sample built in the browser in the engine certificate format',
   '(set-logic ALL)',
   '(declare-const w_AAPL Real)',

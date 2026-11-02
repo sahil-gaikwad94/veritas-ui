@@ -123,7 +123,8 @@ export function SyntaxMath() {
           <p className="mt-4 text-[15px] leading-relaxed text-ink-secondary sm:text-base">
             A schema can promise that <code className="font-mono text-[13px]">weights</code> is an object of
             floats. It cannot promise they add up to one — or that the Sharpe ratio agrees with the covariance
-            matrix. Grammar tools stop at syntax. Pydantic finds out too late.
+            matrix. Grammar tools stop at syntax. Pydantic finds out too late. Veritas catches the math
+            <em>while the tokens are being chosen</em>, not after you’ve already paid for the retry loop.
           </p>
         </div>
 
@@ -202,8 +203,8 @@ export function SyntaxMath() {
         </div>
 
         <p className="mx-auto mt-6 max-w-2xl text-center text-[12px] leading-relaxed text-ink-muted">
-          Same prompt, same model, same JSON shape. The difference is a compiled specification that every
-          layer of decoding can actually read.
+          Same prompt. Same model. Same JSON shape. The difference is a compiled specification that every
+          layer of decoding can actually read — before the model guesses, not after you pay.
         </p>
       </div>
     </section>

@@ -7,7 +7,7 @@ export const siteConfig = {
   issues: 'https://github.com/sahil-gaikwad94/veritas/issues',
   newIssue: 'https://github.com/sahil-gaikwad94/veritas/issues/new',
   discussions: 'https://github.com/sahil-gaikwad94/veritas/discussions',
-  version: '2.0.0',
+  version: 'veritas1.1',
   license: 'Apache-2.0',
   description:
     'Veritas compiles Pydantic schemas and algebraic constraints into a solver-guided decoder: grammar masking, interval contraction, zero-DoF splicing and offline proof certificates — inside the token loop.',

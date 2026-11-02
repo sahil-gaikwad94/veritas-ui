@@ -85,7 +85,7 @@ export function ProofSection() {
                     <p className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-ink-muted">
                       ProofCertificate
                     </p>
-                    <p className="font-mono text-[11px] text-ink-secondary">schema v1 · veritas 2.0.0</p>
+                    <p className="font-mono text-[11px] text-ink-secondary">schema v1 · veritas1.1</p>
                   </div>
                 </div>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-verify-pass/30 bg-verify-pass/10 px-2.5 py-1 font-mono text-[9.5px] font-semibold uppercase tracking-[0.1em] text-verify-pass">

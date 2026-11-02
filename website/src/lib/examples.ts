@@ -1,5 +1,5 @@
 // Captured output — do not hand-edit the transcripts.
-// Every script below was run against veritas 2.0.0 (pure-Python engine,
+// Every script below was run against veritas1.1 (pure-Python engine,
 // CPython 3.11.2) and the stdout is pasted verbatim.
 
 export type Example = {

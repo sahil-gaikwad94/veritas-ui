@@ -2,11 +2,15 @@ import type { Metadata } from 'next';
 import { Hero } from '@/components/landing/hero';
 import { IntegrationMarquee } from '@/components/landing/integration-marquee';
 import { Creed } from '@/components/landing/creed';
+import { FlutedContractorVisual } from '@/components/landing/fluted-contractor-visual';
+import { StandoutCards } from '@/components/landing/standout-cards';
 import { SyntaxMath } from '@/components/landing/syntax-math';
 import { TierPipeline } from '@/components/landing/tier-pipeline';
 import { ZeroDofTape } from '@/components/landing/zero-dof-tape';
 import { Superpowers } from '@/components/landing/superpowers';
 import { CartridgesShowcase } from '@/components/landing/cartridges-showcase';
+import { CartridgeBadges } from '@/components/landing/cartridge-badges';
+import { UseCases } from '@/components/landing/use-cases';
 import { BenchmarkSection } from '@/components/landing/benchmarks';
 import { ProofSection } from '@/components/landing/proof-section';
 import { CliTerminal } from '@/components/landing/cli-terminal';
@@ -41,11 +45,15 @@ export default function LandingPage() {
       <Hero />
       <IntegrationMarquee />
       <Creed />
+      <FlutedContractorVisual />
+      <StandoutCards />
       <SyntaxMath />
       <TierPipeline />
       <ZeroDofTape />
       <Superpowers />
       <CartridgesShowcase />
+      <CartridgeBadges />
+      <UseCases />
       <BenchmarkSection />
       <ProofSection />
       <CliTerminal />

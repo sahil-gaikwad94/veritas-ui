@@ -44,6 +44,10 @@ export default function VerifyPage() {
               <span className="eyebrow rounded-full border border-border-subtle bg-bg-elevated/70 px-3 py-1.5 shadow-[0_1px_0_rgba(21,19,15,0.04)] backdrop-blur">
                 <Fingerprint className="h-3 w-3 text-cobalt-500" /> Certificate inspector
               </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-cobalt-500/25 bg-cobalt-500/10 px-3 py-1.5 font-mono text-[10px] font-medium uppercase tracking-wide text-cobalt-600 dark:text-cobalt-300 backdrop-blur">
+                <span aria-hidden className="h-1 w-1 rounded-full bg-cobalt-500" />
+                ₹0 offline verification
+              </span>
               <h1 className="display-lg mt-2 max-w-2xl text-ink-primary">
                 Verify without trusting the server.
               </h1>
@@ -101,7 +105,7 @@ export default function VerifyPage() {
       </section>
 
       <p className="container-page mt-4 text-center text-[10.5px] leading-relaxed text-ink-muted">
-        The sample is a synthetic certificate in the engine's <code className="font-mono text-[11px]">2.0</code> format,
+        The sample is a synthetic certificate in the engine's <code className="font-mono text-[11px]">veritas1.1</code> format,
         sealed in your browser the way <code className="font-mono text-[11px]">ProofCertificate.seal()</code> seals a real
         one. Uploads of genuine certificates work too: the page verifies every digest it can recompute and says
         plainly that replaying the embedded VIR needs the CLI.

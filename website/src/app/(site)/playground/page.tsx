@@ -44,6 +44,10 @@ export default function PlaygroundPage() {
               <span className="eyebrow rounded-full border border-border-subtle bg-bg-elevated/70 px-3 py-1.5 shadow-[0_1px_0_rgba(21,19,15,0.04)] backdrop-blur">
                 <Cpu className="h-3 w-3 text-cobalt-500" /> Interactive playground
               </span>
+              <span className="inline-flex items-center gap-2 rounded-full border border-cobalt-500/25 bg-cobalt-500/10 px-3 py-1.5 font-mono text-[10px] font-medium uppercase tracking-wide text-cobalt-600 dark:text-cobalt-300 backdrop-blur">
+                <span aria-hidden className="h-1 w-1 rounded-full bg-cobalt-500" />
+                ₹0 client-side WASM
+              </span>
               <h1 className="display-lg mt-2 max-w-2xl text-ink-primary">
                 The theorem is inside the loop.
               </h1>

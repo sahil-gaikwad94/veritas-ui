@@ -25,8 +25,12 @@ export function FinalCta() {
             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/90">
               <Sparkles className="h-3 w-3" /> Apache-2.0 · v{siteConfig.version}
             </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/90">
+              <span aria-hidden className="h-1 w-1 rounded-full bg-white/40" />
+              ₹0 client-side WASM
+            </span>
             <h2 className="display-lg mt-4 max-w-xl text-white">
-              Ship the kind of output you’d sign your name to.
+              Ship output you’d actually sign your name to.
             </h2>
             <p className="mt-3 max-w-xl text-[14.5px] leading-relaxed text-white/80 sm:text-base">
               One schema is enough to start. Keep the layers you need — masks, contractors, spliced fields,

@@ -5,14 +5,14 @@ import { Check, Copy, Terminal } from 'lucide-react';
 import { copyText } from '@/components/site/copy-command';
 import { cn } from '@/lib/utils';
 
-// Every transcript below was captured from `python -m veritas` on the 2.0.0
+// Every transcript below was captured from `python -m veritas` on veritas1.1
 // reference engine (CPython 3.11, no native wheel installed). Keep them verbatim.
 const commands = [
   {
     id: 'doctor',
     cmd: 'veritas doctor',
     label: 'doctor',
-    output: `veritas 2.0.0 on CPython 3.11.2
+    output: `veritas1.1 on CPython 3.11.2
   engine    reference python
   reason    ModuleNotFoundError: No module named 'veritas_py'
   wire      n/a
@@ -42,7 +42,7 @@ const commands = [
     cmd: 'veritas verify-proof ticket_proof.json',
     label: 'verify-proof',
     output: `certificate: VALID
-  [ok] version: found '2.0', expected '2.0'
+  [ok] version: found 'veritas1.1', expected 'veritas1.1'
   [ok] sha256: content digest matches
   [ok] witness_sha256: witness digest matches
   [ok] smt2: SMT-LIB2 script present

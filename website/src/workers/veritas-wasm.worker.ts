@@ -55,7 +55,7 @@ void initWasm();
 
 function stubResponse(method: string, data: any): any {
   // Deterministic stub responses for UI development without WASM
-  if (method === 'version') return '2.0.0-stub';
+  if (method === 'version') return 'veritas1.1-stub';
   if (method === 'prefix_status') {
     return { valid: true, depth: 0, complete: false };
   }
@@ -89,7 +89,7 @@ self.onmessage = async (e: MessageEvent) => {
       // Real WASM calls
       switch (method) {
         case 'version':
-          result = veritasWasm.version?.() || '2.0.0';
+          result = veritasWasm.version?.() || 'veritas1.1';
           break;
         case 'prefix_status':
           result = veritasWasm.prefix_status?.(args[0]) || {

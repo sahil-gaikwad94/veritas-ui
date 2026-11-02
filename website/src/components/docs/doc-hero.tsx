@@ -84,7 +84,7 @@ export function DocHero({
               <Clock3 className="h-3 w-3" /> {minutes} min read
             </span>
           )}
-          <span className="doc-meta-chip">v2.0.0</span>
+          <span className="doc-meta-chip">veritas1.1</span>
           <span className="doc-meta-chip">Apache-2.0</span>
           <CopyLink />
           <a href={editUrl} target="_blank" rel="noreferrer" className="doc-meta-chip">

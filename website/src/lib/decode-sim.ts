@@ -315,7 +315,7 @@ export function decodedJson(weights: Weights, stats: PortfolioStats) {
 export function buildInspectorTrace(frames: Frame[], weights: Weights, stats: PortfolioStats, ceiling: number) {
   return {
     engine: 'veritas-playground-replay',
-    version: '2.0.0',
+    version: 'veritas1.1',
     note: 'Deterministic replay for the browser playground. Run `veritas inspect` on a real trace for full telemetry.',
     config: { vocabulary_size: 1000, risk_ceiling: ceiling, sharpe_floor: SHARPE_FLOOR },
     values: { weights, ...stats },
