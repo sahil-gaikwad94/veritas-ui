@@ -97,36 +97,38 @@
 }
 
 :root {
-  --vt-canvas: #f7f4ed;
+  /* Airy studio whites (NEOPAY / mizu / CRUNCHY) with cobalt accents */
+  --vt-canvas: #f7f7f6;
   --vt-elevated: #ffffff;
-  --vt-glass: rgba(255, 255, 255, 0.66);
-  --vt-subtle: #efece3;
-  --vt-inset: #f1ede4;
-  --vt-ink: #15130f;
-  --vt-ink-2: #57524a;
-  --vt-ink-3: #6b6559;
+  --vt-glass: rgba(255, 255, 255, 0.72);
+  --vt-subtle: #f0f1f3;
+  --vt-inset: #f3f4f5;
+  --vt-ink: #14151a;
+  --vt-ink-2: #575b63;
+  --vt-ink-3: #82868e;
   --vt-pass: #036b4f;
   --vt-warn: #b45309;
   --vt-fail: #be123c;
-  --vt-border: rgba(21, 19, 15, 0.1);
-  --vt-border-strong: rgba(21, 19, 15, 0.18);
+  --vt-border: rgba(20, 21, 26, 0.09);
+  --vt-border-strong: rgba(20, 21, 26, 0.16);
   --vt-border-cobalt: rgba(30, 94, 255, 0.28);
-  --vt-grid: rgba(18, 20, 26, 0.055);
-  --vt-glow-1: rgba(0, 71, 255, 0.18);
-  --vt-glow-2: rgba(75, 131, 255, 0.22);
-  --vt-nav-bg: rgba(247, 244, 237, 0.78);
-  --vt-shadow-card: 0 1px 2px rgba(21, 19, 15, 0.04), 0 18px 44px -28px rgba(21, 19, 15, 0.28);
-  --vt-shadow-lift: 0 2px 6px rgba(21, 19, 15, 0.05), 0 34px 70px -34px rgba(21, 19, 15, 0.35);
-  --vt-shadow-cobalt: 0 18px 40px -18px rgba(20, 78, 255, 0.55);
+  --vt-grid: rgba(18, 20, 26, 0.05);
+  --vt-glow-1: rgba(0, 71, 255, 0.16);
+  --vt-glow-2: rgba(75, 131, 255, 0.2);
+  --vt-nav-bg: rgba(13, 15, 20, 0.9);
+  --vt-shadow-card: 0 1px 2px rgba(20, 21, 26, 0.04), 0 18px 44px -28px rgba(20, 21, 26, 0.22);
+  --vt-shadow-lift: 0 2px 6px rgba(20, 21, 26, 0.05), 0 34px 70px -34px rgba(20, 21, 26, 0.3);
+  --vt-shadow-cobalt: 0 18px 40px -18px rgba(20, 78, 255, 0.5);
+  --vt-ghost: rgba(20, 21, 26, 0.055);
   color-scheme: light;
 }
 
 .dark {
-  --vt-canvas: #080a10;
-  --vt-elevated: #0e1119;
-  --vt-glass: rgba(14, 17, 25, 0.68);
-  --vt-subtle: #12151f;
-  --vt-inset: #0b0d14;
+  --vt-canvas: #0a0d13;
+  --vt-elevated: #10141d;
+  --vt-glass: rgba(16, 20, 29, 0.7);
+  --vt-subtle: #131722;
+  --vt-inset: #0c0f16;
   --vt-ink: #f4f7fc;
   --vt-ink-2: #a4b0c6;
   --vt-ink-3: #7d8aa3;
@@ -137,9 +139,10 @@
   --vt-border-strong: rgba(255, 255, 255, 0.16);
   --vt-border-cobalt: rgba(96, 148, 255, 0.36);
   --vt-grid: rgba(255, 255, 255, 0.05);
-  --vt-glow-1: rgba(0, 71, 255, 0.3);
-  --vt-glow-2: rgba(75, 131, 255, 0.18);
-  --vt-nav-bg: rgba(8, 10, 16, 0.76);
+  --vt-glow-1: rgba(30, 94, 255, 0.26);
+  --vt-glow-2: rgba(75, 131, 255, 0.16);
+  --vt-nav-bg: rgba(10, 13, 19, 0.82);
+  --vt-ghost: rgba(255, 255, 255, 0.05);
   --vt-shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 18px 40px -24px rgba(0, 0, 0, 0.8);
   --vt-shadow-lift: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 32px 60px -28px rgba(0, 0, 0, 0.9);
   --vt-shadow-cobalt: 0 18px 50px -20px rgba(30, 94, 255, 0.7);
@@ -1245,4 +1248,144 @@
   );
   mix-blend-mode: overlay;
   opacity: 0.75;
+}
+
+/* ==========================================================================
+   Studio-layer 2 — NEOPAY / mizu / CRUNCHY upgrade (v2.2)
+   Airy porcelain canvas, giant ghost typography, floating dark pill nav,
+   halftone-lit cobalt orbs, and the big rounded hero "screen".
+   ========================================================================== */
+
+/* Giant ghost watermark word, NEOPAY-style */
+@utility ghost-word {
+  position: absolute;
+  z-index: -1;
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 0.78;
+  white-space: nowrap;
+  color: var(--vt-ghost);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Floating dark pill navigation (never melts into the page) */
+@utility nav-pill-dark {
+  background: linear-gradient(180deg, rgba(23, 25, 31, 0.92), rgba(10, 12, 17, 0.94));
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.07) inset,
+    0 24px 48px -20px rgba(6, 27, 82, 0.55);
+}
+
+/* Big rounded hero "screen" — white top, cobalt light rising at the bottom */
+@utility screen-card {
+  position: relative;
+  border-radius: 44px;
+  background:
+    radial-gradient(120% 90% at 50% 118%, rgba(0, 71, 255, 0.34) 0%, rgba(30, 94, 255, 0.16) 38%, rgba(255, 255, 255, 0) 68%),
+    linear-gradient(180deg, #ffffff 0%, #ffffff 72%, #eff3fb 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(20, 21, 26, 0.07),
+    0 2px 6px rgba(20, 21, 26, 0.03),
+    0 60px 130px -50px rgba(6, 27, 82, 0.35);
+  overflow: hidden;
+}
+
+.dark .screen-card {
+  background:
+    radial-gradient(120% 90% at 50% 118%, rgba(30, 94, 255, 0.4) 0%, rgba(30, 94, 255, 0.14) 40%, rgba(255, 255, 255, 0) 66%),
+    linear-gradient(180deg, #10141d 0%, #0b0e15 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.09),
+    0 60px 130px -50px rgba(0, 0, 0, 0.85);
+}
+
+.screen-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 18%);
+  pointer-events: none;
+}
+
+.dark .screen-card::after {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 18%);
+}
+
+/* mizu-style camera glow: soft cobalt radial + halftone dot ring */
+@utility glow-orb {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.9) 0%, rgba(235, 242, 255, 0.75) 34%, rgba(30, 94, 255, 0.3) 66%, rgba(0, 71, 255, 0) 78%);
+  filter: blur(2px);
+}
+
+.dark .glow-orb {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(19, 26, 44, 0.4) 0%, rgba(20, 40, 90, 0.55) 40%, rgba(30, 94, 255, 0.35) 66%, rgba(0, 71, 255, 0) 78%);
+}
+
+@utility halftone-ring {
+  position: absolute;
+  pointer-events: none;
+  background-image: radial-gradient(rgba(30, 94, 255, 0.5) 1.2px, transparent 1.3px);
+  background-size: 14px 14px;
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, transparent 54%, #000 66%, transparent 92%);
+  mask-image: radial-gradient(circle at 50% 50%, transparent 54%, #000 66%, transparent 92%);
+}
+
+.dark .halftone-ring {
+  background-image: radial-gradient(rgba(138, 180, 255, 0.4) 1.2px, transparent 1.3px);
+}
+
+/* White pill CTA on light surfaces (NEOPAY secondary) */
+@utility btn-pill-white {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--vt-ink);
+  border: 1px solid rgba(20, 21, 26, 0.08);
+  box-shadow: 0 1px 2px rgba(20, 21, 26, 0.05), 0 10px 24px -14px rgba(20, 21, 26, 0.25);
+  transition: transform var(--ease-spring) 240ms, box-shadow var(--ease-spring) 240ms, border-color 200ms ease;
+}
+
+.btn-pill-white:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 4px rgba(20, 21, 26, 0.06), 0 18px 36px -16px rgba(20, 21, 26, 0.3);
+  border-color: rgba(30, 94, 255, 0.35);
+}
+
+/* Inner-lit cobalt pill CTA */
+@utility btn-pill-cobalt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(180deg, #2b6bff 0%, #0043f0 100%);
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.5),
+    inset 0 -2px 6px rgba(3, 17, 74, 0.55),
+    0 14px 30px -10px rgba(20, 78, 255, 0.65);
+  transition: transform var(--ease-spring) 240ms, box-shadow var(--ease-spring) 240ms, filter 200ms ease;
+}
+
+.btn-pill-cobalt:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+  box-shadow:
+    inset 0 1px 2px rgba(255, 255, 255, 0.5),
+    inset 0 -2px 6px rgba(3, 17, 74, 0.55),
+    0 20px 40px -12px rgba(20, 78, 255, 0.75);
 }
