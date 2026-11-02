@@ -1,0 +1,158 @@
+---
+title: Zero-DoF Jump-Forward
+description: ZeroDofRule, build_json_key_order, splice_and_step — deterministic derived field computation with zero LLM calls.
+---
+
+import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
+
+# Zero-DoF Jump-Forward
+
+Zero-DoF (Zero Degrees of Freedom) is Veritas's most powerful optimization. It **deterministically computes derived fields and splices them into the token stream** — the LLM never samples them, saving `_T_ − 1` LLM forward passes per derived field.
+
+---
+
+## The Problem: LLM Guessing Arithmetic
+
+Without Zero-DoF, if you want `expected_return = dot(weights, RETURNS)`, the LLM has to generate `expected_return` token by token, guessing each digit. Even a small error propagates to downstream calculations like Sharpe ratio.
+
+With standard JSON mode, you'd get:
+```json
+{
+  "weights": {"AAPL": 0.40, "MSFT": 0.35, "NVDA": 0.25},
+  "expected_return": 0.2100,  ← LLM guessed this — probably wrong
+  "sharpe_ratio": 1.214       ← LLM guessed this — probably wrong
+}
+```
+
+With Zero-DoF:
+```json
+{
+  "weights": {"AAPL": 0.40, "MSFT": 0.35, "NVDA": 0.25},
+  "expected_return": 0.1615,  ← Veritas computed this exactly
+  "sharpe_ratio": 0.6422      ← Veritas computed this exactly
+}
+```
+
+---
+
+## `ZeroDofRule`
+
+### What It Does
+
+`ZeroDofRule` monitors the decode state. When all input variables for a `derive` constraint have been emitted, it computes the target value deterministically and injects it into the JSON stream.
+
+### How It Works
+
+1. The `DependencyGraph` knows which fields each derived field depends on
+2. The key ordering puts inputs before outputs
+3. The PDA detects when all inputs for a derived field are complete
+4. `ZeroDofRule` triggers: computes the value in Rust, splices it into tokens
+5. The LLM never sees the derived field — it's injected directly
+
+### Example
+
+<CodeBlock language="python" code="from veritas._native import ZeroDofRule, splice_and_step
+
+rule = ZeroDofRule(vir_spec)
+
+# State: weights.AAPL=0.40, weights.MSFT=0.35, weights.NVDA=0.25 (all emitted)
+# Rule: derive(expected_return == dot(weights, RETURNS))
+
+result = splice_and_step(rule, 'expected_return')
+# Computes: 0.40*0.12 + 0.35*0.10 + 0.25*0.15 = 0.1615
+# Splices into token stream: \"expected_return\": 0.1615
+# LLM calls used: 0
+# Tokens sampled: 0`} copyable />
+
+---
+
+## `build_json_key_order`
+
+### What It Does
+
+Topologically sorts JSON keys using the `DependencyGraph` so that **inputs always precede outputs**. This ordering is what makes Zero-DoF splicing possible.
+
+### Example
+
+<CodeBlock language="python" code="from veritas._native import build_json_key_order
+
+order = build_json_key_order(vir_spec)
+# ['weights', 'expected_return', 'volatility', 'sharpe_ratio']
+
+# weights first (inputs), derived fields last
+# This ensures: when expected_return is reached, all weights are already emitted`} copyable />
+
+---
+
+## Benefits of Zero-DoF
+
+| Metric | Without Zero-DoF | With Zero-DoF |
+| :--- | :--- | :--- |
+| LLM forward passes per derived field | 1+ (LLM guesses each digit) | **0** (computed deterministically) |
+| Numerical guessing | Possible | **Impossible** |
+| Token latency per derived field | ~50-100 ms | **0.23 ms** |
+| Conservation law violations | Possible | **Impossible** |
+| Derived field accuracy | Approximate | **Exact** |
+
+<Callout variant="check" title="Saves T − 1 Forward Passes">
+
+For each derived field, Veritas saves `_T_ − 1` LLM forward passes — where `_T_` is the number of tokens the LLM would have needed to guess the value correctly.
+
+If a derived field would take 20 tokens to guess, Zero-DoF saves 19 forward passes per field. With 3 derived fields, that's 57 forward passes saved per decode.
+
+</Callout>
+
+---
+
+## Complete Example
+
+<CodeBlock language="python" code="from veritas import verified_schema, require, derive, sum, dot, forall
+
+RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15}
+RISK_FREE = 0.04
+
+@verified_schema
+def portfolio(p: Portfolio):
+    require(sum(p.weights.values()) == 1.0, tol=1e-6)
+    require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
+    
+    # These are Zero-DoF — computed by Veritas, not guessed by LLM
+    derive(p.expected_return == dot(p.weights, RETURNS))
+    derive(p.volatility == sqrt(quad_form(p.weights, COV)))
+    derive(p.sharpe_ratio == (p.expected_return - RISK_FREE) / p.volatility)
+    
+    require(p.sharpe_ratio >= 0.65)
+
+# When decoded:
+# 1. LLM generates weights: {\"AAPL\": 0.40, \"MSFT\": 0.35, \"NVDA\": 0.25}
+# 2. Veritas computes expected_return = 0.1615 (Zero-DoF splice)
+# 3. Veritas computes volatility = 0.1892 (Zero-DoF splice)
+# 4. Veritas computes sharpe_ratio = 0.6422 (Zero-DoF splice)
+# 5. LLM generates nothing more — document is complete
+
+# Result: 3 derived fields, 0 LLM calls for them`} copyable />
+
+---
+
+## Token Classification
+
+Every token in a Veritas decode is classified as one of three types:
+
+| Type | Meaning | Color | Example |
+| :--- | :--- | :--- | :--- |
+| `sample` | LLM sampled this token (PDA + HC4 masked) | Blue | `0`, `4`, `.`, `"` |
+| `splice` | Veritas deterministically spliced this | Green | `0.1615` (expected_return) |
+| `backtrack` | CDCL jumpback rewound to this point | Amber/Red | Rewinding after UNSAT conflict |
+
+<Callout variant="info" title="See It in Action">
+
+The [/playground](/playground) shows token classification in real time — green for splices, blue for samples, amber for backtracks.
+
+</Callout>
+
+---
+
+## Next Steps
+
+- **[CRANE Dual-Mode Reasoning](/docs/engine-internals/crane-dual-mode-reasoning)** — `CraneModeController`, ShadowParser
+- **[CDCL Jumpback & Domain Cuts](/docs/engine-internals/cdcl-jumpback-and-domain-cuts)** — `CdclJumpbackEngine`, entropy culprit score

@@ -1,0 +1,56 @@
+---
+title: Async Stream Proxy
+description: Black-box SSE supervisor for OpenAI / cloud APIs.
+---
+
+import { CodeBlock } from '@/components/mdx-components';
+
+# Async Stream Proxy
+
+A black-box SSE supervisor that sits between your application and cloud LLM APIs (OpenAI, Anthropic, etc.) — adding Veritas verification to any streaming endpoint.
+
+---
+
+## Architecture
+
+```
+Your App → Async Stream Proxy → Cloud LLM API
+                    ↓
+            Veritas WASM Worker
+            (0.23 ms PDA mask)
+```
+
+---
+
+## Example
+
+<CodeBlock language="python" code="from veritas.bridges.async_proxy import AsyncStreamProxy
+
+proxy = AsyncStreamProxy(
+    api_base="https://api.openai.com/v1",
+    api_key=os.environ["OPENAI_API_KEY"],
+    schema=valid_portfolio,
+)
+
+async for chunk in proxy.stream(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Create a portfolio"}],
+    veritas_mask=True,
+):
+    # Each chunk is Veritas-verified in real time
+    print(chunk)`} copyable />
+
+### How It Works
+
+1. Your app sends a request to the proxy
+2. Proxy forwards to the cloud LLM API
+3. As tokens stream back, Veritas WASM worker masks invalid tokens
+4. Only verified tokens reach your app
+5. Zero server cost — verification runs in the browser via WASM
+
+---
+
+## Next Steps
+
+- **[Diffusion LLMs](/docs/bridges-and-integrations/diffusion-llms)** — Diffusion model support
+- **[Proof Certificates](/docs/proofs-rl-and-cli/proof-certificates)** — SHA-256 verification

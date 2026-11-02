@@ -1,0 +1,104 @@
+---
+title: Security & IAM Policies
+description: veritas.cartridges.sec — cloud IAM/RBAC least-privilege policies & tool-call guardrails.
+---
+
+import { CodeBlock, Callout } from '@/components/mdx-components';
+
+# Security & IAM Cartridge
+
+The `sec` cartridge provides cloud IAM/RBAC least-privilege enforcement and tool-call guardrails for LLM agents — enforced during token decoding, not after.
+
+---
+
+## Core Constraints
+
+### Least-Privilege Policies
+
+`least_privilege` ensures agents only use tools they're authorized for:
+
+<CodeBlock language="python" code="from veritas.cartridges.sec import least_privilege
+
+ALLOWED_TOOLS = {"web_search", "calculator", "code_interpreter"}
+
+@verified_schema
+def agent_action(a: AgentAction):
+    require(least_privilege(a.tools, ALLOWED_TOOLS))`} copyable />
+
+### Tool-Call Guardrails
+
+`tool_guardrail` enforces policy rules on every tool call:
+
+<CodeBlock language="python" code="from veritas.cartridges.sec import tool_guardrail
+
+POLICY_RULES = {
+    "web_search": {"max_results": 10, "allowed_domains": ["*.com", "*.org"]},
+    "calculator": {"max_expression_length": 1000},
+    "code_interpreter": {"forbidden_imports": ["os", "subprocess", "sys"]},
+}
+
+require(tool_guardrail(a.tool_call, POLICY_RULES))`} copyable />
+
+### RBAC Enforcement
+
+`rbac_policy` checks that the principal has the required role/action on the resource:
+
+<CodeBlock language="python" code="from veritas.cartridges.sec import rbac_policy
+
+require(rbac_policy(a.principal, a.resource, a.action))`} copyable />
+
+---
+
+## Complete Example
+
+<CodeBlock language="python" code="from veritas import verified_schema, require
+from veritas.cartridges.sec import least_privilege, tool_guardrail, rbac_policy
+
+ALLOWED_TOOLS = {"web_search", "calculator", "code_interpreter"}
+POLICY_RULES = {
+    "web_search": {"max_results": 10},
+    "calculator": {"max_expression_length": 1000},
+}
+RBAC_POLICY = {
+    "admin": {"servers": ["read", "write", "delete"]},
+    "user": {"servers": ["read"]},
+}
+
+@verified_schema
+def secure_agent_action(a: AgentAction):
+    # Only allowed tools
+    require(least_privilege(a.tools, ALLOWED_TOOLS))
+
+    # Policy compliance on every tool call
+    require(tool_guardrail(a.tool_call, POLICY_RULES))
+
+    # RBAC: principal must have action on resource
+    require(rbac_policy(a.principal, a.resource, a.action, RBAC_POLICY))
+
+    # No destructive operations for non-admins
+    require(forall(a.tool_calls.values(), lambda call:
+        (call.principal == "admin") | (~call.is_destructive)
+    ))`} copyable />
+
+<Callout variant="check" title="Prevents Privilege Escalation">
+
+Least-privilege is enforced during decoding — the LLM cannot emit a tool call it isn't authorized for. This prevents privilege escalation at the token level.
+
+</Callout>
+
+---
+
+## Key Functions Reference
+
+| Function | Signature | Description |
+| :--- | :--- | :--- |
+| `least_privilege` | `(tools, allowed_set) -> bool` | Only allowed tools |
+| `tool_guardrail` | `(tool_call, policy_rules) -> bool` | Policy rule compliance |
+| `rbac_policy` | `(principal, resource, action, policy) -> bool` | Role-based access control |
+
+---
+
+## Next Steps
+
+- **[Operations Research](/docs/cartridges/operations-research-scheduling)** — or_sched cartridge
+- **[Chemistry (SMILES)](/docs/cartridges/chemistry-smiles)** — chem cartridge

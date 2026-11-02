@@ -1,0 +1,134 @@
+---
+title: WASM Browser API
+description: veritas-wasm JS/TS API — PdaHandle, prefix_status, is_valid_document, etc.
+---
+
+import { CodeBlock, Callout } from '@/components/mdx-components';
+
+# WASM Browser API
+
+Reference for `veritas-wasm` — WebAssembly bindings for browser and edge runtimes. All functions run entirely client-side — zero server cost, zero backend.
+
+---
+
+## JavaScript/TypeScript API
+
+| Function | Signature | Description |
+| :--- | :--- | :--- |
+| `version` | `() => string` | Engine version string |
+| `prefix_status` | `(text: string) => object` | PDA prefix status |
+| `is_valid_document` | `(text: string) => boolean` | Document validity check |
+| `PdaHandle` | class | Full PDA handle |
+
+---
+
+## `PdaHandle` Class
+
+<CodeBlock language="typescript" code="class PdaHandle {
+  constructor(seed: string);
+  push(token: string): boolean;
+  isAlive(): boolean;
+  isComplete(): boolean;
+  accepts(token: string): boolean;
+  depth(): number;
+  lastEvent(): string;
+  candidates(): string[];
+  mask(): Float32Array;
+  cloneHandle(): PdaHandle;
+}`} copyable />
+
+### Example Usage
+
+<CodeBlock language="typescript" code="import { PdaHandle, prefix_status, is_valid_document, version } from 'veritas-wasm';
+
+console.log(version()); // "2.0.0"
+
+const handle = new PdaHandle("{");
+handle.push('"');
+handle.push('w');
+
+console.log(handle.depth());      // 2
+console.log(handle.isAlive());    // true
+console.log(handle.accepts('e')); // true
+
+const mask = handle.mask(); // Float32Array of logit mask
+const status = prefix_status('{"w');
+// { valid: true, depth: 2, complete: false, allowed_tokens: [...] }
+
+console.log(is_valid_document('{"weights": {"AAPL": 0.40}}')); // true/false`} copyable />
+
+---
+
+## Web Worker Usage
+
+For production use, run `veritas-wasm` in a dedicated Web Worker to avoid blocking the main thread:
+
+<CodeBlock language="typescript" code="const worker = new Worker(new URL('./veritas-wasm.worker.ts', import.meta.url));
+
+// Send a request
+worker.postMessage({ method: 'prefix_status', args: ['{'] });
+
+// Receive response
+worker.onmessage = (e) => {
+  if (e.data.error) {
+    console.error(e.data.error);
+  } else {
+    console.log(e.data.result);
+  }
+};
+
+// Helper function
+async function callWasm(method: string, ...args: any[]): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const id = Date.now();
+    worker.postMessage({ id, method, args });
+    worker.onmessage = (e) => {
+      if (e.data.id === id) {
+        if (e.data.error) reject(new Error(e.data.error));
+        else resolve(e.data.result);
+      }
+    };
+  });
+}
+
+// Usage
+const status = await callWasm('prefix_status', '{');
+console.log(status);`} copyable />
+
+---
+
+## WASM Module Loading
+
+The WASM module is built with `wasm-pack build --target web` and served from `/public/wasm/`:
+
+```
+public/wasm/
+├── veritas_wasm_bg.wasm   # Compiled WebAssembly binary
+├── veritas_wasm.js         # JavaScript glue code
+└── veritas_wasm.d.ts       # TypeScript type definitions
+```
+
+### Build Command
+
+<CodeBlock language="bash" code="wasm-pack build crates/veritas-wasm --target web --out-dir ../../website/public/wasm`} copyable />
+
+---
+
+## Zero Server Cost
+
+<Callout variant="check" title="No Backend Required">
+
+All WASM functions run entirely in the browser:
+
+- No API keys needed
+- No server round-trips
+- No usage limits
+- Works offline (after initial load)
+
+</Callout>
+
+---
+
+## Next Steps
+
+- **[Exceptions & Diagnostics](/docs/api-reference/exceptions-and-diagnostics)** — Error hierarchy & telemetry

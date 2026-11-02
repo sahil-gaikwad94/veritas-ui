@@ -1,0 +1,182 @@
+---
+title: Tier 0 — JSON PDA & Healing
+description: JSONPushdownAutomaton, TokenMasker, IncrementalJSONParser, TokenHealer — byte-level token masking during generation.
+---
+
+import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
+
+# Tier 0 — JSON PDA & Healing
+
+Tier 0 is the outermost ring of Veritas's three-tier solver horizon. It's a **JSON Pushdown Automaton (PDA)** — a state machine that tracks JSON grammar structure as tokens are generated, ensuring the output is always syntactically valid JSON.
+
+---
+
+## What Is a Pushdown Automaton?
+
+A PDA is a finite state machine with a stack. It's more powerful than a regular expression because it can track nested structures — exactly what JSON needs (objects inside objects, arrays inside arrays, etc.).
+
+### How the PDA Works During Decoding
+
+As the LLM generates each token:
+
+1. **Read** the token
+2. **Update** the internal stack (track nesting depth, current context)
+3. **Compute** valid next tokens based on JSON grammar
+4. **Mask** all invalid tokens to `-inf` (negative infinity logits)
+
+### Example: Tracking JSON Structure
+
+```json
+{
+  "weights": {
+```
+
+At this point, the PDA knows:
+
+| PDA State | Meaning |
+| :--- | :--- |
+| Stack depth: 2 | Inside outer object `{` and inner object `{"weights": {` |
+| Current context: Inside object, after `:` | Expecting a value for key `"weights"` |
+| Valid next tokens: | `"AAPL"`, `"MSFT"`, `"NVDA"`, `{`, `}` |
+| Invalid (masked): | `[`, `]`, `0-9`, `true`, `false`, `null`, `,` |
+
+The PDA ensures the LLM can never produce invalid JSON syntax — every token it samples is guaranteed to keep the document structurally valid.
+
+---
+
+## `PdaHandle`
+
+The `PdaHandle` is the main interface to the PDA. It's created once per decode and fed tokens one at a time.
+
+### API Reference
+
+| Method | Signature | Description |
+| :--- | :--- | :--- |
+| `new(seed)` | `(str) → PdaHandle` | Create a new PDA with initial seed text |
+| `push(token)` | `(str) → bool` | Feed a token into the PDA; returns False if token is invalid |
+| `is_alive()` | `() → bool` | PDA is still in a valid state |
+| `is_complete()` | `() → bool` | JSON document is syntactically complete |
+| `accepts(token)` | `(str) → bool` | Check if a token is valid without pushing it |
+| `depth()` | `() → int` | Current stack nesting depth |
+| `last_event()` | `() → str` | Description of the last PDA transition |
+| `candidates()` | `() → List[str]` | Top candidate next tokens (for UI) |
+| `mask()` | `() → Float32Array` | Full logit mask (0.0 = valid, -inf = invalid) |
+| `clone_handle()` | `() → PdaHandle` | Deep copy for speculative decoding |
+
+### Example Usage
+
+<CodeBlock language="python" code="from veritas._native import PdaHandle
+
+# Create PDA starting with an open brace
+handle = PdaHandle.new('{')
+
+# Feed tokens one at a time as the LLM generates them
+tokens = ['\"', 'w', 'e', 'i', 'g', 'h', 't', 's', '\"', ':']
+for token in tokens:
+    if not handle.push(token):
+        print(f\"Rejected token: {token}\")
+        break
+
+# Check state
+print(handle.depth())        # 1 — one level of nesting
+print(handle.is_alive())     # True — still valid
+print(handle.accepts('\"'))  # True — can start a string value
+print(handle.accepts('}'))   # False — can't close object without a value
+
+# Get the logit mask for the LLM
+mask = handle.mask()  # Float32Array: valid tokens = 0.0, invalid = -inf`} copyable />
+
+---
+
+## `TokenMasker`
+
+### What It Does
+
+The `TokenMasker` converts the PDA's valid-token set into a logit mask tensor that can be applied to LLM logits before sampling.
+
+### How It Works
+
+1. PDA computes which tokens are valid next
+2. `TokenMasker` creates a float32 tensor of size `vocab_size`
+3. Valid tokens get `0.0` (no change to logits)
+4. Invalid tokens get `-inf` (impossible to sample)
+5. The mask is added to LLM logits before softmax sampling
+
+<Callout variant="check" title="Performance: 0.23 ms per step">
+
+`TokenMasker.valid_mask` runs in **0.23 milliseconds** in Rust — 17.9x faster than the Python reference implementation (4.07 ms). This is fast enough to run on every single token without adding noticeable latency to LLM generation.
+
+</Callout>
+
+---
+
+## `IncrementalJSONParser`
+
+### What It Does
+
+Parses the token stream incrementally, maintaining PDA stack depth and detecting when JSON objects/arrays are complete. Used for streaming output — you can know when a complete JSON document has been generated without waiting for the entire stream.
+
+### Example
+
+<CodeBlock language="python" code="from veritas._native import IncrementalJSONParser
+
+parser = IncrementalJSONParser()
+
+for token in token_stream:
+    parser.feed(token)
+    if parser.is_complete():
+        print(\"Complete JSON document generated!\")
+        break
+    print(f\"Depth: {parser.depth()}, Complete: {parser.is_complete()}\")`} copyable />
+
+---
+
+## `TokenHealer`
+
+### The Problem: BPE Token Boundaries
+
+LLMs use subword tokenization (BPE, WordPiece, etc.). A number like `0.47` might be split into tokens `["0.", "47"]` or `["0", ".", "47"]`. The PDA sees each token individually and might not recognize `0.47` as a complete number.
+
+### The Solution: TokenHealer
+
+`TokenHealer` repairs token boundaries mid-number so that numeric prefix contraction continues correctly across token splits.
+
+### Example
+
+<CodeBlock language="python" code="from veritas._native import TokenHealer
+
+# BPE splits "0.25" into ["0.2", "5"]
+healed = TokenHealer.heal_boundary("0.2", "5")
+# Result: "0.25" — the PDA sees the complete number
+
+# Without healing, the PDA would see:
+# Token "0.2" → interval [0.2, 0.3]
+# Token "5" → invalid continuation (would be masked)
+# With healing, the PDA sees:
+# Token "0.25" → interval [0.25, 0.25] (precise!)`} copyable />
+
+---
+
+## PDA Handle API Summary
+
+<Callout variant="info" title="Quick Reference">
+
+```python
+handle = PdaHandle.new("{")
+handle.push('"')           # Push a token
+handle.is_alive()          # True/False
+handle.is_complete()       # True/False
+handle.accepts(token)      # Check without pushing
+handle.depth()             # Current nesting depth
+handle.last_event()        # Last transition description
+handle.candidates()        # Top candidate tokens
+handle.mask()              # Float32Array logit mask
+handle.clone_handle()      # Deep copy
+```</Callout>
+
+---
+
+## Next Steps
+
+- **[Tier 1 — HC4 + AF2 Contractors](/docs/engine-internals/tier1-hc4-and-affine-contractors)** — Narrow numeric prefixes in 3.9 µs
+- **[Zero-DoF Jump-Forward](/docs/engine-internals/zero-dof-jump-forward)** — Compute derived fields deterministically

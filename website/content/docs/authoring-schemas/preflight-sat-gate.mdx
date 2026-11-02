@@ -1,0 +1,214 @@
+---
+title: Pre-Flight SAT Gate
+description: run_preflight, check_spec, InfeasibleSpecError, CircularDerivationError — 0-token contradiction checking before any LLM call.
+---
+
+import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
+
+# Pre-Flight SAT Gate
+
+Before Veritas ever touches the GPU or spends a single LLM token, it proves that your constraints are **mutually satisfiable**. The pre-flight gate runs in **0 LLM tokens** — it's pure local computation that catches infeasible specs, circular derivations, and contradictory bounds up front.
+
+---
+
+## Why Pre-Flight Matters
+
+Without a pre-flight check, you might spend hundreds of LLM tokens trying to generate an output that's mathematically impossible. For example:
+
+```python
+# These constraints can never both be true:
+require(sum(p.weights.values()) == 1.0)           # 6 stocks must sum to 100%
+require(forall(p.weights.values(), lambda w: w <= 0.20))  # But each ≤ 20% (max 120% total with 6)
+# 6 × 0.20 = 1.20, but sum must be 1.0 — CONTRADICTION
+```
+
+Without pre-flight, the LLM would generate tokens forever, never finding a valid solution. With pre-flight, Veritas detects the contradiction instantly and tells you exactly what's wrong.
+
+---
+
+## `run_preflight()`
+
+### What It Does
+
+`run_preflight()` runs the complete pre-flight check pipeline:
+
+1. **Compiles** your Python schema into `VirSpec` (Veritas Intermediate Representation)
+2. **Builds the dependency graph** and determines key ordering
+3. **Runs interval contraction** to verify numeric bounds are feasible
+4. **Checks exact affine feasibility** to ensure linear constraints don't contradict
+5. **Detects circular derivations** (e.g., A derives B, B derives A)
+6. **Performs strict-bound refutation** — proves no solution exists if bounds are too tight
+7. **Synthesizes regex/format string witnesses** — verifies string constraints are satisfiable
+
+### Syntax
+
+```python
+from veritas import run_preflight, InfeasibleSpecError, CircularDerivationError
+
+try:
+    report = run_preflight(my_schema)
+    print(f\"SAT: {report.sat}\")
+    print(f\"Derived fields: {report.derived_fields}\")
+    print(f\"Bounds: {report.bounds}\")
+except InfeasibleSpecError as e:
+    print(f\"Infeasible: {e.message}\")
+    print(f\"Minimal relaxation: {e.minimal_relaxation}\")
+except CircularDerivationError as e:
+    print(f\"Circular: {e.derivation_chain}\")`} copyable />
+
+### Return Value: PreflightReport
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `sat` | `bool` | Whether the spec is satisfiable |
+| `derived_fields` | `List[str]` | Fields that will be Zero-DoF spliced |
+| `bounds` | `Dict[str, Interval]` | Inferred bounds for each numeric field |
+| `key_order` | `List[str]` | Topologically sorted JSON key order |
+| `contradictions` | `List[str]` | Any detected contradictions (empty if SAT) |
+
+---
+
+## `check-spec` CLI
+
+The `veritas check-spec` command runs the pre-flight check from the command line — ideal for CI/CD pipelines and pre-commit hooks.
+
+### Basic Usage
+
+<CodeBlock language="bash" code="$ veritas check-spec portfolio_spec.py
+
+# Expected output for a valid spec:
+# ✓ Spec is SAT — all constraints mutually satisfiable
+# ✓ 0-token pre-flight gate passed
+# ✓ Zero-DoF fields: expected_return, volatility, sharpe_ratio
+# ✓ Interval bounds: weights ∈ [0.05, 0.50]
+
+# Expected output for an invalid spec:
+# ✗ Spec is UNSAT — constraints are mutually unsatisfiable
+# ✗ Contradiction: sum(weights) == 1.0 conflicts with forall(weights, w <= 0.20)
+# ✗ Suggested relaxation: increase max weight to 0.25 or reduce stock count`} copyable />
+
+### JSON Output (for CI/CD)
+
+<CodeBlock language="bash" code="$ veritas check-spec portfolio_spec.py --json
+# {
+#   "sat": true,
+#   "derived_fields": ["expected_return", "volatility", "sharpe_ratio"],
+#   "bounds": {"weights": "[0.05, 0.50]"},
+#   "key_order": ["weights", "expected_return", "volatility", "sharpe_ratio"],
+#   "tokens_saved": 0,
+#   "check_time_ms": 2.3
+# }`} copyable />
+
+### Strict Mode for CI
+
+<CodeBlock language="bash" code="# Exits with code 1 if the spec is not SAT — ideal for CI
+$ veritas check-spec portfolio_spec.py --strict
+# exit code: 0 (SAT) or 1 (UNSAT)`} copyable />
+
+---
+
+## Error Types
+
+### `InfeasibleSpecError`
+
+**When:** Your constraints are mutually unsatisfiable — no assignment of values can satisfy all of them.
+
+**What it provides:**
+- `e.message` — Human-readable description of the conflict
+- `e.minimal_relaxation` — Suggested change to make the spec feasible
+- `e.conflicting_constraints` — List of constraint IDs that conflict
+
+<CodeBlock language="python" code="from veritas import run_preflight, InfeasibleSpecError
+
+try:
+    report = run_preflight(bad_schema)
+except InfeasibleSpecError as e:
+    print(f\"Message: {e.message}\")
+    # \"sum(weights) == 1.0 conflicts with forall(weights, w <= 0.20) for 6 stocks\"
+    print(f\"Relaxation: {e.minimal_relaxation}\")
+    # \"Increase max weight to 0.17 or reduce to 5 stocks\"
+    print(f\"Conflicts: {e.conflicting_constraints}\")
+    # [\"sum_weights == 1.0\", \"weight_bounds <= 0.20\"]`} copyable />
+
+### `CircularDerivationError`
+
+**When:** Your `derive` statements form a cycle — A derives B, and B derives A (directly or indirectly).
+
+**What it provides:**
+- `e.derivation_chain` — The chain of fields forming the cycle
+- `e.fields` — List of fields involved in the cycle
+
+<CodeBlock language="python" code="from veritas import run_preflight, CircularDerivationError
+
+# This schema has a circular derivation:
+#   derive(p.a == p.b + 1)
+#   derive(p.b == p.a + 1)
+
+try:
+    report = run_preflight(circular_schema)
+except CircularDerivationError as e:
+    print(f\"Chain: {e.derivation_chain}\")
+    # [\"a -> b -> a\"]
+    print(f\"Fields: {e.fields}\")
+    # [\"a\", \"b\"]`} copyable />
+
+### `StrictBoundRefutation`
+
+**When:** The affine feasibility check proves that no solution exists within the given bounds.
+
+**What it provides:**
+- `e.bound_field` — The field whose bounds are too tight
+- `e.current_bounds` — The current `[lo, hi]` interval
+- `e.required_bounds` — The bounds needed for feasibility
+
+---
+
+## Error Type Summary
+
+| Error | Meaning | Common Cause | Resolution |
+| :--- | :--- | :--- | :--- |
+| `InfeasibleSpecError` | No solution satisfies all constraints | Contradictory `require` statements | Relax bounds, remove contradictions |
+| `CircularDerivationError` | `derive` cycle detected | A derives B, B derives A | Break the cycle, reorder derivations |
+| `StrictBoundRefutation` | Bounds too tight for feasibility | Interval bounds exclude all solutions | Widen intervals, reduce precision |
+
+<Callout variant="warn" title="Always Run Pre-Flight">
+
+Always run `veritas check-spec` before deploying a schema to production. A failed pre-flight check saves **every token** that would have been wasted on an infeasible decode.
+
+</Callout>
+
+---
+
+## Complete Example
+
+<CodeBlock language="python" code="from veritas import verified_schema, require, derive, sum, dot, forall
+from veritas import run_preflight, InfeasibleSpecError, CircularDerivationError
+
+RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15}
+
+@verified_schema
+def portfolio(p: Portfolio):
+    require(sum(p.weights.values()) == 1.0, tol=1e-6)
+    require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
+    derive(p.expected_return == dot(p.weights, RETURNS))
+    require(p.expected_return >= 0.10)
+
+# Run pre-flight before decoding
+try:
+    report = run_preflight(portfolio)
+    print(f\"✓ Spec is SAT\")
+    print(f\"  Zero-DoF fields: {report.derived_fields}\")
+    print(f\"  Bounds: {report.bounds}\")
+except InfeasibleSpecError as e:
+    print(f\"✗ Infeasible: {e.message}\")
+    print(f\"  Suggestion: {e.minimal_relaxation}\")
+except CircularDerivationError as e:
+    print(f\"✗ Circular: {e.derivation_chain}\")`} copyable />
+
+---
+
+## Next Steps
+
+- **[Schema Synthesis](/docs/authoring-schemas/schema-synthesis)** — Auto-generate `@verified_schema` from sample JSON
+- **[Proof Certificates](/docs/proofs-rl-and-cli/proof-certificates)** — SHA-256 + SMT-LIB2 verification
+- **[CLI Reference](/docs/proofs-rl-and-cli/cli-reference)** — All 6 CLI subcommands

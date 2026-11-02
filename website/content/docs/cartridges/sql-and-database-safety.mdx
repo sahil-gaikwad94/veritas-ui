@@ -1,0 +1,106 @@
+---
+title: Text-to-SQL Safety
+description: veritas.cartridges.sql — catalog-aware schema alignment, FK validation, injection blocking.
+---
+
+import { CodeBlock, Callout } from '@/components/mdx-components';
+
+# Text-to-SQL Safety Cartridge
+
+The `sql` cartridge ensures generated SQL is safe, valid, and referentially intact — blocking injection and enforcing foreign-key integrity at the token level.
+
+---
+
+## Core Constraints
+
+### SQL Injection Blocking
+
+The `no_injection` constraint scans for injection patterns and masks them at the PDA level:
+
+<CodeBlock language="python" code="from veritas.cartridges.sql import no_injection
+
+@verified_schema
+def text_to_sql(q: Query):
+    require(no_injection(q.raw_sql))`} copyable />
+
+Injection patterns blocked:
+- Semicolon statement termination (`;`)
+- Comment injection (`--`, `/* */`)
+- DROP, DELETE, TRUNCATE, ALTER, CREATE
+- UNION SELECT attacks
+- Stacked queries
+
+<Callout variant="check" title="Zero Injection">
+
+SQL injection is blocked at the grammar level — the LLM physically cannot emit injection tokens because they're masked before sampling.
+
+</Callout>
+
+### Foreign Key Integrity
+
+`fk_integrity` ensures referenced tables and columns exist in the catalog:
+
+<CodeBlock language="python" code="from veritas.cartridges.sql import fk_integrity
+
+require(fk_integrity(q.raw_sql, SCHEMA))`} copyable />
+
+### Schema Alignment
+
+`schema_alignment` ensures tables and columns match the catalog:
+
+<CodeBlock language="python" code="from veritas.cartridges.sql import schema_alignment
+
+require(schema_alignment(q.raw_sql, CATALOG))`} copyable />
+
+---
+
+## Complete Example
+
+<CodeBlock language="python" code="from veritas import verified_schema, require
+from veritas.cartridges.sql import no_injection, fk_integrity, schema_alignment
+
+SCHEMA = {
+    "tables": {
+        "users": {"id": "int", "name": "text", "email": "text", "created_at": "timestamp"},
+        "orders": {"id": "int", "user_id": "int", "amount": "float", "status": "text"},
+    },
+    "foreign_keys": [
+        {"from": "orders.user_id", "to": "users.id"},
+    ],
+}
+
+CATALOG = {
+    "allowed_tables": ["users", "orders"],
+    "allowed_columns": {
+        "users": ["id", "name", "email", "created_at"],
+        "orders": ["id", "user_id", "amount", "status"],
+    },
+}
+
+@verified_schema
+def safe_sql(q: Query):
+    # Block SQL injection
+    require(no_injection(q.raw_sql))
+
+    # Ensure FK references are valid
+    require(fk_integrity(q.raw_sql, SCHEMA))
+
+    # Ensure tables/columns match catalog
+    require(schema_alignment(q.raw_sql, CATALOG))`} copyable />
+
+---
+
+## How It Works
+
+| Stage | What Happens |
+| :--- | :--- |
+| PDA Masking | Injection tokens (`;`, `--`, `DROP`) are masked before sampling |
+| FK Validation | Referenced tables/columns checked against catalog |
+| Schema Alignment | Only catalog-approved tables/columns allowed |
+
+---
+
+## Next Steps
+
+- **[Security & IAM](/docs/cartridges/security-and-iam-policies)** — sec cartridge
+- **[Operations Research](/docs/cartridges/operations-research-scheduling)** — or_sched cartridge

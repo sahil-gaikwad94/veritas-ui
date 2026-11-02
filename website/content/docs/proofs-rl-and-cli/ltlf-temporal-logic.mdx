@@ -1,0 +1,68 @@
+---
+title: LTLf Temporal Logic
+description: Linear Temporal Logic over finite traces (ltlf.py) — temporal constraints on LLM output sequences.
+---
+
+import { CodeBlock } from '@/components/mdx-components';
+
+# LTLf Temporal Logic
+
+Linear Temporal Logic over finite traces (LTLf) lets you specify **temporal constraints** on LLM output sequences — not just single values, but patterns over time.
+
+---
+
+## What Is LTLf?
+
+LTLf extends propositional logic with temporal operators for reasoning about finite traces (sequences of states). Veritas uses it for constraints like:
+
+- "The Sharpe ratio must **eventually** exceed 0.65"
+- "Volatility must **always** stay below 0.30"
+- "Weights must be valid **until** the portfolio is complete"
+
+---
+
+## Temporal Operators
+
+| Operator | Meaning | Example |
+| :--- | :--- | :--- |
+| `X φ` | **Next** — φ holds in the next state | `X(weights.AAPL <= 0.50)` |
+| `F φ` | **Eventually** — φ holds at some future state | `F(sharpe_ratio >= 0.65)` |
+| `G φ` | **Globally** — φ holds in all future states | `G(volatility <= 0.30)` |
+| `φ U ψ` | **Until** — φ holds until ψ becomes true | `weights_valid U portfolio_complete` |
+
+---
+
+## Example Usage
+
+<CodeBlock language="python" code="from veritas.ltlf import LTLf, eventually, globally, next_op, until
+
+# \"The Sharpe ratio must eventually exceed 0.65\"
+spec = eventually(lambda s: s.sharpe_ratio >= 0.65)
+
+# \"Volatility must always stay below 0.30\"
+spec = globally(lambda s: s.volatility <= 0.30)
+
+# \"Weights must be valid until the portfolio is complete\"
+spec = until(
+    lambda s: is_valid(s.weights),
+    lambda s: s.portfolio_complete
+)
+
+# \"The next token must be a valid weight key\"
+spec = next_op(lambda s: s.token in VALID_KEYS)`} copyable />
+
+---
+
+## How LTLf Works with Veritas
+
+1. LTLf formula is compiled to a finite-state automaton
+2. The automaton tracks the current state as tokens are generated
+3. PDA masking incorporates automaton transitions
+4. If a token would lead to an invalid state, it's masked
+
+---
+
+## Next Steps
+
+- **[RL Trajectory Collector](/docs/proofs-rl-and-cli/rl-trajectory-collector)** — DPO/Process-GRPO data
+- **[CLI Reference](/docs/proofs-rl-and-cli/cli-reference)** — All 6 CLI subcommands

@@ -1,0 +1,4 @@
+{
+  "title": "API Reference",
+  "pages": ["python-public-api", "rust-pyo3-native-api", "wasm-browser-api", "exceptions-and-diagnostics"]
+}

@@ -1,0 +1,195 @@
+---
+title: Schema Synthesis
+description: Auto-generate @verified_schema from sample JSON using veritas synth.
+---
+
+import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
+
+# Schema Synthesis
+
+Veritas can automatically infer field bounds, linear conservation laws, and `@verified_schema` Python code from sample JSON payloads. This is the fastest way to get started with an existing API — you don't need to write constraints by hand.
+
+---
+
+## What Is Schema Synthesis?
+
+Schema synthesis (`veritas synth`) takes 2–3 sample JSON objects and automatically:
+
+1. **Infers field bounds** — numeric ranges from observed min/max values
+2. **Detects conservation laws** — fields that sum to a constant (e.g., weights sum to 1.0)
+3. **Identifies key sets** — which keys are always present
+4. **Generates `@verified_schema` code** — ready-to-copy Python
+
+This is especially useful when you have an existing API response and want to add Veritas verification to it.
+
+---
+
+## `veritas synth` CLI
+
+### Basic Usage
+
+<CodeBlock language="bash" code="# Create a JSONL file with 2-3 sample objects
+$ cat examples.jsonl
+{\"weights\": {\"AAPL\": 0.40, \"MSFT\": 0.35, \"NVDA\": 0.25}, \"expected_return\": 0.1615, \"sharpe_ratio\": 0.6422}
+{\"weights\": {\"AAPL\": 0.50, \"MSFT\": 0.30, \"NVDA\": 0.20}, \"expected_return\": 0.1550, \"sharpe_ratio\": 0.7100}
+{\"weights\": {\"AAPL\": 0.30, \"MSFT\": 0.40, \"NVDA\": 0.30}, \"expected_return\": 0.1450, \"sharpe_ratio\": 0.5800}
+
+# Generate a verified schema
+$ veritas synth --from-json examples.jsonl --out generated_schema.py
+# Inferred 3 samples, 7 fields, 2 conservation laws
+# Generated: generated_schema.py
+
+# View the generated schema
+$ cat generated_schema.py
+@verified_schema
+def inferred_schema(obj: dict):
+    require(keys_subset(obj, {\"weights\", \"expected_return\", \"sharpe_ratio\"}))
+    require(sum(obj[\"weights\"]) == 1.0, tol=1e-6)
+    require(forall(obj[\"weights\"], lambda v: (0.20 <= v) & (v <= 0.50)))
+    derive(obj[\"expected_return\"] == dot(obj[\"weights\"], RETURNS))
+    require(obj[\"sharpe_ratio\"] >= 0.58)`} copyable />
+
+### CLI Options
+
+| Option | Description | Default |
+| :--- | :--- | :--- |
+| `--from-json <file>` | Path to JSONL file with sample objects | Required |
+| `--out <file>` | Output Python file path | stdout |
+| `--tolerance <float>` | Numeric bound tolerance | `1e-6` |
+| `--conservation-laws` | Auto-detect linear conservation laws | `true` |
+| `--min-samples <int>` | Minimum samples to infer bounds | `2` |
+
+### JSON Output
+
+<CodeBlock language="bash" code="$ veritas synth --from-json examples.jsonl --json
+# {
+#   "samples": 3,
+#   "fields": 7,
+#   "conservation_laws": 2,
+#   "inferred_bounds": {
+#     "weights.AAPL": "[0.30, 0.50]",
+#     "weights.MSFT": "[0.30, 0.40]",
+#     "weights.NVDA": "[0.20, 0.30]"
+#   },
+#   "conservation_laws": [
+#     "sum(weights) == 1.0"
+#   ],
+#   "derived_fields": ["expected_return", "sharpe_ratio"],
+#   "schema": "@verified_schema\\ndef inferred_schema(obj: dict):\\n    ..."
+# }`} copyable />
+
+---
+
+## Inference Rules
+
+Veritas applies the following rules when inferring constraints from samples:
+
+| Pattern in Samples | Inferred Constraint |
+| :--- | :--- |
+| Numeric field with consistent range | `require(forall(field, lambda v: (lo <= v) & (v <= hi)))` |
+| Fields summing to ~1.0 across all samples | `require(sum(fields) == 1.0, tol=1e-6)` |
+| Field value consistent across samples (derived) | `derive(target == expression)` |
+| Fixed key set across all samples | `require(keys_subset(obj, {key_set}))` |
+| Numeric field with zero variance | `require(field == constant)` |
+
+### Example: Conservation Law Detection
+
+If all samples have `weights.AAPL + weights.MSFT + weights.NVDA == 1.0`, Veritas infers:
+
+```python
+require(sum(obj[\"weights\"]) == 1.0, tol=1e-6)
+```
+
+### Example: Derived Field Detection
+
+If `expected_return` is always `0.12*AAPL + 0.10*MSFT + 0.15*NVDA` across samples, Veritas infers:
+
+```python
+derive(obj[\"expected_return\"] == dot(obj[\"weights\"], RETURNS))
+```
+
+---
+
+## Browser Widget
+
+<Callout variant="info" title="Live `veritas synth` in Browser">
+
+Try schema synthesis directly in the browser — no installation required. Paste 2–3 sample JSON objects and get a ready-to-copy `@verified_schema` at **[/verify](/verify)**.
+
+The widget runs entirely in-browser via `veritas-wasm` WebAssembly — zero server cost.
+
+</Callout>
+
+---
+
+## Complete Example: From API Response to Verified Schema
+
+### Step 1: Collect Sample API Responses
+
+<CodeBlock language="bash" code="# Save 3 sample API responses as JSONL
+$ cat api_responses.jsonl
+{\"portfolio\": {\"AAPL\": 0.40, \"MSFT\": 0.35, \"NVDA\": 0.25}, \"metrics\": {\"return\": 0.1615, \"volatility\": 0.1892, \"sharpe\": 0.6422}}
+{\"portfolio\": {\"AAPL\": 0.50, \"MSFT\": 0.30, \"NVDA\": 0.20}, \"metrics\": {\"return\": 0.1550, \"volatility\": 0.1700, \"sharpe\": 0.7100}}
+{\"portfolio\": {\"AAPL\": 0.30, \"MSFT\": 0.40, \"NVDA\": 0.30}, \"metrics\": {\"return\": 0.1450, \"volatility\": 0.1950, \"sharpe\": 0.5800}}`} copyable />
+
+### Step 2: Generate Schema
+
+<CodeBlock language="bash" code="$ veritas synth --from-json api_responses.jsonl --out portfolio_schema.py
+# Inferred 3 samples, 9 fields, 1 conservation law
+# Generated: portfolio_schema.py`} copyable />
+
+### Step 3: Review and Customize
+
+<CodeBlock language="python" code="# portfolio_schema.py (auto-generated, then customized)
+from veritas import verified_schema, require, derive, sum, dot, forall
+
+RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15}
+
+@verified_schema
+def portfolio_schema(obj: dict):
+    # Auto-inferred: key set
+    require(keys_subset(obj, {\"portfolio\", \"metrics\"}))
+
+    # Auto-inferred: conservation law (portfolio sums to 1.0)
+    require(sum(obj[\"portfolio\"].values()) == 1.0, tol=1e-6)
+
+    # Auto-inferred: value bounds
+    require(forall(obj[\"portfolio\"], lambda v: (0.20 <= v) & (v <= 0.50)))
+
+    # Auto-inferred: derived expected return
+    derive(obj[\"metrics\"][\"return\"] == dot(obj[\"portfolio\"], RETURNS))
+
+    # Custom addition: quality threshold (not auto-inferred)
+    require(obj[\"metrics\"][\"sharpe\"] >= 0.60)`} copyable />
+
+### Step 4: Run Pre-Flight Check
+
+<CodeBlock language="bash" code="$ veritas check-spec portfolio_schema.py
+# ✓ Spec is SAT — all constraints mutually satisfiable
+# ✓ 0-token pre-flight gate passed
+# ✓ Zero-DoF fields: metrics.return`} copyable />
+
+---
+
+## Limitations
+
+| Limitation | Details |
+| :--- | :--- |
+| Sample count | Needs at least 2 samples for bounds, 3+ for reliable conservation law detection |
+| Non-linear patterns | Can't infer quadratic forms or complex non-linear relationships |
+| Conditional constraints | Can't infer if-then-else style constraints |
+| Temporal constraints | Can't infer LTLf temporal logic patterns |
+
+<Callout variant="tip" title="Treat as Starting Point">
+
+The generated schema is a starting point, not a final product. Review it, add domain-specific constraints (like quality thresholds), and run `veritas check-spec` before using it in production.
+
+</Callout>
+
+---
+
+## Next Steps
+
+- **[Proof Certificates](/docs/proofs-rl-and-cli/proof-certificates)** — SHA-256 + SMT-LIB2 verification
+- **[CLI Reference](/docs/proofs-rl-and-cli/cli-reference)** — All 6 CLI subcommands
+- **[WASM Browser API](/docs/api-reference/wasm-browser-api)** — Run synth in the browser

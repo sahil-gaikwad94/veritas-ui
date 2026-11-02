@@ -1,0 +1,94 @@
+---
+title: vLLM Integration
+description: veritas.bridges.vllm — VllmAdapter & logit processor integration.
+---
+
+import { CodeBlock, Callout } from '@/components/mdx-components';
+
+# vLLM Bridge
+
+The `vLLM` adapter integrates Veritas with vLLM's logit processor — masking tokens at the vLLM level for maximum throughput.
+
+---
+
+## VllmAdapter
+
+### What It Does
+
+`VllmAdapter` registers Veritas as a logit processor in vLLM's sampling pipeline. This means token masking happens inside vLLM's C++/CUTH kernel — no Python overhead per token.
+
+### Example
+
+<CodeBlock language="python" code="from veritas.bridges.vllm import VllmAdapter
+from vllm import LLM, SamplingParams
+
+adapter = VllmAdapter(schema=valid_portfolio)
+
+# Register with vLLM sampling params
+sampling_params = adapter.create_sampling_params()
+# Includes logits_processors=[adapter.logit_processor]
+
+llm = LLM(model="meta-llama/Llama-3.1-8B-Instruct")
+
+outputs = llm.generate(
+    prompts=["Create a low-volatility portfolio with AAPL, MSFT, NVDA"],
+    sampling_params=sampling_params,
+)`} copyable />
+
+### Integration Points
+
+| Integration | Description |
+| :--- | :--- |
+| `logit_processor` | Masks logits before sampling in vLLM |
+| `create_sampling_params` | vLLM `SamplingParams` with Veritas hooks |
+| `prefix_status` | Real-time PDA status for monitoring |
+
+<Callout variant="check" title="Zero Per-Token Overhead">
+
+The vLLM adapter runs the PDA mask in Rust (0.23 ms) — no Python overhead per token. vLLM's continuous batching means Veritas adds negligible latency.
+
+</Callout>
+
+---
+
+## Complete Example
+
+<CodeBlock language="python" code="from veritas import verified_schema, require, derive, sum, dot
+from veritas.bridges.vllm import VllmAdapter
+from vllm import LLM
+
+RETURNS = {"AAPL": 0.12, "MSFT": 0.10, "NVDA": 0.15}
+
+@verified_schema
+def portfolio(p: Portfolio):
+    require(sum(p.weights.values()) == 1.0, tol=1e-6)
+    require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
+    derive(p.expected_return == dot(p.weights, RETURNS))
+    require(p.expected_return >= 0.10)
+
+# Create adapter
+adapter = VllmAdapter(schema=portfolio)
+
+# Create vLLM engine
+llm = LLM(model="meta-llama/Llama-3.1-8B-Instruct")
+
+# Generate with Veritas masking
+sampling_params = adapter.create_sampling_params()
+outputs = llm.generate(
+    prompts=["Create a portfolio with AAPL, MSFT, NVDA"],
+    sampling_params=sampling_params,
+)
+
+# Result is Veritas-verified
+result = outputs[0].outputs[0].text
+import json
+data = json.loads(result)
+print(data["weights"])   # Verified: sums to 1.0, each in [0.05, 0.50]
+print(data["expected_return"])  # Zero-DoF spliced`} copyable />
+
+---
+
+## Next Steps
+
+- **[SGLang](/docs/bridges-and-integrations/sglang)** — SGLang adapter
+- **[llama.cpp](/docs/bridges-and-integrations/llama-cpp)** — llama.cpp adapter

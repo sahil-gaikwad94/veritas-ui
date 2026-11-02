@@ -1,0 +1,367 @@
+---
+title: @verified_schema Decorator
+description: The @verified_schema decorator, VerifiedSchema class, and four constraint verbs: require, derive, prefer, forall.
+---
+
+import { Callout, CodeBlock, Badge, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/mdx-components';
+
+# @verified_schema Decorator
+
+## What Is @verified_schema?
+
+The `@verified_schema` decorator is the heart of Veritas. It transforms a plain Python function into a **verified schema** — a function that, when called with an LLM, produces output that is guaranteed to satisfy all your constraints.
+
+Think of it like Pydantic's `BaseModel`, but with two critical differences:
+
+1. **Constraints are enforced during generation**, not after. Invalid tokens are masked before the LLM ever samples them.
+2. **Derived fields are computed deterministically**, not guessed by the LLM.
+
+---
+
+## The Core Decorator & Class
+
+### Basic Usage
+
+<CodeBlock language="python" code="from veritas import verified_schema, VerifiedSchema, require, derive, prefer, forall
+
+@verified_schema
+def valid_portfolio(p: Portfolio):
+    # Constraints go here
+    require(sum(p.weights.values()) == 1.0, tol=1e-6)
+    derive(p.expected_return == dot(p.weights, RETURNS))`} copyable />
+
+### How It Works
+
+When you decorate a function with `@verified_schema`:
+
+1. **At decoration time**: Veritas parses your function's AST, builds a `VirSpec`, constructs the dependency graph, and determines key ordering.
+2. **At call time**: Veritas creates a `PdaHandle`, feeds tokens to the LLM one at a time, applies masks, and splices derived values.
+
+### The VerifiedSchema Class
+
+Under the hood, `@verified_schema` creates an instance of `VerifiedSchema`:
+
+<CodeBlock language="python" code="from veritas import VerifiedSchema
+
+# These are equivalent:
+
+# Option 1: Decorator syntax (recommended)
+@verified_schema
+def my_schema(p: Portfolio):
+    require(sum(p.weights.values()) == 1.0)
+
+# Option 2: Class syntax (advanced)
+my_schema = VerifiedSchema(
+    func=my_function,
+    constraints=[require(sum(p.weights.values()) == 1.0)],
+    derivations=[derive(p.expected_return == dot(p.weights, RETURNS))],
+)`} copyable />
+
+The decorator syntax is recommended for 99% of use cases. The class syntax is available if you need to construct schemas programmatically.
+
+---
+
+## The Four Constraint Verbs
+
+Veritas provides four verbs for expressing constraints. Each serves a different purpose:
+
+<Tabs defaultValue="require">
+<TabsList>
+<TabsTrigger value="require">require() — Hard Invariants</TabsTrigger>
+<TabsTrigger value="derive">derive() — Zero-DoF Computation</TabsTrigger>
+<TabsTrigger value="prefer">prefer() — Soft Preferences</TabsTrigger>
+<TabsTrigger value="forall">forall() — Universal Quantification</TabsTrigger>
+</TabsList>
+
+<TabsContent value="require">
+
+### `require(expr, tol=...)`
+
+**Purpose:** Declare a hard invariant that must hold for every valid instance.
+
+**How it's enforced:** Via Tier-1 `Hc4AffineContractor` (interval narrowing) and Tier-2 `VeritasNanoSolver` (exact linear feasibility). Invalid tokens are masked at the PDA level.
+
+**Parameters:**
+- `expr` — A boolean expression over schema fields
+- `tol` — Numerical tolerance (default: `1e-6`). Used for floating-point comparisons.
+
+### Examples
+
+<CodeBlock language="python" code="from veritas import require, sum, forall
+
+# Portfolio weights must sum to 1.0
+require(sum(p.weights.values()) == 1.0, tol=1e-6)
+
+# Each weight between 5% and 50%
+require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
+
+# Sharpe ratio quality threshold
+require(p.sharpe_ratio >= 0.65)
+
+# Tool call must not be destructive
+require(forall(p.tool_calls.values(), lambda call: not call.is_destructive))`} copyable />
+
+**When to use:** Use `require` for constraints that **must** be true — if they're violated, the output is invalid.
+
+<Callout variant="warn" title="Unsatisfiable Constraints">
+
+If your `require` constraints contradict each other (e.g., `sum(weights) == 1.0` AND `each weight <= 0.20` with 6 stocks), Veritas will detect this at pre-flight time and raise `InfeasibleSpecError`. Always run `veritas check-spec` before decoding.
+
+</Callout>
+
+</TabsContent>
+
+<TabsContent value="derive">
+
+### `derive(target == expr, tol=...)`
+
+**Purpose:** Declare a deterministic Zero-DoF derivation. Veritas computes `target` from `expr` and splices it into the output — the LLM never samples it.
+
+**How it's enforced:** Via `ZeroDofRule` and `build_json_key_order`. The dependency graph ensures all inputs to `expr` are emitted before `target`.
+
+**Parameters:**
+- `target` — The field being derived (e.g., `p.expected_return`)
+- `expr` — The expression that computes the target
+- `tol` — Numerical tolerance for floating-point comparisons
+
+### Examples
+
+<CodeBlock language="python" code="from veritas import derive, dot
+
+# Expected return computed from weights and expected returns
+derive(p.expected_return == dot(p.weights, RETURNS))
+
+# Sharpe ratio computed from expected return and volatility
+derive(p.sharpe_ratio == (p.expected_return - RISK_FREE) / p.volatility)
+
+# Portfolio variance computed from covariance matrix
+derive(p.variance == quad_form(p.weights, COV))`} copyable />
+
+### Why Zero-DoF Matters
+
+Without `derive`, the LLM would have to guess `expected_return`. Even a small error propagates to `sharpe_ratio`, violating your constraints.
+
+With `derive`, Veritas computes it exactly. The LLM saves `_T_ − 1` forward passes per derived field.
+
+<Callout variant="check" title="Key Insight">
+
+`derive` fields are emitted **after** their dependencies. The `DependencyGraph` handles this ordering automatically — you don't need to think about it.
+
+</Callout>
+
+</TabsContent>
+
+<TabsContent value="prefer">
+
+### `prefer(expr, weight=1.0, tag=...)`
+
+**Purpose:** Declare a soft preference that guides token selection without causing hard failures.
+
+**How it's enforced:** Via Weighted MaxSMT / volume-twist preference. The preference steers the LLM toward desirable regions but doesn't mask tokens if the preference can't be satisfied.
+
+**Parameters:**
+- `expr` — A boolean expression (the preference)
+- `weight` — How strongly to prefer this (default: `1.0`, range: `0.0` to `1.0`)
+- `tag` — Optional label for tracking this preference in telemetry
+
+### Examples
+
+<CodeBlock language="python" code="from veritas import prefer
+
+# Prefer low volatility (but don't fail if not achievable)
+prefer(p.volatility <= 0.20, weight=0.8, tag=\"low_volatility\")
+
+# Prefer high expected return
+prefer(p.expected_return >= 0.12, weight=0.5, tag=\"min_return\")
+
+# Prefer specific sector allocation
+prefer(p.weights[\"AAPL\"] >= 0.20, weight=0.3, tag=\"aapl_overweight\")`} copyable />
+
+### When to Use prefer vs. require
+
+| Use `require` when... | Use `prefer` when... |
+| :--- | :--- |
+| The constraint must always hold | The constraint is desirable but not mandatory |
+| Violation = invalid output | Violation = suboptimal but acceptable output |
+| Example: portfolio sums to 1.0 | Example: prefer volatility under 20% |
+
+</TabsContent>
+
+<TabsContent value="forall">
+
+### `forall(collection, lambda x: ...)`
+
+**Purpose:** Apply a constraint to every element of a dynamic collection (list or dictionary values).
+
+**How it's enforced:** Lowered into incremental `ResidualAccumulator` bounds that track running min/max as elements are emitted.
+
+**Parameters:**
+- `collection` — The collection to quantify over (e.g., `p.weights.values()`)
+- `lambda x: ...` — A predicate that must hold for every element
+
+### Examples
+
+<CodeBlock language="python" code="from veritas import forall
+
+# Every weight between 5% and 50%
+require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
+
+# Every position exposure under 30%
+require(forall(p.positions.values(), lambda pos: pos.exposure <= 0.30))
+
+# Every tool call is from the allowed set
+require(forall(p.tool_calls.values(), lambda call: call.name in ALLOWED_TOOLS))`} copyable />
+
+### How ResidualAccumulator Works
+
+`forall` over a dynamic collection (where you don't know the size ahead of time) uses a `ResidualAccumulator`:
+
+<CodeBlock language="python" code="# Internal representation (simplified)
+# forall(weights.values(), lambda w: 0.05 <= w <= 0.50)
+# becomes:
+acc = ResidualAccumulator()
+for w in weights.values():
+    acc.add_constraint(0.05 <= w <= 0.50)
+# acc.min >= 0.05 and acc.max <= 0.50 must hold at end`} copyable />
+
+The accumulator tracks running bounds as each element is emitted, so Veritas can detect violations incrementally — not just at the end.
+
+</TabsContent>
+</Tabs>
+
+---
+
+## Built-In Mathematical Operators
+
+Veritas provides five built-in operators for expressing mathematical constraints:
+
+| Operator | Signature | What It Does |
+| :--- | :--- | :--- |
+| `sum` | `sum(iterable)` | Symbolic summation, lowered into `LinearForm` |
+| `dot` | `dot(w_dict, c_dict)` | Inner product over key-aligned dictionaries |
+| `quad_form` | `quad_form(w_dict, cov_dict)` | Quadratic form $w^T \Sigma w$ via Cholesky |
+| `sqrt` | `sqrt(expr)` | Square root with sign-aware polynomial lifting |
+| `keys_subset` | `keys_subset(mapping, allowed_set)` | Set-inclusion constraint over dictionary keys |
+
+### Examples
+
+<CodeBlock language="python" code="from veritas import sum, dot, quad_form, sqrt, keys_subset
+
+# Portfolio variance constraint
+require(quad_form(p.weights, COV) <= 0.04)
+
+# Volatility constraint (sqrt of variance)
+require(sqrt(p.variance) <= 0.20)
+
+# Only allow specific stocks
+require(keys_subset(p.weights, {\"AAPL\", \"MSFT\", \"NVDA\", \"GOOGL\"}))
+
+# Weighted average return
+derive(p.avg_return == dot(p.weights, EXPECTED_RETURNS))
+
+# Total allocation
+require(sum(p.allocations.values()) <= 1.0)`} copyable />
+
+---
+
+## Complete Example
+
+Here's a complete portfolio schema using all four verbs:
+
+<CodeBlock language="python" code="from veritas import verified_schema, require, derive, prefer, forall, sum, dot
+
+RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15, \"GOOGL\": 0.11}
+RISK_FREE = 0.04
+COV = {  # Covariance matrix (simplified)
+    \"AAPL\": {\"AAPL\": 0.04, \"MSFT\": 0.01, \"NVDA\": 0.02, \"GOOGL\": 0.015},
+    \"MSFT\": {\"AAPL\": 0.01, \"MSFT\": 0.03, \"NVDA\": 0.015, \"GOOGL\": 0.01},
+    \"NVDA\": {\"AAPL\": 0.02, \"MSFT\": 0.015, \"NVDA\": 0.06, \"GOOGL\": 0.02},
+    \"GOOGL\": {\"AAPL\": 0.015, \"MSFT\": 0.01, \"NVDA\": 0.02, \"GOOGL\": 0.025},
+}
+
+@verified_schema
+def portfolio(p: Portfolio):
+    # Hard: weights sum to 1.0
+    require(sum(p.weights.values()) == 1.0, tol=1e-6)
+
+    # Hard: each weight between 5% and 50%
+    require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
+
+    # Hard: only allowed stocks
+    require(keys_subset(p.weights, {\"AAPL\", \"MSFT\", \"NVDA\", \"GOOGL\"}))
+
+    # Zero-DoF: expected return computed from weights
+    derive(p.expected_return == dot(p.weights, RETURNS))
+
+    # Zero-DoF: portfolio variance via quadratic form
+    derive(p.variance == quad_form(p.weights, COV))
+
+    # Hard: volatility under 20%
+    require(sqrt(p.variance) <= 0.20)
+
+    # Zero-DoF: Sharpe ratio
+    derive(p.sharpe_ratio == (p.expected_return - RISK_FREE) / sqrt(p.variance))
+
+    # Hard: Sharpe ratio quality threshold
+    require(p.sharpe_ratio >= 0.65)
+
+    # Soft: prefer low volatility
+    prefer(p.volatility <= 0.15, weight=0.7, tag=\"low_volatility\")
+
+    # Soft: prefer AAPL overweight
+    prefer(p.weights[\"AAPL\"] >= 0.25, weight=0.3, tag=\"aapl_overweight\")`} copyable />
+
+---
+
+## Common Beginner Mistakes
+
+<Callout variant="warn" title="Mistake 1: Using derived fields before their inputs">
+
+```python
+# WRONG: expected_return is used before weights are fully emitted
+# The DependencyGraph handles ordering, but you can't reference
+# a derived field in a constraint on an earlier field
+
+require(p.expected_return >= 0.10)  # This IS fine — expected_return is derived
+require(sum(p.weights.values()) >= p.expected_return)  # This is fine too
+
+# What you CAN'T do: create circular dependencies
+derive(p.a == p.b + 1)
+derive(p.b == p.a + 1)  # CircularDerivationError!
+```
+
+</Callout>
+
+<Callout variant="warn" title="Mistake 2: Forgetting tolerance in float comparisons">
+
+```python
+# WRONG: Exact float equality is fragile
+require(sum(p.weights.values()) == 1.0)  # May fail due to floating-point
+
+# RIGHT: Use tolerance
+require(sum(p.weights.values()) == 1.0, tol=1e-6)  # Allows tiny rounding errors
+```
+
+</Callout>
+
+<Callout variant="warn" title="Mistake 3: Contradictory require and prefer">
+
+```python
+# This won't fail, but prefer will never be satisfied
+require(p.volatility <= 0.10)
+prefer(p.volatility <= 0.05, weight=1.0)  # Impossible given the require above
+
+# Fix: make the require looser, or the prefer less strict
+require(p.volatility <= 0.20)
+prefer(p.volatility <= 0.10, weight=0.8)
+```
+
+</Callout>
+
+---
+
+## Next Steps
+
+- **[Mathematical Primitives](/docs/authoring-schemas/mathematical-primitives)** — Deep dive into `sum`, `dot`, `quad_form`, `sqrt`, `keys_subset`
+- **[Dynamic Containers](/docs/authoring-schemas/dynamic-containers)** — `ResidualAccumulator` for dynamic lists/dicts
+- **[Pre-Flight SAT Gate](/docs/authoring-schemas/preflight-sat-gate)** — `run_preflight`, `check_spec`, error types

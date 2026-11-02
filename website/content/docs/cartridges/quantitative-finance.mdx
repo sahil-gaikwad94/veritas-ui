@@ -1,0 +1,135 @@
+---
+title: Quantitative Finance
+description: veritas.cartridges.quant — portfolio simplex, Cholesky covariance, Black-Scholes, VaR.
+---
+
+import { CodeBlock, Callout } from '@/components/mdx-components';
+
+# Quantitative Finance Cartridge
+
+The `quant` cartridge provides financial modeling constraints: portfolio simplex, Cholesky-decomposed covariance, Black-Scholes option pricing, and Value-at-Risk.
+
+---
+
+## Installation
+
+<CodeBlock language="bash" code="pip install 'veritas-ai[cas]'`} copyable />
+
+The `[cas]` extra installs `sympy>=1.12` and `numpy>=1.26` for symbolic canonicalization and Cholesky matrix operations.
+
+---
+
+## Core Constraints
+
+### Portfolio Simplex
+
+Ensures weights sum to 1.0 with each weight in [0, 1]:
+
+<CodeBlock language="python" code="from veritas.cartridges.quant import simplex
+
+require(simplex(p.weights))
+# Equivalent to:
+# require(sum(p.weights.values()) == 1.0, tol=1e-6)
+# require(forall(p.weights.values(), lambda w: (0.0 <= w) & (w <= 1.0)))`} copyable />
+
+### Quadratic Form (Portfolio Variance)
+
+Computes $w^T \Sigma w$ via Cholesky-decomposed affine forms:
+
+<CodeBlock language="python" code="from veritas.cartridges.quant import quad_form
+
+COV = {
+    "AAPL": {"AAPL": 0.04, "MSFT": 0.01, "NVDA": 0.02},
+    "MSFT": {"AAPL": 0.01, "MSFT": 0.03, "NVDA": 0.015},
+    "NVDA": {"AAPL": 0.02, "MSFT": 0.015, "NVDA": 0.06},
+}
+
+# Portfolio variance <= 4%
+require(quad_form(p.weights, COV) <= 0.04)`} copyable />
+
+### Black-Scholes Option Pricing
+
+European option price constraint:
+
+<CodeBlock language="python" code="from veritas.cartridges.quant import black_scholes
+
+# Option price must be >= market price
+require(black_scholes(p.S, p.K, p.T, p.r, p.sigma) >= p.market_price)`} copyable />
+
+### Value-at-Risk
+
+VaR at confidence level alpha:
+
+<CodeBlock language="python" code="from veritas.cartridges.quant import value_at_risk
+
+# 95% VaR <= 5%
+require(value_at_risk(p.weights, RETURNS, COV, alpha=0.95) <= 0.05)`} copyable />
+
+---
+
+## Key Functions Reference
+
+| Function | Signature | Description |
+| :--- | :--- | :--- |
+| `simplex` | `(weights: dict) -> bool` | $\sum w_i = 1.0$, $0 \le w_i \le 1$ |
+| `quad_form` | `(w: dict, cov: dict) -> float` | $w^T \Sigma w$ via Cholesky |
+| `black_scholes` | `(S, K, T, r, sigma) -> float` | European option price |
+| `value_at_risk` | `(weights, returns, cov, alpha) -> float` | VaR at confidence level |
+
+---
+
+## Complete Example: Markowitz Portfolio
+
+<CodeBlock language="python" code="from veritas import verified_schema, require, derive, sum, dot
+from veritas.cartridges.quant import simplex, quad_form, black_scholes, value_at_risk
+
+RETURNS = {"AAPL": 0.12, "MSFT": 0.10, "NVDA": 0.15}
+RISK_FREE = 0.04
+COV = {
+    "AAPL": {"AAPL": 0.04, "MSFT": 0.01, "NVDA": 0.02},
+    "MSFT": {"AAPL": 0.01, "MSFT": 0.03, "NVDA": 0.015},
+    "NVDA": {"AAPL": 0.02, "MSFT": 0.015, "NVDA": 0.06},
+}
+
+@verified_schema
+def markowitz_portfolio(p: Portfolio):
+    # Hard: portfolio simplex
+    require(simplex(p.weights))
+
+    # Hard: each weight between 5% and 50%
+    require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
+
+    # Hard: variance constraint via quadratic form
+    require(quad_form(p.weights, COV) <= 0.04)
+
+    # Zero-DoF: expected return
+    derive(p.expected_return == dot(p.weights, RETURNS))
+
+    # Zero-DoF: portfolio variance
+    derive(p.variance == quad_form(p.weights, COV))
+
+    # Zero-DoF: volatility
+    derive(p.volatility == sqrt(p.variance))
+
+    # Zero-DoF: Sharpe ratio
+    derive(p.sharpe_ratio == (p.expected_return - RISK_FREE) / p.volatility)
+
+    # Hard: quality threshold
+    require(p.sharpe_ratio >= 0.65)
+
+    # Soft: prefer low volatility
+    prefer(p.volatility <= 0.15, weight=0.7, tag="low_volatility")`} copyable />
+
+<Callout variant="tip" title="Cholesky Precomputation">
+
+The covariance matrix is Cholesky-decomposed **once at schema compilation time**, so each `quad_form` evaluation is $O(n^2)$ instead of $O(n^3)$ — critical for real-time token decoding.
+
+</Callout>
+
+---
+
+## Next Steps
+
+- **[Text-to-SQL Safety](/docs/cartridges/sql-and-database-safety)** — sql cartridge
+- **[Security & IAM](/docs/cartridges/security-and-iam-policies)** — sec cartridge
+- **[Engine Internals — quad_form](/docs/engine-internals/tier1-hc4-and-affine-contractors)** — How quadratic forms are contracted

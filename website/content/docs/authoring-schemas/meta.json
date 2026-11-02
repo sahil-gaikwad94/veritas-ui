@@ -1,0 +1,4 @@
+{
+  "title": "Authoring Schemas",
+  "pages": ["verified-schema-decorator", "mathematical-primitives", "dynamic-containers", "preflight-sat-gate", "schema-synthesis"]
+}

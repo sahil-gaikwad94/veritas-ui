@@ -1,0 +1,271 @@
+---
+title: CLI Reference
+description: Complete guide to `doctor`, `check-spec`, `verify`, `verify-proof`, `inspect`, `synth`.
+---
+
+import { CodeBlock, Callout } from '@/components/mdx-components';
+
+# CLI Reference
+
+Complete reference for all 6 Veritas CLI subcommands. Each command is designed for a specific stage of the Veritas workflow.
+
+---
+
+## Command Overview
+
+| Command | Purpose | When to Use |
+| :--- | :--- | :--- |
+| `doctor` | Engine diagnostics | Verify installation, check native extension |
+| `check-spec` | Pre-flight SAT check | Before decoding — verify constraints are satisfiable |
+| `verify` | Instance verification | After decoding — verify a specific output |
+| `verify-proof` | Proof certificate verification | Verify a saved proof offline |
+| `inspect` | Trace inspection | Debug decodes, analyze token-by-token |
+| `synth` | Schema synthesis | Auto-generate `@verified_schema` from JSON samples |
+
+---
+
+## 1. `veritas doctor`
+
+Inspects engine mode, wire protocol version, platform metadata, and optional Z3 availability.
+
+### Usage
+
+<CodeBlock language="bash" code="$ veritas doctor
+
+# Expected output:
+# Engine: accelerated (Rust native)
+# Wire Protocol: v2.0
+# Platform: linux-x86_64
+# Z3 Available: true
+# Native Extension: loaded
+# Tests: 499 passing
+
+# JSON output (useful for CI/CD scripts)
+$ veritas doctor --json
+# {
+#   "engine": "accelerated",
+#   "wire_protocol": "2.0",
+#   "platform": "linux-x86_64",
+#   "z3": true,
+#   "native": true,
+#   "tests": 499
+# }
+
+# Strict mode — exits with code 1 if Rust native is not loaded
+$ veritas doctor --strict
+# exit code: 0 (if native loaded) or 1 (if native missing)`} copyable />
+
+### Output Fields
+
+| Field | Meaning |
+| :--- | :--- |
+| `engine` | `accelerated` = Rust native loaded, `reference` = pure-Python fallback |
+| `wire_protocol` | Internal wire protocol version (currently v2.0) |
+| `platform` | OS and architecture |
+| `z3` | Whether Z3 solver is available |
+| `native` | Whether the Rust `.so`/`.pyd` was loaded |
+| `tests` | Number of passing engine tests |
+
+---
+
+## 2. `veritas check-spec`
+
+Compiles a `@verified_schema` into `VirSpec` and runs `run_preflight()` — **0 LLM tokens**.
+
+### Usage
+
+<CodeBlock language="bash" code="$ veritas check-spec portfolio_spec.py
+
+# Expected output for valid spec:
+# ✓ Spec is SAT — all constraints mutually satisfiable
+# ✓ 0-token pre-flight gate passed
+# ✓ Zero-DoF fields: expected_return, volatility, sharpe_ratio
+# ✓ Interval bounds: weights ∈ [0.05, 0.50]
+
+# Expected output for invalid spec:
+# ✗ Spec is UNSAT — constraints are mutually unsatisfiable
+# ✗ Contradiction: sum(weights) == 1.0 conflicts with forall(weights, w <= 0.20)
+
+# JSON output
+$ veritas check-spec portfolio_spec.py --json
+# {
+#   "sat": true,
+#   "derived_fields": ["expected_return", "volatility", "sharpe_ratio"],
+#   "bounds": {"weights": "[0.05, 0.50]"},
+#   "key_order": ["weights", "expected_return", "volatility", "sharpe_ratio"],
+#   "tokens_saved": 0,
+#   "check_time_ms": 2.3
+# }
+
+# Strict mode for CI
+$ veritas check-spec portfolio_spec.py --strict
+# exit code: 0 (SAT) or 1 (UNSAT)`} copyable />
+
+### Options
+
+| Option | Description |
+| :--- | :--- |
+| `--json` | JSON output for scripting |
+| `--strict` | Exit code 1 if UNSAT (for CI/CD) |
+
+---
+
+## 3. `veritas verify`
+
+Runs `verify_instance()` / `verify_json()` — outputs a `VerificationReport` with per-constraint outcomes.
+
+### Usage
+
+<CodeBlock language="bash" code="$ veritas verify portfolio_spec.py instance.json
+
+# Expected output:
+# VerificationReport:
+#   Status: PASS
+#   Constraints: 5/5 passed
+#   Derived: expected_return=0.1615, volatility=0.1892, sharpe_ratio=0.6422
+#   Witness SHA-256: a3f5c8...8c21
+#   LLM calls saved: 24
+
+# JSON output
+$ veritas verify portfolio_spec.py instance.json --json
+# {
+#   "status": "PASS",
+#   "constraints": [
+#     {"id": "sum_weights", "outcome": "PASS"},
+#     {"id": "sharpe_ratio", "outcome": "SPLICE"}
+#   ],
+#   "derived_values": {"expected_return": 0.1615, ...},
+#   "witness_sha256": "a3f5c8...8c21"
+# }`} copyable />
+
+### Verification Statuses
+
+| Status | Meaning |
+| :--- | :--- |
+| `PASS` | All constraints satisfied |
+| `FAIL` | At least one constraint violated |
+| `INCOMPLETE` | Document is incomplete (not all fields present) |
+
+### Constraint Outcomes
+
+| Outcome | Meaning |
+| :--- | :--- |
+| `PASS` | Constraint verified as true |
+| `FAIL` | Constraint violated |
+| `SPLICE` | Zero-DoF derived field (computed, not sampled) |
+
+---
+
+## 4. `veritas verify-proof`
+
+Offline cryptographic verification of a saved `ProofCertificate`.
+
+### Usage
+
+<CodeBlock language="bash" code="$ veritas verify-proof proof.json
+
+# Expected output:
+# ✓ SHA-256 witness verified
+# ✓ SMT-LIB2 script is SAT
+# ✓ All constraints satisfied
+# ✓ Proof certificate valid
+
+# JSON output
+$ veritas verify-proof proof.json --json
+# {
+#   "valid": true,
+#   "witness_verified": true,
+#   "smtlib2_sat": true,
+#   "constraints_passed": 5,
+#   "constraints_failed": 0
+# }`} copyable />
+
+### What It Verifies
+
+1. **SHA-256 witness** — The digest matches the output
+2. **SMT-LIB2 script** — The proof script is satisfiable
+3. **All constraints** — Every `require` and `derive` is satisfied
+
+---
+
+## 5. `veritas inspect`
+
+Generates a standalone dark-mode HTML execution trace viewer.
+
+### Usage
+
+<CodeBlock language="bash" code="$ veritas inspect trace.json --out report.html
+# Generated: report.html
+
+# JSON output
+$ veritas inspect trace.json --out report.html --json
+# {
+#   "total_steps": 142,
+#   "backtracks": 3,
+#   "splices": 7,
+#   "final_status": "PASS"
+# }`} copyable />
+
+### What the Viewer Shows
+
+| Element | Description |
+| :--- | :--- |
+| Summary KPI cards | Total steps, backtracks, jump-forward fields, final status |
+| Step-by-step table | Step #, field, token, kind (sample/splice/backtrack), notes |
+| Shannon entropy bars | Visual entropy at each step |
+| Token classification | Blue=sample, Green=splice, Amber/Red=backtrack |
+
+<Callout variant="info" title="Interactive Viewer on Website">
+
+The [/playground](/playground) includes an interactive trace viewer with timeline scrubbing — step forward/backward token-by-token.
+
+</Callout>
+
+---
+
+## 6. `veritas synth`
+
+Auto-infers `@verified_schema` from sample JSON payloads.
+
+### Usage
+
+<CodeBlock language="bash" code="$ veritas synth --from-json examples.json --out generated_schema.py
+# Inferred 3 samples, 7 fields, 2 conservation laws
+# Generated: generated_schema.py
+
+# JSON output
+$ veritas synth --from-json examples.json --json
+# {
+#   "samples": 3,
+#   "fields": 7,
+#   "conservation_laws": 2,
+#   "inferred_bounds": {...},
+#   "schema": "@verified_schema\\ndef inferred_schema(obj: dict):\\n    ..."
+# }`} copyable />
+
+### Options
+
+| Option | Description | Default |
+| :--- | :--- | :--- |
+| `--from-json <file>` | Path to JSONL file with samples | Required |
+| `--out <file>` | Output Python file path | stdout |
+| `--tolerance <float>` | Numeric bound tolerance | `1e-6` |
+| `--conservation-laws` | Auto-detect linear conservation laws | `true` |
+
+---
+
+## Exit Codes
+
+| Code | Meaning |
+| :--- | :--- |
+| 0 | Success |
+| 1 | Verification failure / UNSAT |
+| 2 | Invalid schema or arguments |
+| 3 | Pre-flight gate failure |
+
+---
+
+## Next Steps
+
+- **[API Reference — Python](/docs/api-reference/python-public-api)** — All 65+ exported symbols
+- **[API Reference — WASM](/docs/api-reference/wasm-browser-api)** — JavaScript/TypeScript API

@@ -1,0 +1,216 @@
+---
+title: Quickstart
+description: Your first @verified_schema in 60 seconds — portfolio constraints with Zero-DoF splicing.
+---
+
+import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
+
+# Quickstart
+
+In this quickstart, you'll write your first `@verified_schema` and decode a portfolio with an LLM. We'll use a concrete example: a financial portfolio with weight constraints, an expected return, and a Sharpe ratio.
+
+By the end, you'll understand:
+- How to define a verified schema with `require` and `derive`
+- How to run a pre-flight check (`check-spec`)
+- How to decode with an LLM and get verified output
+- What Zero-DoF splicing means in practice
+
+---
+
+## The Scenario
+
+You're building an AI assistant that creates investment portfolios. You want the LLM to output:
+
+1. **Weights** for each stock (AAPL, MSFT, NVDA)
+2. **Expected return** (computed from the weights)
+3. **Sharpe ratio** (computed from expected return and volatility)
+
+The constraints:
+- Weights must sum to 1.0 (fully invested)
+- Each weight must be between 5% and 50% (diversification)
+- Sharpe ratio must be at least 0.65 (quality threshold)
+- Expected return and volatility are **derived** — computed from the weights, not guessed by the LLM
+
+---
+
+## Step 1: Define the Schema
+
+Create a file called `portfolio_spec.py`:
+
+<CodeBlock language="python" code="from veritas import verified_schema, require, derive, sum, dot, forall
+
+# These are constants the LLM can reference
+RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15}
+RISK_FREE = 0.04
+
+@verified_schema
+def valid_portfolio(p: Portfolio):
+    # Hard constraint: weights must sum to 1.0 (fully invested portfolio)
+    require(sum(p.weights.values()) == 1.0, tol=1e-6)
+
+    # Hard constraint: each weight between 5% and 50% (diversification)
+    require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
+
+    # Zero-DoF derivation: expected_return is computed from weights, not sampled
+    derive(p.expected_return == dot(p.weights, RETURNS))
+
+    # Zero-DoF derivation: sharpe_ratio computed from expected_return and volatility
+    derive(p.sharpe_ratio == (p.expected_return - RISK_FREE) / p.volatility)
+
+    # Hard constraint: Sharpe ratio quality threshold
+    require(p.sharpe_ratio >= 0.65)`} copyable />
+
+### What Each Line Does
+
+| Line | Meaning |
+| :--- | :--- |
+| `require(sum(...) == 1.0)` | The weights must add up to exactly 100%. If they don't, Veritas masks tokens that would break this. |
+| `require(forall(...))` | Every individual weight must be between 0.05 and 0.50. No stock can dominate the portfolio. |
+| `derive(expected_return == ...)` | **Zero-DoF:** Veritas computes this value deterministically. The LLM doesn't guess it. |
+| `derive(sharpe_ratio == ...)` | **Zero-DoF:** Computed from expected_return and volatility. Zero LLM tokens spent. |
+| `require(sharpe_ratio >= 0.65)` | Quality filter. Only portfolios with good risk-adjusted returns pass. |
+
+<Callout variant="check" title="Key Insight: require vs. derive">
+
+- **`require`** states a condition that must be true. Veritas enforces it by masking invalid tokens.
+- **`derive`** states a value that Veritas computes for you. The LLM never samples it — Veritas splices it in directly.
+
+</Callout>
+
+---
+
+## Step 2: Run the Pre-Flight Check
+
+Before you ever call an LLM, verify that your constraints are satisfiable:
+
+<CodeBlock language="bash" code="$ veritas check-spec portfolio_spec.py
+
+# Expected output:
+# ✓ Spec is SAT — all constraints mutually satisfiable
+# ✓ 0-token pre-flight gate passed
+# ✓ Zero-DoF fields: expected_return, volatility, sharpe_ratio
+# ✓ Interval bounds: weights ∈ [0.05, 0.50]`} copyable />
+
+<CodeBlock language="bash" code="# For machine-readable output (CI/CD, scripting)
+$ veritas check-spec portfolio_spec.py --json
+# {
+#   "sat": true,
+#   "derived_fields": ["expected_return", "volatility", "sharpe_ratio"],
+#   "bounds": {"weights": "[0.05, 0.50]"},
+#   "tokens_saved": 0
+# }`} copyable />
+
+### What Pre-Flight Does
+
+The pre-flight check runs **0 LLM tokens** — it's pure local computation. It:
+
+1. **Compiles** your Python schema into `VirSpec` (Veritas Intermediate Representation)
+2. **Builds a dependency graph** to determine key ordering (inputs before outputs)
+3. **Runs interval contraction** to verify numeric bounds are feasible
+4. **Checks affine feasibility** to ensure linear constraints don't contradict
+5. **Detects circular derivations** (e.g., A derives B, B derives A)
+6. **Reports** any issues before you spend a single token on the LLM
+
+<Callout variant="warn" title="Why Pre-Flight Matters">
+
+If your constraints are unsatisfiable (e.g., `sum(weights) == 1.0` AND `each weight <= 0.20` with 6 stocks), the pre-flight gate catches it immediately. Without pre-flight, you'd waste hundreds of LLM tokens trying to generate an impossible portfolio.
+
+</Callout>
+
+---
+
+## Step 3: Decode with an LLM
+
+Now let's actually generate a verified portfolio:
+
+<CodeBlock language="python" code="from veritas import decode
+
+# Decode with an LLM — Veritas enforces constraints in real time
+result = decode(
+    schema=valid_portfolio,
+    prompt=\"Create a low-volatility portfolio with AAPL, MSFT, and NVDA\",
+    model=\"gpt-4o\",
+    max_tokens=512,
+)
+
+print(\"Weights:\", result.weights)
+# {"AAPL": 0.40, "MSFT": 0.35, "NVDA": 0.25}
+
+print(\"Expected Return:\", result.expected_return)
+# 0.1615  (Zero-DoF spliced — 0 LLM calls)
+
+print(\"Volatility:\", result.volatility)
+# 0.1892  (Zero-DoF spliced — 0 LLM calls)
+
+print(\"Sharpe Ratio:\", result.sharpe_ratio)
+# 0.6422  (Zero-DoF spliced — 0 LLM calls)
+
+print(\"Witness SHA-256:\", result.witness_sha256)
+# "a3f5c8...8c21"  — tamper-proof proof certificate`} copyable />
+
+### What Just Happened?
+
+As the LLM generated each token, Veritas was working behind the scenes:
+
+| Stage | What Veritas Did | Time |
+| :--- | :--- | :--- |
+| **Tier 0 — PDA** | Masked tokens that would produce invalid JSON syntax | 0.23 ms per step |
+| **Tier 1 — HC4/AF2** | Narrowed numeric prefixes so weights stay in [0.05, 0.50] | 3.9 µs per step |
+| **Zero-DoF Splice** | When all weights were emitted, computed `expected_return`, `volatility`, `sharpe_ratio` deterministically | 0 LLM calls |
+| **Proof** | Generated a SHA-256 witness digest for the entire result | Instant |
+
+<Callout variant="check" title="The Result">
+
+The LLM never guessed the Sharpe ratio. It never emitted invalid JSON. Every number is mathematically consistent. And you got a cryptographic proof you can verify offline.
+
+</Callout>
+
+---
+
+## Try It in the Browser
+
+Don't want to install anything yet? Try the live WASM playground:
+
+<Callout variant="info" title="Veritas Playground">
+
+Run the complete Veritas engine client-side in your browser at **[/playground](/playground)**. Zero server cost, 60 FPS, no installation required.
+
+</Callout>
+
+---
+
+## Common Beginner Mistakes
+
+<Callout variant="warn" title="Mistake 1: Forgetting that derive fields are computed">
+
+```python
+# WRONG: Trying to use a derived field before it's computed
+derive(p.expected_return == dot(p.weights, RETURNS))
+require(p.expected_return >= 0.10)  # This is fine — expected_return is derived
+
+# The DependencyGraph ensures expected_return is emitted after weights
+# Veritas handles the ordering automatically
+```
+
+<Callout variant="warn" title="Mistake 2: Contradictory constraints">
+
+```python
+# WRONG: These can never both be true
+require(sum(p.weights.values()) == 1.0)
+require(forall(p.weights.values(), lambda w: w <= 0.20))  # 6 stocks × 0.20 = 1.20 ≠ 1.0
+
+# Fix: either reduce the number of stocks or increase the max weight
+require(forall(p.weights.values(), lambda w: w <= 0.25))  # 4 stocks × 0.25 = 1.0 ✓
+```
+
+Always run `veritas check-spec` before decoding to catch these.
+
+</Callout>
+
+---
+
+## Next Steps
+
+- **[How Veritas Works](/docs/getting-started/how-veritas-works)** — Deep dive into the 3-tier engine
+- **[Authoring Schemas](/docs/authoring-schemas/verified-schema-decorator)** — All constraint verbs and math primitives explained
+- **[Engine Internals](/docs/engine-internals/vir-compiler-and-dag)** — How the Rust core works under the hood

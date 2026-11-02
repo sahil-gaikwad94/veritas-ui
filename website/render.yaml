@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: veritas-website
+    env: node
+    region: oregon
+    branch: main
+    rootDir: website
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: VERITAS_NO_NATIVE
+        value: 0
+    autoDeploy: true
+    healthCheckPath: /

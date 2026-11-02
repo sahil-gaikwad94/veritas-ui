@@ -1,0 +1,17 @@
+{
+  "version": 3,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next",
+      "config": {
+        "target": "standalone"
+      }
+    }
+  ],
+  "crons": [],
+  "regions": ["iad1"],
+  "env": {
+    "VERITAS_NO_NATIVE": "0"
+  }
+}

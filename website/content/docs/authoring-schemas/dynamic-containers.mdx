@@ -1,0 +1,212 @@
+---
+title: Dynamic Containers
+description: ResidualAccumulator, analyze_containers, ContainerInfo — constraints over dynamic-length lists and dictionaries.
+---
+
+import { Callout, CodeBlock } from '@/components/mdx-components';
+
+# Dynamic Containers
+
+Most real-world schemas have collections whose size is not known until decode time — a variable number of portfolio positions, an unknown list of tool calls, or a dictionary with dynamic keys. Veritas handles these with the **`ResidualAccumulator`** — an incremental bound-tracking structure that supports `forall` quantification over dynamic collections.
+
+---
+
+## The Problem: Unknown Collection Sizes
+
+When you write:
+
+```python
+require(forall(p.weights.values(), lambda w: 0.05 <= w <= 0.50))
+```
+
+Veritas doesn't know how many weights there will be until the LLM generates them. It can't check the constraint all at once — it needs to check **incrementally** as each weight is emitted.
+
+That's what `ResidualAccumulator` does.
+
+---
+
+## `ResidualAccumulator`
+
+### What It Does
+
+The `ResidualAccumulator` maintains running lower/upper bounds over a dynamic collection as elements are emitted. It supports:
+- Adding constraints for each new element
+- Tracking running min, max, sum, and count
+- Detecting violations as soon as they become inevitable
+
+### Syntax
+
+```python
+from veritas import ResidualAccumulator
+
+acc = ResidualAccumulator()
+for element in collection:
+    acc.add(element)
+# Check accumulated bounds
+require(acc.total == 1.0, tol=1e-6)
+require(acc.max <= 0.50)
+require(acc.min >= 0.05)
+```
+
+### Properties
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `acc.min` | `Number` | Running minimum of all added elements |
+| `acc.max` | `Number` | Running maximum of all added elements |
+| `acc.total` | `Number` | Running sum of all added elements |
+| `acc.count` | `Int` | Number of elements added |
+| `acc.mean` | `Number` | Running average (total / count) |
+
+### Example
+
+<CodeBlock language="python" code="from veritas import ResidualAccumulator, require
+
+@verified_schema
+def dynamic_portfolio(p: Portfolio):
+    acc = ResidualAccumulator()
+
+    # Add each weight to the accumulator
+    for w in p.weights.values():
+        acc.add(w)
+
+    # Check accumulated bounds
+    require(acc.total == 1.0, tol=1e-6)      # Fully invested
+    require(acc.max <= 0.50)                  # No single stock > 50%
+    require(acc.min >= 0.05)                  # No single stock < 5%
+    require(acc.count >= 3)                   # At least 3 stocks for diversification`} copyable />
+
+### How It Works During Decoding
+
+As the LLM generates each weight value:
+
+1. The value is fed to the `ResidualAccumulator`
+2. Running bounds are updated (min, max, total, count)
+3. The HC4 contractor checks if the constraint can still be satisfied
+4. If not (e.g., total already exceeds 1.0 with remaining elements), tokens are masked
+
+---
+
+## `analyze_containers`
+
+### What It Does
+
+`analyze_containers` inspects a schema's container usage and returns `ContainerInfo` — metadata about which fields are dynamic, their key types, and inferred bounds.
+
+### Syntax
+
+```python
+from veritas import analyze_containers, ContainerInfo
+
+info = analyze_containers(my_schema)
+for container in info.containers:
+    print(f\"{container.name}: {container.type}\")
+    print(f\"  Dynamic: {container.is_dynamic}\")
+    print(f\"  Key bounds: {container.key_bounds}\")
+    print(f\"  Value bounds: {container.value_bounds}\")
+```
+
+### Example
+
+<CodeBlock language="python" code="from veritas import analyze_containers
+
+info = analyze_containers(valid_portfolio)
+
+for container in info.containers:
+    print(f\"Container: {container.name}\")
+    print(f\"  Type: {container.type}\")           # 'list' or 'dict'
+    print(f\"  Dynamic: {container.is_dynamic}\")  # True if size unknown at compile time
+    print(f\"  Key bounds: {container.key_bounds}\")
+    print(f\"  Value bounds: {container.value_bounds}\")`} copyable />
+
+---
+
+## `ContainerInfo`
+
+### Structure
+
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `name` | `str` | The container field name |
+| `type` | `str` | `"list"` or `"dict"` |
+| `is_dynamic` | `bool` | Whether size is unknown at compile time |
+| `key_bounds` | `Optional[Interval]` | Inferred bounds for keys (dicts only) |
+| `value_bounds` | `Optional[Interval]` | Inferred bounds for values |
+
+### Example Output
+
+```python
+ContainerInfo(
+    name='weights',
+    type='dict',
+    is_dynamic=True,
+    key_bounds=Interval(lo='AAPL', hi='NVDA'),  # String keys
+    value_bounds=Interval(lo=0.05, hi=0.50),
+)
+```
+
+---
+
+## Complete Example: Dynamic Position Sizing
+
+<CodeBlock language="python" code="from veritas import verified_schema, require, derive, forall, sum, dot, ResidualAccumulator
+
+RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15}
+
+@verified_schema
+def dynamic_portfolio(p: Portfolio):
+    # We don't know how many positions until decode time
+    # forall ensures every position meets the weight constraints
+    require(forall(p.positions.values(), lambda pos:
+        (0.01 <= pos.weight) & (pos.weight <= 0.25)
+    ))
+
+    # All positions must sum to 1.0
+    require(sum(p.positions.values()) == 1.0, tol=1e-6)
+
+    # Expected return computed from positions
+    derive(p.expected_return == dot(p.positions, RETURNS))
+
+    # At least 5 positions for diversification
+    require(forall(p.positions.values(), lambda pos: True))  # Trivial, but enables counting
+    # (Use ResidualAccumulator for count-based constraints)
+    acc = ResidualAccumulator()
+    for _ in p.positions.values():
+        acc.add(1)
+    require(acc.count >= 5)`} copyable />
+
+---
+
+## Common Patterns
+
+### Pattern 1: Bounded Dynamic Collection
+
+<CodeBlock language="python" code="# Between 3 and 10 positions, each 5%-25%
+acc = ResidualAccumulator()
+for w in p.weights.values():
+    acc.add(w)
+    require(0.05 <= w <= 0.25)  # Per-element check
+require(acc.count >= 3)
+require(acc.count <= 10)
+require(acc.total == 1.0, tol=1e-6)`} copyable />
+
+### Pattern 2: Dynamic Key Validation
+
+<CodeBlock language="python" code="# Only allow specific keys in a dynamic dict
+ALLOWED_KEYS = {\"AAPL\", \"MSFT\", \"NVDA\", \"GOOGL\"}
+require(keys_subset(p.weights, ALLOWED_KEYS))`} copyable />
+
+### Pattern 3: Running Constraint
+
+<CodeBlock language="python" code="# Cumulative sum must never exceed budget
+acc = ResidualAccumulator()
+for cost in p.costs.values():
+    acc.add(cost)
+    require(acc.total <= p.budget)  # Check after each addition`} copyable />
+
+---
+
+## Next Steps
+
+- **[Pre-Flight SAT Gate](/docs/authoring-schemas/preflight-sat-gate)** — `run_preflight`, `check_spec`, error types
+- **[Schema Synthesis](/docs/authoring-schemas/schema-synthesis)** — Auto-generate schemas from JSON samples

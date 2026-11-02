@@ -1,0 +1,13 @@
+{
+  "title": "Veritas Documentation",
+  "pages": [
+    "index",
+    "getting-started",
+    "authoring-schemas",
+    "engine-internals",
+    "cartridges",
+    "bridges-and-integrations",
+    "proofs-rl-and-cli",
+    "api-reference"
+  ]
+}

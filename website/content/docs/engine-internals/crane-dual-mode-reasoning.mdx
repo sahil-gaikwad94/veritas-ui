@@ -1,0 +1,129 @@
+---
+title: CRANE Dual-Mode Reasoning
+description: CraneModeController, ∫ → <emit>, ShadowParser — chain-of-thought preservation during verified generation.
+---
+
+import { Callout, CodeBlock } from '@/components/mdx-components';
+
+# CRANE Dual-Mode Reasoning
+
+CRANE (**C**hain-of-Thought **R**easoning with **A**daptive **N**on-strict **E**ngagement) lets the model reason freely in thinking tokens (`∫`) without grammar lock-in degrading accuracy, then engages strict solver-guided decoding on `<emit>`.
+
+---
+
+## The Problem: Strict JSON Breaks Chain-of-Thought
+
+Traditional structured generation forces the model to output valid JSON immediately — no thinking, no reasoning, no exploration. This degrades accuracy on complex tasks because the model can't think through the problem before committing to a structure.
+
+CRANE solves this by separating **reasoning** from **emission**:
+
+1. **Reasoning Mode (`∫`)**: Model generates chain-of-thought tokens freely, no PDA constraints
+2. **Emit Mode (`<emit>`)**: Model outputs verified JSON with full PDA masking
+
+---
+
+## `CraneModeController`
+
+### What It Does
+
+The `CraneModeController` manages the transition between reasoning and emit modes:
+
+### Two Modes
+
+| Mode | PDA Active? | Token Masking? | Purpose |
+| :--- | :--- | :--- | :--- |
+| **Reasoning (`∫`)** | ❌ Paused | ❌ None | Model thinks freely, explores options |
+| **Emit (`<emit>`)** | ✅ Active | ✅ Full | Model outputs verified JSON |
+
+### Example
+
+<CodeBlock language="python" code="from veritas._native import CraneModeController
+
+crane = CraneModeController()
+
+# Phase 1: Reason freely
+crane.enter_reasoning_mode()
+# Model generates: \"Let me think about the portfolio constraints...
+# The weights must sum to 1.0, each between 5% and 50%...
+# I'll start with AAPL at 0.40...\"
+# PDA stack is paused, no token masking, model thinks naturally
+
+# Phase 2: Emit verified JSON
+crane.enter_emit_mode()
+# Model generates: {\"weights\": {\"AAPL\": 0.40, ...}, \"expected_return\": 0.1615, ...}
+# PDA stack resumes, full token masking active, every token verified`} copyable />
+
+### State Management
+
+| Method | Description |
+| :--- | :--- |
+| `enter_reasoning_mode()` | Pause PDA, allow free generation |
+| `enter_emit_mode()` | Resume PDA, start verified JSON generation |
+| `is_reasoning()` | Check if currently in reasoning mode |
+| `is_emitting()` | Check if currently in emit mode |
+| `save_stack()` | Save PDA stack before reasoning |
+| `restore_stack()` | Restore PDA stack after reasoning |
+
+---
+
+## `ShadowParser`
+
+### What It Does
+
+While the model is in reasoning mode, the `ShadowParser` passively scans the reasoning text for candidate equations and constraints. These become **hints** for the solver when emit mode begins.
+
+### How It Works
+
+1. Model reasons: "I need weights to sum to 1.0, and AAPL should be at least 0.20"
+2. ShadowParser extracts: `sum(weights) == 1.0`, `weights.AAPL >= 0.20`
+3. These are fed to the solver as soft preferences when emit mode starts
+4. The solver uses them to guide token selection
+
+### Example
+
+<CodeBlock language="python" code="from veritas._native import ShadowParser
+
+shadow = ShadowParser()
+
+# Model's reasoning text
+reasoning = \"\""
+I need the portfolio weights to sum to 1.0.
+AAPL should be at least 20% since it's our largest holding.
+The Sharpe ratio should be above 0.65 for quality.
+\"\"\"
+
+# Extract candidate constraints
+hints = shadow.extract_constraints(reasoning)
+# hints = [
+#   {\"type\": \"require\", \"expr\": \"sum(weights) == 1.0\", \"confidence\": 0.95},
+#   {\"type\": \"prefer\", \"expr\": \"weights.AAPL >= 0.20\", \"weight\": 0.8},
+#   {\"type\": \"require\", \"expr\": \"sharpe_ratio >= 0.65\", \"confidence\": 0.90},
+# ]
+
+# Feed hints to the solver
+crane.apply_hints(hints)`} copyable />
+
+---
+
+## Why CRANE Matters
+
+| Aspect | Strict JSON Only | CRANE Dual-Mode |
+| :--- | :--- | :--- |
+| Chain-of-thought | ❌ Forced into JSON structure | ✅ Preserved in `∫` mode |
+| Reasoning quality | Degraded by grammar lock-in | ✅ Natural, unconstrained |
+| Output validity | ✅ Guaranteed | ✅ Guaranteed |
+| Solver guidance | None | ✅ ShadowParser hints |
+| Best for | Simple schemas | Complex, multi-step reasoning |
+
+<Callout variant="check" title="Best of Both Worlds">
+
+CRANE gives you the reasoning freedom of unconstrained generation with the correctness guarantees of verified JSON. The model thinks naturally, then commits to mathematically correct output.
+
+</Callout>
+
+---
+
+## Next Steps
+
+- **[CDCL Jumpback & Domain Cuts](/docs/engine-internals/cdcl-jumpback-and-domain-cuts)** — `CdclJumpbackEngine`, entropy culprit score
+- **[Rust Native & WASM Core](/docs/engine-internals/rust-native-and-wasm-core)** — `crates/veritas-core`, `veritas-wasm`

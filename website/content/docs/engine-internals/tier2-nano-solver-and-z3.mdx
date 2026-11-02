@@ -1,0 +1,175 @@
+---
+title: Tier 2 — NanoSolver & Z3
+description: VeritasNanoSolver (Fourier-Motzkin), SmtBridge, Z3SmtOracle — exact linear solving for feasibility.
+---
+
+import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
+
+# Tier 2 — NanoSolver & Z3
+
+Tier 2 is the core ring of Veritas's three-tier solver horizon. It provides **exact linear solving** for feasibility checks and contradiction detection — used by the pre-flight gate and CDCL jumpback engine.
+
+---
+
+## What Is Tier 2?
+
+While Tier 0 (PDA) ensures valid JSON syntax and Tier 1 (HC4/AF2) narrows numeric prefixes, Tier 2 provides **exact mathematical solving** for questions like:
+
+- "Are all my constraints mutually satisfiable?"
+- "What's the exact solution to this linear system?"
+- "Which field caused this UNSAT conflict?"
+
+Tier 2 never runs per token — it runs at schema compile time (pre-flight) and on conflict detection (CDCL).
+
+---
+
+## `VeritasNanoSolver`
+
+### What It Does
+
+`VeritasNanoSolver` is a dependency-free nano-solver that handles linear equalities and inequalities using **Fourier-Motzkin elimination**. It's pure Rust — no Z3, no external dependencies.
+
+### Fourier-Motzkin Elimination
+
+Fourier-Motzkin is a variable elimination algorithm for linear systems:
+
+1. Pick a variable to eliminate (e.g., `x`)
+2. Split constraints into three groups: `x <= c`, `x >= c`, `x == c`
+3. Combine each upper bound with each lower bound to create new constraints without `x`
+4. Repeat until all variables eliminated or a contradiction is found
+
+### Example
+
+<CodeBlock language="python" code="from veritas._native import VeritasNanoSolver
+
+solver = VeritasNanoSolver()
+
+# Add linear constraints
+solver.add_constraint('x + y <= 1.0')
+solver.add_constraint('x >= 0.05')
+solver.add_constraint('y >= 0.05')
+solver.add_constraint('x <= 0.50')
+solver.add_constraint('y <= 0.50')
+
+# Check feasibility
+result = solver.check()
+# result: SAT with model {x: 0.40, y: 0.35}
+
+# Get the model
+print(result.model)
+# {'x': 0.40, 'y': 0.35}`} copyable />
+
+### When to Use NanoSolver vs. Z3
+
+| Use NanoSolver when... | Use Z3 when... |
+| :--- | :--- |
+| Constraints are purely linear | Constraints are non-linear (quadratic, etc.) |
+| You need zero external dependencies | You need quantified formulas (forall/exists) |
+| Speed is critical (per-solve, not per-token) | You need SMT-LIB2 proof certificates |
+| Working with real numbers only | Working with integers, bitvectors, etc. |
+
+---
+
+## `SmtBridge` & `Z3SmtOracle`
+
+### What They Do
+
+For non-linear or quantified constraints, Veritas bridges to **Microsoft Z3** via `SmtBridge`. The `Z3SmtOracle` is used only as a fallback — the common case (linear constraints) is handled by the nano-solver.
+
+### Architecture
+
+```
+Your Constraint
+       ↓
+┌───────────────┐
+│ VeritasNanoSolver │ ← Pure Rust, no dependencies
+│ (linear only)   │
+└───────────────┘
+       ↓ (if non-linear or quantified)
+┌───────────────┐
+│   SmtBridge   │ ← PyO3 bridge to Z3
+│   Z3SmtOracle │ ← Z3 theorem prover
+└───────────────┘
+```
+
+<Callout variant="info" title="Z3 Is Optional">
+
+Z3 is only needed for non-linear/quantified SMT. Install with:
+
+```
+pip install "veritas-ai[z3]"
+```
+
+The core engine never calls Z3 per token — Tier 0 and Tier 1 handle all per-token work.
+
+</Callout>
+
+---
+
+## Pre-Flight Exact Feasibility
+
+The pre-flight gate uses Tier 2 for **exact affine feasibility checking** — proving that all constraints are mutually satisfiable before any tokens are generated.
+
+### What It Checks
+
+1. **Linear feasibility** — Can all linear constraints be satisfied simultaneously?
+2. **Bound consistency** — Do interval bounds conflict with linear constraints?
+3. **Derivation consistency** — Do `derive` statements form a valid DAG (no cycles)?
+
+### Example
+
+<CodeBlock language="python" code="from veritas import run_preflight
+
+# This spec is infeasible:
+# sum(weights) == 1.0 AND each weight <= 0.20 (with 6 stocks)
+report = run_preflight(infeasible_spec)
+print(report.sat)  # False
+
+# Tier 2 proved this without any LLM tokens`} copyable />
+
+---
+
+## Complete Example
+
+<CodeBlock language="python" code="from veritas._native import VeritasNanoSolver
+
+# Portfolio feasibility check
+solver = VeritasNanoSolver()
+
+# Weights sum to 1.0 (linearized: sum <= 1.0 AND sum >= 1.0)
+solver.add_constraint('w_AAPL + w_MSFT + w_NVDA <= 1.0')
+solver.add_constraint('w_AAPL + w_MSFT + w_NVDA >= 1.0')
+
+# Each weight between 0.05 and 0.50
+solver.add_constraint('w_AAPL >= 0.05')
+solver.add_constraint('w_AAPL <= 0.50')
+solver.add_constraint('w_MSFT >= 0.05')
+solver.add_constraint('w_MSFT <= 0.50')
+solver.add_constraint('w_NVDA >= 0.05')
+solver.add_constraint('w_NVDA <= 0.50')
+
+# Expected return >= 0.10 (linear)
+solver.add_constraint('0.12*w_AAPL + 0.10*w_MSFT + 0.15*w_NVDA >= 0.10')
+
+result = solver.check()
+if result.sat:
+    print(f\"Feasible! Model: {result.model}\")
+else:
+    print(\"Infeasible — constraints contradict each other\")`} copyable />
+
+---
+
+## Tier Reference Summary
+
+| Tier | Component | Purpose | Runs When |
+| :--- | :--- | :--- | :--- |
+| Tier 0 | JSON PDA | Valid JSON syntax | Every token |
+| Tier 1 | HC4/AF2 | Narrow numeric prefixes | Every token |
+| Tier 2 | NanoSolver + Z3 | Exact linear feasibility | Pre-flight & CDCL |
+
+---
+
+## Next Steps
+
+- **[Zero-DoF Jump-Forward](/docs/engine-internals/zero-dof-jump-forward)** — `ZeroDofRule`, `splice_and_step`
+- **[CRANE Dual-Mode Reasoning](/docs/engine-internals/crane-dual-mode-reasoning)** — `CraneModeController`, ShadowParser

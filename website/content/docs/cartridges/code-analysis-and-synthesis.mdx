@@ -1,0 +1,84 @@
+---
+title: Code Analysis & Synthesis
+description: veritas.cartridges.code & code_synth — AST complexity limits, forbidden nodes, grammar-safe synthesis.
+---
+
+import { CodeBlock, Callout } from '@/components/mdx-components';
+
+# Code Analysis & Synthesis Cartridge
+
+The `code` and `code_synth` cartridges provide AST-based constraints for code generation: complexity limits, forbidden node detection, and grammar-safe synthesis.
+
+---
+
+## Core Constraints
+
+### AST Complexity Limits
+
+`ast_complexity` limits the number of AST nodes:
+
+<CodeBlock language="python" code="from veritas.cartridges.code import ast_complexity
+
+@verified_schema
+def generated_code(c: Code):
+    require(ast_complexity(c.ast, max_nodes=100))`} copyable />
+
+### Forbidden Node Detection
+
+`forbidden_nodes` scans the AST for dangerous constructs:
+
+<CodeBlock language="python" code="from veritas.cartridges.code import forbidden_nodes
+
+require(forbidden_nodes(c.ast, ["eval", "exec", "import os", "subprocess"]))`} copyable />
+
+### Maximum Depth
+
+`max_depth` limits AST nesting depth:
+
+<CodeBlock language="python" code="from veritas.cartridges.code import max_depth
+
+require(max_depth(c.ast, max_depth=10))`} copyable />
+
+---
+
+## Complete Example
+
+<CodeBlock language="python" code="from veritas import verified_schema, require
+from veritas.cartridges.code import ast_complexity, forbidden_nodes, max_depth
+
+@verified_schema
+def safe_code(c: Code):
+    # Node count limit
+    require(ast_complexity(c.ast, max_nodes=100))
+
+    # No dangerous nodes
+    require(forbidden_nodes(c.ast, ["eval", "exec", "import os", "subprocess", "import socket"]))
+
+    # Depth limit
+    require(max_depth(c.ast, max_depth=10))
+
+    # Must be syntactically valid Python (enforced by PDA grammar)
+    # Every token checked against Python grammar during decoding`} copyable />
+
+<Callout variant="check" title="No Malicious Code">
+
+Dangerous AST nodes are blocked during decoding — the LLM cannot generate `eval()`, `exec()`, `import os`, or `subprocess`. Every token is checked against the Python grammar.
+
+</Callout>
+
+---
+
+## Key Functions Reference
+
+| Function | Signature | Description |
+| :--- | :--- | :--- |
+| `ast_complexity` | `(ast, max_nodes) -> bool` | Node count limit |
+| `forbidden_nodes` | `(ast, forbidden_list) -> bool` | No dangerous AST nodes |
+| `max_depth` | `(ast, max_depth) -> bool` | Nesting depth limit |
+
+---
+
+## Next Steps
+
+- **[Bridges & Integrations](/docs/bridges-and-integrations/vllm)** — vLLM adapter
+- **[Proof Certificates](/docs/proofs-rl-and-cli/proof-certificates)** — SHA-256 verification

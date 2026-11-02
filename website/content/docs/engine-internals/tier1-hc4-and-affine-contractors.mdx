@@ -1,0 +1,176 @@
+---
+title: Tier 1 — HC4 + AF2 Contractors
+description: Interval, AffineForm, Hc4AffineContractor — outward-rounded interval narrowing for numeric prefixes.
+---
+
+import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
+
+# Tier 1 — HC4 + AF2 Contractors
+
+Tier 1 is the middle ring of Veritas's three-tier solver horizon. It uses **HC4 (Hull Consistency 4)** interval contractors combined with **Affine Forms** to narrow numeric prefixes in real time — **3.9 µs per contraction**.
+
+---
+
+## What Are Interval Contractors?
+
+When an LLM generates a number digit by digit, Veritas needs to know: "Given what's been generated so far, what values are still possible?"
+
+For example, if you specify `0.05 <= weight <= 0.50` and the LLM has generated `0.4`, the contractor narrows the possible range to `[0.40, 0.50]` — digits that would push the value outside this range are masked.
+
+---
+
+## `Interval`
+
+### What It Does
+
+`Interval` represents a numeric range `[lo, hi]` with **outward rounding** — `lo` rounds toward negative infinity, `hi` rounds toward positive infinity. This guarantees soundness: the true value is always inside the interval, never outside.
+
+### Why Outward Rounding Matters
+
+Without outward rounding, floating-point errors could make an interval slightly too narrow, causing Veritas to incorrectly reject a valid value (false reject) or accept an invalid one (false accept). Outward rounding eliminates both possibilities.
+
+### Example
+
+<CodeBlock language="python" code="from veritas._native import Interval
+
+# Create interval from a numeric prefix
+iv = Interval.from_numeric_prefix('0.47')
+# Interval(lo=0.46999999999999997, hi=0.47000000000000003)
+# lo rounds down, hi rounds up — outward rounding
+
+# Check if a value is inside the interval
+print(iv.contains(0.47))   # True
+print(iv.contains(0.48))   # False
+
+# Get bounds
+print(iv.lo)   # 0.46999999999999997
+print(iv.hi)   # 0.47000000000000003`} copyable />
+
+### Interval Operations
+
+| Operation | lo rounds | hi rounds | Guarantee |
+| :--- | :--- | :--- | :--- |
+| Addition | toward `-∞` | toward `+∞` | True sum always in [lo, hi] |
+| Multiplication | toward `-∞` | toward `+∞` | True product always in [lo, hi] |
+| Division | toward `-∞` | toward `+∞` | True quotient always in [lo, hi] |
+| Intersection | max of los | min of his | Overlap of two intervals |
+
+---
+
+## `AffineForm`
+
+### What It Does
+
+`AffineForm` tracks a value along with **noise symbols** — symbolic variables that represent uncertainty. This prevents **over-approximation drift** when performing multiple operations on the same uncertain value.
+
+### The Problem: Over-Approximation
+
+If you have `x = 0.5 ± 0.1` and compute `x - x`, naive interval arithmetic gives:
+- `x - x = [0.5-0.1, 0.5+0.1] - [0.5-0.1, 0.5+0.1] = [0.4, 0.6] - [0.4, 0.6] = [-0.2, 0.2]`
+
+But `x - x` should be exactly `0`! Naive intervals lose the correlation between the two `x`s.
+
+### The Solution: Affine Forms
+
+Affine forms track noise symbols: `x = 0.5 + 0.1·eps₁`. Then:
+- `x - x = (0.5 + 0.1·eps₁) - (0.5 + 0.1·eps₁) = 0`
+
+The noise symbol cancels out exactly, preserving the correlation.
+
+### Example
+
+<CodeBlock language="python" code="from veritas._native import AffineForm
+
+# Create affine form with noise symbol
+af = AffineForm(value=0.47, noise_symbols=['eps_1'])
+# Represents: 0.47 + 0.01·eps₁ (where eps₁ ∈ [-1, 1])
+
+# Operations propagate noise symbols
+af2 = af * 2.0 + 0.1
+# Result: 1.04 + 0.02·eps₁
+# Noise symbol eps₁ carries through the computation`} copyable />
+
+---
+
+## `Hc4AffineContractor`
+
+### What It Does
+
+The HC4 contractor combined with Affine Forms narrows intervals by solving constraints. If you have `x + y <= 1.0` and `x` is in `[0.40, 0.50]`, the contractor deduces that `y` must be in `[0.00, 0.60]`. Combined with `y >= 0.05`, `y` narrows to `[0.05, 0.60]`.
+
+### How HC4 Works
+
+HC4 (Hull Consistency 4) is a constraint propagation algorithm that:
+
+1. Takes a constraint like `x + y <= 1.0`
+2. For each variable, computes the tightest interval that satisfies the constraint given the other variable's current interval
+3. Iterates until no further narrowing is possible (fixpoint)
+
+### Example
+
+<CodeBlock language="python" code="from veritas._native import Interval, AffineForm, Hc4AffineContractor
+
+contractor = Hc4AffineContractor()
+
+# Create intervals
+x = Interval.from_numeric_prefix('0.47')  # [0.469..., 0.470...]
+y = Interval(lo=0.05, hi=0.50)            # [0.05, 0.50]
+
+# Contract: x + y <= 1.0
+contractor.contract([x, y], constraint='x + y <= 1.0')
+
+# x might narrow to [0.469..., 0.50] (if y >= 0.50, x <= 0.50)
+# y might narrow to [0.05, 0.53] (but capped at 0.50 by its own bound)
+# Result: y = [0.05, 0.50] — no change because y already <= 0.50
+# But x = [0.469..., 0.50] — upper bound tightened from 0.470... to 0.50`} copyable />
+
+<Callout variant="check" title="Performance: 3.9 µs">
+
+`Interval.from_numeric_prefix` runs in **3.9 microseconds** — 1.5x faster than the previous 5.7 µs implementation. HC4 contraction is similarly fast, making Tier-1 suitable for per-token execution.
+
+</Callout>
+
+---
+
+## Complete Example: Portfolio Weight Bounds
+
+<CodeBlock language="python" code="from veritas._native import Interval, Hc4AffineContractor
+
+contractor = Hc4AffineContractor()
+
+# Constraint: weight_AAPL + weight_MSFT + weight_NVDA == 1.0
+# With weight_AAPL = 0.40 (already emitted)
+weight_aapl = Interval.from_numeric_prefix('0.40')  # [0.40, 0.40]
+weight_msft = Interval(lo=0.05, hi=0.50)             # [0.05, 0.50]
+weight_nvda = Interval(lo=0.05, hi=0.50)             # [0.05, 0.50]
+
+# Contract: sum == 1.0
+# weight_msft + weight_nvda must be in [0.60, 0.60]
+# So each is in [0.10, 0.55], intersected with [0.05, 0.50] = [0.10, 0.50]
+
+contractor.contract(
+    [weight_aapl, weight_msft, weight_nvda],
+    constraint='weight_aapl + weight_msft + weight_nvda == 1.0'
+)
+
+print(weight_msft.lo, weight_msft.hi)  # 0.10, 0.50
+print(weight_nvda.lo, weight_nvda.hi)  # 0.10, 0.50
+
+# Tokens that would make MSFT < 0.10 or > 0.50 are now masked`} copyable />
+
+---
+
+## Contractor Reference Summary
+
+| Component | Purpose | Performance |
+| :--- | :--- | :--- |
+| `Interval` | Numeric range `[lo, hi]` with outward rounding | ~1 µs |
+| `AffineForm` | Value + noise symbols for correlation tracking | ~2 µs |
+| `Hc4AffineContractor` | Constraint propagation for interval narrowing | ~3.9 µs |
+
+---
+
+## Next Steps
+
+- **[Tier 2 — NanoSolver & Z3](/docs/engine-internals/tier2-nano-solver-and-z3)** — Exact linear solving for feasibility checks
+- **[Zero-DoF Jump-Forward](/docs/engine-internals/zero-dof-jump-forward)** — Deterministic derived field computation

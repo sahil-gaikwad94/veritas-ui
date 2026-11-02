@@ -1,0 +1,103 @@
+---
+title: Physics Dimensional Analysis
+description: veritas.cartridges.phys — SI dimensional analysis Q⁷ & conservation laws.
+---
+
+import { CodeBlock, Callout } from '@/components/mdx-components';
+
+# Physics Cartridge
+
+The `phys` cartridge provides SI dimensional analysis (7 base dimensions: $\mathbb{Q}^7$) and conservation law constraints.
+
+---
+
+## SI Dimensional Analysis
+
+### The 7 Base Dimensions
+
+Every physical quantity is represented as a 7-tuple of rational exponents:
+
+| Dimension | Symbol | SI Unit |
+| :--- | :--- | :--- |
+| Length | L | meter (m) |
+| Mass | M | kilogram (kg) |
+| Time | T | second (s) |
+| Current | I | ampere (A) |
+| Temperature | $\Theta$ | kelvin (K) |
+| Amount | N | mole (mol) |
+| Luminous Intensity | J | candela (cd) |
+
+### Dimensional Analysis
+
+`dimensional_analysis` verifies both sides of an equation have the same dimensions:
+
+<CodeBlock language="python" code="from veritas.cartridges.phys import dimensional_analysis
+
+@verified_schema
+def equation(e: PhysicsEquation):
+    require(dimensional_analysis(e.lhs, e.rhs))`} copyable />
+
+### Conservation Laws
+
+`conservation_law` enforces conservation of energy, momentum, charge, or mass:
+
+<CodeBlock language="python" code="from veritas.cartridges.phys import conservation_law
+
+require(conservation_law(e, CONSERVATION_ENERGY))`} copyable />
+
+### SI Unit Validation
+
+`si_unit` ensures a result has the expected unit:
+
+<CodeBlock language="python" code="from veritas.cartridges.phys import si_unit
+
+require(si_unit(e.result, "N"))  # Result in Newtons`} copyable />
+
+---
+
+## Complete Example
+
+<CodeBlock language="python" code="from veritas import verified_schema, require, derive
+from veritas.cartridges.phys import dimensional_analysis, conservation_law, si_unit
+
+CONSERVATION_ENERGY = {"energy": 1.0}
+
+@verified_schema
+def physics_equation(e: PhysicsEquation):
+    # Dimensional homogeneity: both sides have same dimensions
+    require(dimensional_analysis(e.lhs, e.rhs))
+
+    # Energy conservation
+    require(conservation_law(e, CONSERVATION_ENERGY))
+
+    # Result must be in Newtons
+    require(si_unit(e.result, "N"))
+
+    # Derive force from mass and acceleration (F = ma)
+    derive(e.force == e.mass * e.acceleration)
+
+    # Force must be in Newtons (kg·m/s²)
+    require(si_unit(e.force, "N"))`} copyable />
+
+<Callout variant="tip" title="Dimensional Homogeneity">
+
+Equations that are dimensionally inconsistent are rejected at the grammar level — the LLM cannot emit dimensionally invalid physics.
+
+</Callout>
+
+---
+
+## Key Functions Reference
+
+| Function | Signature | Description |
+| :--- | :--- | :--- |
+| `dimensional_analysis` | `(lhs, rhs) -> bool` | Dimensions match |
+| `conservation_law` | `(equation, law_type) -> bool` | Conservation enforced |
+| `si_unit` | `(value, unit) -> bool` | Correct SI unit |
+
+---
+
+## Next Steps
+
+- **[Statistics](/docs/cartridges/statistics-and-distributions)** — stat cartridge
+- **[Code Analysis](/docs/cartridges/code-analysis-and-synthesis)** — code cartridge
