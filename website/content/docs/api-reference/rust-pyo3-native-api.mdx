@@ -1,120 +1,117 @@
 ---
-title: Rust PyO3 Native API
-description: veritas._native & crates/veritas-py exports — PdaHandle, prefix_status, validate_document, etc.
+title: Native accelerator API
+description: veritas.native — availability, prefix status, masks, numeric intervals, contraction and the Python objects that wrap them.
 ---
 
-import { CodeBlock, Callout } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
-# Rust PyO3 Native API
+There is no separate native API to learn: the accelerator sits behind the same Python objects. The
+`veritas.native` module reports whether it is loaded and exposes the low-level calls used underneath.
 
-Reference for `veritas._native` — the PyO3 bindings from `crates/veritas-py`. These are the low-level functions that power the Python API.
+<Callout variant="info" title="Reference first">
+Every function below falls back to pure Python when the compiled extension is missing. The extension is
+`veritas_py` (PyO3, `abi3`); the public Python import stays `veritas`.
+</Callout>
 
----
+## Availability
 
-## `PdaHandle`
+<CodeBlock language="python" title="what is actually loaded" code={`import veritas.native as native
 
-The `PdaHandle` is the main interface to the JSON Pushdown Automaton. Created once per decode, fed tokens one at a time.
+print(native.available())        # False without the extension
+print(native.info())
+# {'name': 'python', 'version': 'pure', 'wire_version': None,
+#  'native_available': False, 'load_error': "ModuleNotFoundError: No module named 'veritas_py'"}
 
-### Method Reference
+print(native.disabled_by_env())  # True when VERITAS_NO_NATIVE is set
+print(native.wire_version())     # None, or the native wire protocol version
+print(native.load_error())       # import error text, or None`} copyable />
 
-| Method | Signature | Description |
-| :--- | :--- | :--- |
-| `new` | `(seed: str) -> PdaHandle` | Create a new PDA handle with initial seed text |
-| `push` | `(token: str) -> bool` | Feed a token into the PDA; returns False if invalid |
-| `is_alive` | `() -> bool` | PDA still in a valid state |
-| `is_complete` | `() -> bool` | JSON document is syntactically complete |
-| `accepts` | `(token: str) -> bool` | Check if a token is valid without pushing it |
-| `depth` | `() -> int` | Current stack nesting depth |
-| `last_event` | `() -> str` | Description of the last PDA transition |
-| `candidates` | `() -> List[str]` | Top candidate next tokens (for UI display) |
-| `mask` | `() -> List[float]` | Full logit mask tensor (0.0 = valid, -inf = invalid) |
-| `clone_handle` | `() -> PdaHandle` | Deep copy for speculative decoding |
+<KeyValueTable
+  rows={[
+    { key: 'available()', value: 'bool — extension importable and not disabled' },
+    { key: 'info()', value: 'dict — name, version, wire_version, native_available, load_error' },
+    { key: 'disabled_by_env()', value: 'bool — VERITAS_NO_NATIVE truthy' },
+    { key: 'wire_version()', value: 'int | None' },
+    { key: 'load_error()', value: 'str | None' },
+  ]}
+/>
 
-### Example Usage
+## Primitives
 
-<CodeBlock language="python" code={`from veritas._native import PdaHandle
+<CodeBlock language="python" title="status, mask, interval" code={`import veritas.native as native
+from veritas import Interval
 
-# Create PDA starting with an open brace
-handle = PdaHandle.new("{")
+print(native.prefix_status('{"a":'))    # 'incomplete'
+print(native.prefix_status('{"a":1}'))  # 'complete'
+print(native.prefix_status('}'))        # 'invalid'
 
-# Feed tokens one at a time
-tokens = ['"', 'w', 'e', 'i', 'g', 'h', 't', 's', '"', ':']
-for token in tokens:
-    if not handle.push(token):
-        print(f"Rejected token: {token}")
-        break
+vocabulary = ['{', '}', '"a"', '1', '2']
+print(native.mask('{"a":', vocabulary)) # [True, False, True, True, True]
 
-# Check state
-print(handle.depth())        # 1
-print(handle.is_alive())     # True
-print(handle.accepts('"'))   # True — can start a string value
-print(handle.accepts('}'))   # False — can't close without value
+# native returns None when it cannot answer; the wrapper falls back
+print(native.mask_or_none('{"a":', vocabulary))
+print(native.numeric_prefix('0.2', (0.0, 1.0)))   # Interval(0.2, 0.3)
+print(native.numeric_prefix_or_none('0.2', (0.0, 1.0)))  # None without native
 
-# Get logit mask for LLM
-mask = handle.mask()  # List[float]: 0.0 for valid, -inf for invalid
+print(native.canonical_document('{"b":1,"a":2}'))  # '{"b": 1, "a": 2}'`} copyable />
 
-# Clone for speculative decoding
-handle_copy = handle.clone_handle()`} copyable />
+<KeyValueTable
+  rows={[
+    { key: 'prefix_status(text)', value: '"complete" | "incomplete" | "invalid"' },
+    { key: 'canonical_document(text)', value: 'str | None' },
+    { key: 'mask(prefix, vocabulary, eos_token=None)', value: 'list[bool] — always answers' },
+    { key: 'mask_or_none(...)', value: 'list[bool] | None — None means "use Python"' },
+    { key: 'numeric_prefix(raw, bounds, allow_exp=False)', value: 'Interval — always answers' },
+    { key: 'numeric_prefix_or_none(...)', value: 'Interval | None' },
+    { key: 'contract(domains, constraints, rounds=8)', value: 'dict | None — HC4' },
+    { key: 'solve_linear(constraints)', value: 'result | None' },
+  ]}
+/>
 
----
+## Higher-level objects
 
-## Top-Level Functions
+The classes you normally touch are exported from `veritas` itself — importing them does **not** require
+the extension:
 
-| Function | Signature | Description |
-| :--- | :--- | :--- |
-| `prefix_status` | `(text: str) -> dict` | PDA status for a token prefix |
-| `validate_document` | `(text: str) -> bool` | Validate a complete JSON document |
-| `canonical_document` | `(text: str) -> str` | Canonical JSON form |
-| `document_value` | `(text: str) -> Any` | Extract document value |
-| `allowed_tokens` | `(text: str) -> List[str]` | Allowed next tokens |
-| `numeric_prefix` | `(prefix: str) -> dict` | `[lo, hi, valid]` interval bounds |
-| `contract` | `(spec_json: str) -> str` | Run interval contraction |
-| `log_volume` | `(spec_json: str) -> float` | Log volume of feasible region |
-| `solve_linear` | `(spec_json: str) -> dict` | Solve linear constraints |
-| `solve_linear_exact` | `(spec_json: str) -> dict` | Exact linear solution |
-| `engine_info` | `() -> dict` | Engine version & metadata |
+| Object | Purpose |
+| :--- | :--- |
+| `Interval`, `AffineForm`, `Hc4AffineContractor`, `ResidualAccumulator` | Tier 1 numerics |
+| `JSONPushdownAutomaton`, `TokenMasker` | Tier 0 grammar and exact masks |
+| `TokenHealer`, `JumpForwardPrefill`, `ByteTokenizer`, `TokenizerProtocol` | Jump-forward token boundaries |
+| `VeritasNanoSolver`, `SolverStatus` | Tier 2 linear search |
+| `CdclJumpbackEngine`, `TabuPrefixTrie`, `ConflictBranchRecord` | Backtracking |
+| `CraneModeController`, `ShadowParser` | Reasoning and structural shadow state |
+| `ZeroDofEngine` | Ready-field derivation |
+| `ProofCertificate`, `build_certificate`, `verify_proof` | Certificates |
 
-### `prefix_status(text)`
+```python
+from veritas import Interval, TokenMasker, TokenHealer, VeritasNanoSolver
 
-<CodeBlock language="python" code={`from veritas._native import prefix_status
+span = Interval.from_numeric_prefix("0.4", (0.05, 0.5))
+masker = TokenMasker(['{', '}', '"a"', '1'])
+masker.valid_mask('{"a":')
+```
 
-status = prefix_status('{"w')
-# {
-#   "valid": True,
-#   "depth": 2,
-#   "complete": False,
-#   "allowed_tokens": ["a", "b", "c", ...],
-#   "masked_count": 744,
-#   "total_count": 1000
-# }`} copyable />
+## Kill switch
 
-### `numeric_prefix(prefix)`
+<CodeBlock language="bash" title="A/B the accelerator" code={`VERITAS_NO_NATIVE=1 python -m pytest tests/test_native_backend.py -q
+VERITAS_NO_NATIVE=1 python benchmarks/native_speedup.py`} copyable />
 
-<CodeBlock language="python" code={`from veritas._native import numeric_prefix
+The switch is read **per call**, so a long-running process can flip it without reinstalling.
 
-bounds = numeric_prefix("0.47")
-# {
-#   "lo": 0.46999999999999997,
-#   "hi": 0.47000000000000003,
-#   "valid": True
-# }`} copyable />
+## Crates
 
-### `engine_info()`
+| Crate | Contents |
+| :--- | :--- |
+| `veritas-core` | Dependency-free ports: intervals, JSON automaton, tri-state evaluator, HC4, exact solver, CRANE, CDCL, 0-DoF, healing, SMT-LIB emission |
+| `veritas-py` | PyO3 `abi3` bindings exposed as `veritas_py` |
+| `veritas-wasm` | `wasm32-unknown-unknown` build for browser use |
 
-<CodeBlock language="python" code={`from veritas._native import engine_info
+CI runs `cargo test -p veritas-core --all-targets`, `cargo clippy -D warnings`, the PyO3 build and the wasm
+build. `tests/test_native_backend.py` pins parity with Python; a native disagreement falls back.
 
-info = engine_info()
-# {
-#   "version": "2.0.0",
-#   "wire_protocol": "2.0",
-#   "rust_core": True,
-#   "z3_available": True,
-#   "platform": "linux-x86_64"
-# }`} copyable />
-
----
-
-## Next Steps
-
-- **[WASM Browser API](/docs/api-reference/wasm-browser-api)** — JavaScript/TypeScript API
-- **[Exceptions & Diagnostics](/docs/api-reference/exceptions-and-diagnostics)** — Error hierarchy & telemetry
+<Callout variant="warn" title="No native = no speedup, not no verification">
+Numbers such as 4.07 ms → 0.23 ms belong to a specific runner and vocabulary. Reproduce them with
+`benchmarks/native_speedup.py`; never quote a headline as a guarantee for your hardware. Without the
+extension, everything still verifies — only the per-token cost changes.
+</Callout>

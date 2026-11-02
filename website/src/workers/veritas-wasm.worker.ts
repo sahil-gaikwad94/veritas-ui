@@ -2,14 +2,14 @@
  * veritas-wasm Web Worker
  * Wraps the veritas-wasm WASM module for use in the browser playground.
  *
- * Exposes:
+ * Real exports of `crates/veritas-wasm` (see docs/api-reference/wasm-browser-api):
  *  - version()
  *  - prefix_status(text)
  *  - is_valid_document(text)
- *  - PdaHandle (new, push, is_alive, is_complete, accepts, depth, last_event, candidates, mask, clone_handle)
- *  - numeric_prefix_bounds(prefix)
- *  - contract_intervals_json(spec_json)
- *  - emit_smtlib2_certificate(spec_json, instance_json)
+ *  - canonical_document(text)
+ *  - numeric_prefix(text, lo, hi, allow_exp)
+ *  - solve_linear_json(linear_json)
+ *  - PdaHandle (new, push, is_alive, is_complete, accepts, depth, mask_json)
  *
  * All calls are deterministic and run entirely client-side — zero server cost.
  */

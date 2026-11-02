@@ -1,44 +1,91 @@
 'use client';
 
-import { AlertTriangle, CheckCircle, Info, Lightbulb, Zap } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { AlertTriangle, CheckCircle, Info, Lightbulb, Rocket, ShieldAlert, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type CalloutVariant = 'default' | 'info' | 'warn' | 'danger' | 'tip' | 'check';
+type CalloutVariant = 'default' | 'info' | 'warn' | 'danger' | 'tip' | 'check' | 'launch';
 
 interface CalloutProps {
   title?: string;
   variant?: CalloutVariant;
   className?: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
-const variants: Record<CalloutVariant, { icon: React.ElementType; label: string; bg: string; border: string; text: string }> = {
-  default: { icon: Info, label: 'Note', bg: 'bg-bg-subtle', border: 'border-border-subtle', text: 'text-ink-secondary' },
-  info: { icon: Zap, label: 'Info', bg: 'bg-cobalt-100/50', border: 'border-cobalt-200', text: 'text-cobalt-900' },
-  warn: { icon: AlertTriangle, label: 'Warning', bg: 'bg-verify-warn-bg/50', border: 'border-verify-warn/30', text: 'text-verify-warn' },
-  danger: { icon: AlertTriangle, label: 'Danger', bg: 'bg-verify-fail-bg/50', border: 'border-verify-fail/30', text: 'text-verify-fail' },
-  tip: { icon: Lightbulb, label: 'Tip', bg: 'bg-cobalt-100/50', border: 'border-cobalt-200', text: 'text-cobalt-700' },
-  check: { icon: CheckCircle, label: 'Verified', bg: 'bg-verify-pass-bg/50', border: 'border-verify-pass/30', text: 'text-verify-pass' },
+const variants: Record<
+  CalloutVariant,
+  { icon: React.ElementType; label: string; wrap: string; iconWrap: string; title: string }
+> = {
+  default: {
+    icon: Info,
+    label: 'Note',
+    wrap: 'border-border-subtle bg-bg-subtle/60',
+    iconWrap: 'bg-bg-elevated text-ink-secondary',
+    title: 'text-ink-primary',
+  },
+  info: {
+    icon: Zap,
+    label: 'How it works',
+    wrap: 'border-cobalt-500/25 bg-cobalt-500/[0.06]',
+    iconWrap: 'bg-cobalt-500/12 text-cobalt-600 dark:text-cobalt-300',
+    title: 'text-ink-primary',
+  },
+  warn: {
+    icon: AlertTriangle,
+    label: 'Watch out',
+    wrap: 'border-verify-warn/30 bg-verify-warn/[0.07]',
+    iconWrap: 'bg-verify-warn/12 text-verify-warn',
+    title: 'text-ink-primary',
+  },
+  danger: {
+    icon: ShieldAlert,
+    label: 'Failure mode',
+    wrap: 'border-rose-500/25 bg-rose-500/[0.06]',
+    iconWrap: 'bg-rose-500/12 text-verify-fail',
+    title: 'text-ink-primary',
+  },
+  tip: {
+    icon: Lightbulb,
+    label: 'Tip',
+    wrap: 'border-amber-500/25 bg-amber-500/[0.06]',
+    iconWrap: 'bg-amber-500/12 text-verify-warn',
+    title: 'text-ink-primary',
+  },
+  check: {
+    icon: CheckCircle,
+    label: 'Verified',
+    wrap: 'border-verify-pass/25 bg-verify-pass/[0.06]',
+    iconWrap: 'bg-verify-pass/12 text-verify-pass',
+    title: 'text-ink-primary',
+  },
+  launch: {
+    icon: Rocket,
+    label: 'Next step',
+    wrap: 'border-border-cobalt bg-cobalt-500/[0.05]',
+    iconWrap: 'bg-cobalt-500/12 text-cobalt-600 dark:text-cobalt-300',
+    title: 'text-ink-primary',
+  },
 };
 
-export function Callout({
-  title,
-  variant = 'default',
-  className,
-  children,
-}: CalloutProps) {
-  const { icon: Icon, label, bg, border, text } = variants[variant];
+export function Callout({ title, variant = 'default', className, children }: CalloutProps) {
+  const { icon: Icon, label, wrap, iconWrap, title: titleCls } = variants[variant] ?? variants.default;
 
   return (
-    <div className={cn('flex gap-3 rounded-lg p-4 border', bg, border, className)}>
-      <div className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full ${text}`}>
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="flex flex-col leading-tight">
-        {title && (
-          <h4 className="text-sm font-semibold">{title}</h4>
+    <div role="note" className={cn('my-5 flex gap-3 rounded-2xl border p-3.5 sm:p-4', wrap, className)}>
+      <span
+        className={cn(
+          'mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg',
+          iconWrap,
         )}
-        <p className="text-sm">{children}</p>
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </span>
+      <div className="min-w-0 flex-1 prose-sm prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5">
+        <p className={cn('!my-0 text-[13px] font-semibold leading-snug', titleCls)}>{title ?? label}</p>
+        <div className="mt-1 text-[13px] leading-relaxed text-ink-secondary [&_a]:font-medium [&_a]:text-cobalt-600 [&_a]:underline dark:[&_a]:text-cobalt-300 [&_code]:text-[12px]">
+          {children}
+        </div>
       </div>
     </div>
   );

@@ -1,0 +1,134 @@
+---
+title: Troubleshooting & limits
+description: Documented edges of Veritas 2.0 — grammar subset, pattern fallbacks, numeric budgets, error types and the honest scope.
+---
+
+import { Callout, CodeBlock, KeyValueTable, FeatureGrid, Feature } from '@/components/mdx-components';
+
+This page exists so you do not have to discover the edges in production. Everything here is a
+deliberate design decision or a documented limitation, not a bug you are expected to debug.
+
+## Error map
+
+| Exception | Raised when | What to do |
+| :--- | :--- | :--- |
+| `vt.InfeasibleSpecError` | Preflight proves the spec contradictory | Read `conflicts` / `relaxation`; loosen a bound |
+| `vt.CircularDerivationError` | `derive` statements form a cycle | Break the cycle; a derived field cannot depend on itself |
+| `vt.UnsupportedPattern` | A regex uses lookaround, backreferences, inline flags or word boundaries | Rewrite the pattern or rely on length masking + final verification |
+| `vt.VerificationError` | A concrete instance fails verification | Inspect the report: constraints, residuals, unsat core |
+| `vt.InstanceFormatError` | The instance is not a mapping/JSON object | Pass a dict or a JSON string |
+| `vt.DecodeError` / `vt.DeadEnd` | Decoding exhausts its budget | Raise `max_number_nodes`/digit budgets or relax a constraint |
+| `vt.ModelProtocolError` | The model adapter returns invalid logits | Return a mapping of token → score from `next_logits(prefix)` |
+| `vt.JSONSyntaxError` | Raw JSON is unparsable when lowering directly | Check the prefix; use the PDA instead of hand-parsing |
+
+<CodeBlock language="python" title="inspect rather than guess" code={`try:
+    report = portfolio.verify(instance)
+    report.raise_if_failed()
+except vt.VerificationError as exc:
+    print(exc.report.status)          # FAIL
+    print(exc.report.constraints)     # per-constraint outcomes
+    print(exc.report.unsat_core)      # minimal conflicting set, when provable`} copyable />
+
+## Grammar and schema support
+
+- The grammar tier recognises **JSON**, not arbitrary context-free grammars.
+- Schema-guided masking supports objects, arrays, scalars, `anyOf`/`oneOf`, local `$ref`,
+  required/arity/range/enum, `minLength`/`maxLength` and a documented `pattern` subset.
+- Unsupported keywords **fail loudly** rather than degrading silently.
+
+## Pattern masking
+
+`pattern.py` compiles the regex to a Thompson NFA and reports exactly which characters keep a prefix
+extendable. Constructs outside the maskable subset — inline flags (`(?i)`), backreferences, lookaround,
+word boundaries — are rejected and generation falls back to length-only masking. The fallback is
+recorded in `telemetry["pattern_fallbacks"]`, and the **final verifier** rejects any mismatch.
+
+- Only the first `pattern` on a field drives the mask when several are declared.
+- Patterns are not normalised for Unicode-aware case folding.
+
+## Formatted strings and enums
+
+Formatted fields (`datetime`, `date`, `time`, `timedelta`, `UUID`, `Decimal`, `HttpUrl`, IP addresses,
+`json_schema_extra={"format": ...}`) are decoded from a **verified witness table**, not sampled
+character by character.
+
+If a declared `minLength`/`maxLength` window excludes every candidate — or a `pattern` contradicts the
+canonical witness — the field is listed in `telemetry["format_fallbacks"]` and falls back to ordinary
+masking. The concrete validator has the final word.
+
+## Numeric budgets
+
+Numeric literals are bounded by `DecodeConfig`:
+
+<KeyValueTable
+  rows={[
+    { key: 'max_integer_digits', value: 'configurable', note: 'integer part length budget' },
+    { key: 'max_fraction_digits', value: 'configurable', note: 'fractional part length budget' },
+    { key: 'max_number_nodes', value: 'configurable', note: 'total numeric nodes per document' },
+  ]}
+/>
+
+A schema whose only solutions need more digits than the budget is reported as a **dead end** with the
+culprit field — not silently rounded into a violation.
+
+## Exactness and tolerances
+
+- `require` comparisons are **exact by default**. Pass `tol=` when an engineering tolerance is intended.
+- `derive` keeps a numeric equality tolerance by default.
+- Contractor cuts use exact bounds; equality tolerances are applied at final verification. This avoids
+  the classic false-infeasibility bug where an epsilon-padded cut rejects a feasible instance.
+- Open bounds (`gt`/`lt`) use the adjacent representable value for reals and the neighbouring integer
+  for ints; the excluded endpoint is refused at the stop decision as well as in the contractor.
+
+## Solver and preflight semantics
+
+- Tier 2 returns `UNSAT` only when it can **prove** it. A budget or timeout yields `UNKNOWN`.
+- Preflight runs interval contraction, container feasibility, exact affine feasibility, strict-bound
+  refutation and checked string witnesses. Passing preflight means those checks found no contradiction;
+  final verification remains authoritative.
+- The optional Z3 oracle is used when `z3-solver` is installed. Non-linear and quantified cases outside
+  the nano-solver may be reported as `UNKNOWN` rather than guessed.
+
+## Grants, bridges and model adapters
+
+- GPU/runtime bridges are **adapter-tested with fakes**. They are not integration-tested against live
+  Hugging Face, vLLM, SGLang or llama.cpp servers, and vendor APIs may need host-specific wiring.
+- llama.cpp hosts that only accept a grammar string receive a generic JSON GBNF. If a spec is supplied,
+  that path **fails closed** rather than pretending the generic grammar enforces the spec.
+- `--from-doc` requires a model adapter and intentionally fails loudly instead of inventing a schema.
+
+## Certificates
+
+- Hashes are **unkeyed integrity checks, not authentication**. Anyone can recompute them.
+- Bind verification to a trusted spec with `vt.verify_proof(cert, expected_spec=portfolio)`, or sign the
+  artefact in your application.
+- Arbitrary Python/Pydantic validators are not portable. Certificates for non-portable schemas require
+  the original trusted schema to re-run them.
+- The SMT export reports coverage (`smt2_complete`, `smt2_omitted`). Omitted constraints are still
+  checked by the VIR evaluator.
+
+## Native accelerator
+
+- The native path is preferred only when `veritas.native.available()` is true; every wrapper falls back
+  to pure Python.
+- `tests/test_native_backend.py` pins parity. A native regression should cost speed, not soundness.
+- Set `VERITAS_NO_NATIVE=1` to force the reference path for an A/B comparison; it is checked per call.
+- Claimed speedups come from `benchmarks/native_speedup.py` on a GitHub Actions runner. Measure your own.
+
+## Scope summary
+
+<FeatureGrid>
+  <Feature title="In scope" icon="check">
+    JSON schemas, cross-field arithmetic, derived fields, preflight, CDCL, certificates, eight domain
+    cartridges, Python/Rust/WASM surfaces, six CLI commands.
+  </Feature>
+  <Feature title="Out of scope" icon="shield">
+    Arbitrary CFGs, full JSON Schema, arbitrary theorem proving, live-vendor bridge certification,
+    authenticated signatures.
+  </Feature>
+</FeatureGrid>
+
+<Callout variant="info" title="Found something undocumented?">
+If you hit a behaviour not described here, it is worth an issue. Repro with `veritas doctor --json`,
+the failing spec, and the trace from `veritas inspect` — that is the fastest path to a fix.
+</Callout>

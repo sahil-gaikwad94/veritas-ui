@@ -1,77 +1,123 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
-import { Inter } from 'next/font/google';
-import { Plus_Jakarta_Sans } from 'next/font/google';
-import { JetBrains_Mono } from 'next/font/google';
-import { ThemeProvider as NextThemesProvider } from 'next-themes';
+import localFont from 'next/font/local';
 import { RootProvider } from 'fumadocs-ui/provider';
 import { Toaster } from 'sonner';
-import '../../globals.css';
+import 'katex/dist/katex.min.css';
+import './globals.css';
+import { siteConfig } from '@/lib/site';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
-const plusJakartaSans = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
-  variable: '--font-plus-jakarta-sans',
+const inter = localFont({
+  src: [
+    { path: '../../public/fonts/Inter-Latin.woff2', weight: '100 900', style: 'normal' },
+    { path: '../../public/fonts/Inter-LatinExt.woff2', weight: '100 900', style: 'normal' },
+  ],
+  variable: '--font-inter',
   display: 'swap',
+  preload: true,
+  fallback: ['system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
 });
-const jetBrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-jetbrains-mono',
+
+const plusJakarta = localFont({
+  src: [
+    { path: '../../public/fonts/PlusJakartaSans-Latin.woff2', weight: '200 800', style: 'normal' },
+    { path: '../../public/fonts/PlusJakartaSans-LatinExt.woff2', weight: '200 800', style: 'normal' },
+  ],
+  variable: '--font-plus-jakarta',
   display: 'swap',
+  preload: true,
+  fallback: ['system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
+});
+
+const jetbrainsMono = localFont({
+  src: [
+    { path: '../../public/fonts/JetBrainsMono-Latin.woff2', weight: '100 800', style: 'normal' },
+    { path: '../../public/fonts/JetBrainsMono-LatinExt.woff2', weight: '100 800', style: 'normal' },
+  ],
+  variable: '--font-jetbrains',
+  display: 'swap',
+  preload: true,
+  fallback: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
 });
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#FAF9F6' },
-    { media: '(prefers-color-scheme: dark)', color: '#090C15' },
+    { media: '(prefers-color-scheme: light)', color: '#f8f7f3' },
+    { media: '(prefers-color-scheme: dark)', color: '#070a12' },
   ],
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteConfig.url),
   title: {
-    template: '%s | Veritas',
-    default: 'Veritas — Verified Mathematical Truth for LLMs',
+    default: 'Veritas — solver-guided decoding for LLMs that must be right',
+    template: '%s · Veritas',
   },
-  description:
-    'Pydantic ergonomics on the surface; dependency-free Rust theorem proving underneath. Veritas enforces algebraic equations, temporal logic, and domain invariants directly inside the token-generation loop.',
+  description: siteConfig.description,
+  applicationName: 'Veritas',
+  authors: [{ name: 'Sahil Gaikwad', url: siteConfig.github }],
+  creator: 'Sahil Gaikwad',
+  keywords: [
+    'LLM structured output',
+    'constrained decoding',
+    'solver-guided decoding',
+    'Pydantic',
+    'formal verification',
+    'JSON schema',
+    'interval arithmetic',
+    'proof certificate',
+    'structured generation',
+  ],
+  category: 'developer tools',
   openGraph: {
-    siteName: 'Veritas',
-    title: 'Veritas — Verified Mathematical Truth for LLMs',
-    description:
-      'Pydantic ergonomics on the surface; dependency-free Rust theorem proving underneath.',
     type: 'website',
     locale: 'en_US',
+    url: siteConfig.url,
+    siteName: 'Veritas',
+    title: 'Veritas — make LLM output mathematically true',
+    description: siteConfig.description,
+    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'Veritas — solver-guided decoding' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Veritas — Verified Mathematical Truth for LLMs',
+    title: 'Veritas — make LLM output mathematically true',
+    description: siteConfig.shortDescription,
     creator: '@sahil_gaikwad94',
+    images: ['/og.png'],
   },
-  robots: 'index, follow',
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, 'max-image-preview': 'large' },
+  },
+  icons: {
+    icon: [{ url: '/favicon.ico', sizes: 'any' }],
+    apple: [{ url: '/apple-touch-icon.png' }],
+  },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="icon" href="/favicon.ico" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-      </head>
-      <body className={`${inter.className} ${plusJakartaSans.className} ${jetBrainsMono.className} flex flex-col min-h-screen`}>
-        <NextThemesProvider attribute="class" defaultTheme="system" enableSystem>
-          <RootProvider>
-            {children}
-            <Toaster position="top-right" richColors />
-          </RootProvider>
-        </NextThemesProvider>
+      <body
+        className={`${inter.variable} ${plusJakarta.variable} ${jetbrainsMono.variable} min-h-dvh bg-bg-canvas font-sans text-ink-primary antialiased`}
+      >
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-cobalt-600 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+        >
+          Skip to content
+        </a>
+        <RootProvider
+          theme={{ attribute: 'class', defaultTheme: 'system', enableSystem: true }}
+          search={{ enabled: true }}
+        >
+          {children}
+          <Toaster position="bottom-right" richColors closeButton />
+        </RootProvider>
       </body>
     </html>
   );

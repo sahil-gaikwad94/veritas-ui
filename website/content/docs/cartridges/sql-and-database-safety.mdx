@@ -1,106 +1,122 @@
 ---
-title: Text-to-SQL Safety
-description: veritas.cartridges.sql — catalog-aware schema alignment, FK validation, injection blocking.
+title: Text-to-SQL safety
+description: veritas.cartridges.sql — real tokenisation, catalog resolution, foreign keys, tenant predicates and read-only enforcement.
 ---
 
-import { CodeBlock, Callout } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable, FeatureGrid, Feature } from '@/components/mdx-components';
 
-# Text-to-SQL Safety Cartridge
+Generated SQL is a security boundary. `veritas.cartridges.sql` verifies one read-only `SELECT`
+against your declared catalog using `sqlglot` — the same parser dependency the core package already
+ships with.
 
-The `sql` cartridge ensures generated SQL is safe, valid, and referentially intact — blocking injection and enforcing foreign-key integrity at the token level.
-
----
-
-## Core Constraints
-
-### SQL Injection Blocking
-
-The `no_injection` constraint scans for injection patterns and masks them at the PDA level:
-
-<CodeBlock language="python" code={`from veritas.cartridges.sql import no_injection
-
-@verified_schema
-def text_to_sql(q: Query):
-    require(no_injection(q.raw_sql))`} copyable />
-
-Injection patterns blocked:
-- Semicolon statement termination (`;`)
-- Comment injection (`--`, `/* */`)
-- DROP, DELETE, TRUNCATE, ALTER, CREATE
-- UNION SELECT attacks
-- Stacked queries
-
-<Callout variant="check" title="Zero Injection">
-
-SQL injection is blocked at the grammar level — the LLM physically cannot emit injection tokens because they're masked before sampling.
-
+<Callout variant="warn" title="Absence of evidence">
+This verifier rejects what it can prove unsafe and warns about constructs it cannot resolve. It is not
+a SQL sandbox and it is not a substitute for database permissions. Run generated SQL with a read-only
+role and row-level security.
 </Callout>
 
-### Foreign Key Integrity
+## What it enforces
 
-`fk_integrity` ensures referenced tables and columns exist in the catalog:
+<FeatureGrid>
+  <Feature title="Read-only by default" icon="shield">
+    `INSERT`, `UPDATE`, `DELETE`, DDL and multi-statement input are rejected when `read_only=True`.
+  </Feature>
+  <Feature title="Real names only" icon="database">
+    Every table, column and alias is resolved against the catalog. Unknown identifiers are errors, not
+    guesses.
+  </Feature>
+  <Feature title="Tenant isolation" icon="lock">
+    When required, the predicate must be a top-level conjunctive equality on the tenant column — not a
+    substring and not an `OR` branch.
+  </Feature>
+  <Feature title="Honest structure" icon="check">
+    Subqueries, CTEs, `UNION` and set operations are outside the supported subset and are refused
+    explicitly.
+  </Feature>
+</FeatureGrid>
 
-<CodeBlock language="python" code={`from veritas.cartridges.sql import fk_integrity
+## Usage
 
-require(fk_integrity(q.raw_sql, SCHEMA))`} copyable />
+<CodeBlock language="python" title="catalog + verifier" code={`from veritas.cartridges.sql import SqlCatalog, SqlVerifier, ForeignKey
 
-### Schema Alignment
-
-`schema_alignment` ensures tables and columns match the catalog:
-
-<CodeBlock language="python" code={`from veritas.cartridges.sql import schema_alignment
-
-require(schema_alignment(q.raw_sql, CATALOG))`} copyable />
-
----
-
-## Complete Example
-
-<CodeBlock language="python" code={`from veritas import verified_schema, require
-from veritas.cartridges.sql import no_injection, fk_integrity, schema_alignment
-
-SCHEMA = {
-    "tables": {
-        "users": {"id": "int", "name": "text", "email": "text", "created_at": "timestamp"},
-        "orders": {"id": "int", "user_id": "int", "amount": "float", "status": "text"},
+catalog = SqlCatalog(
+    tables={
+        "orders": ["id", "tenant_id", "user_id", "total", "created_at"],
+        "users": ["id", "tenant_id", "email"],
     },
-    "foreign_keys": [
-        {"from": "orders.user_id", "to": "users.id"},
-    ],
-}
+    foreign_keys=[ForeignKey("orders", "user_id", "users", "id")],
+    tenant_column="tenant_id",
+    require_tenant=True,
+)
 
-CATALOG = {
-    "allowed_tables": ["users", "orders"],
-    "allowed_columns": {
-        "users": ["id", "name", "email", "created_at"],
-        "orders": ["id", "user_id", "amount", "status"],
-    },
-}
+verifier = SqlVerifier(catalog, read_only=True)
 
-@verified_schema
-def safe_sql(q: Query):
-    # Block SQL injection
-    require(no_injection(q.raw_sql))
+result = verifier.verify(
+    "SELECT o.id, o.total FROM orders AS o "
+    "JOIN users AS u ON o.user_id = u.id "
+    "WHERE o.tenant_id = 'acme'"
+)
+print(result.as_dict())
+# {'ok': True, 'errors': [], 'warnings': [...],
+#  'tables': ['orders', 'users'], 'columns': ['id', 'total'],
+#  'has_tenant_filter': True}`} copyable />
 
-    # Ensure FK references are valid
-    require(fk_integrity(q.raw_sql, SCHEMA))
+The same object also exposes the low-level checks used by the AST pass:
 
-    # Ensure tables/columns match catalog
-    require(schema_alignment(q.raw_sql, CATALOG))`} copyable />
+<KeyValueTable
+  rows={[
+    { key: 'verifier.valid_table(name)', value: 'bool' },
+    { key: 'verifier.valid_column(table, column)', value: 'bool' },
+    { key: 'verifier.register_alias(alias, table)', value: 'None' },
+    { key: 'verifier.resolve(name)', value: 'str' },
+    { key: 'verifier.foreign_key_ok(t1, c1, t2, c2)', value: 'bool' },
+    { key: 'verifier.tenant_isolation_ok(predicate, tenant_col=None)', value: 'bool' },
+  ]}
+/>
 
----
+## Calls that should fail
 
-## How It Works
+<CodeBlock language="python" title="the failures you want to see" code={`# unknown table and unknown column
+assert not verifier.verify("SELECT secret FROM payroll").ok
 
-| Stage | What Happens |
-| :--- | :--- |
-| PDA Masking | Injection tokens (`;`, `--`, `DROP`) are masked before sampling |
-| FK Validation | Referenced tables/columns checked against catalog |
-| Schema Alignment | Only catalog-approved tables/columns allowed |
+# write attempt in a read-only pipeline
+assert not verifier.verify("DELETE FROM orders WHERE id = 1").ok
 
----
+# tenant filter hidden behind OR — not a top-level conjunct
+assert not verifier.verify(
+    "SELECT id FROM orders WHERE tenant_id = 'a' OR total > 0"
+).ok
 
-## Next Steps
+# subquery is outside the supported subset
+assert not verifier.verify(
+    "SELECT id FROM orders WHERE id IN (SELECT id FROM users)"
+).ok`} copyable />
 
-- **[Security & IAM](/docs/cartridges/security-and-iam-policies)** — sec cartridge
-- **[Operations Research](/docs/cartridges/operations-research-scheduling)** — or_sched cartridge
+<Callout variant="info" title="Structural warnings">
+Constructs the verifier can parse but not fully resolve — expressions it does not model, unusual
+functions — appear in `warnings`. Treat warnings as review items: `ok` means "no proven violation",
+not "no risk".
+</Callout>
+
+## Wiring it into a pipeline
+
+<CodeBlock language="python" title="guard before execution" code={`def safe_query(sql: str) -> str:
+    result = verifier.verify(sql)
+    if not result.ok:
+        raise ValueError(f"unsafe query: {result.errors}")
+    return sql
+
+report = text_to_sql.verify(generated)      # shape + arithmetic
+report.raise_if_failed()
+safe_query(generated["sql"])                # catalog + security`} copyable />
+
+## Limits
+
+- One `SELECT` statement only; no `WITH`, `UNION` or nested subqueries.
+- Tenant isolation is checked syntactically (top-level conjunct on `tenant_id`), not semantically
+  against data.
+- Comment and string stripping happens before tokenisation, so a column name inside a string literal is
+  not mistaken for a reference.
+- The catalog is whatever you declare. If it drifts from the real schema, verification drifts with it.
+
+Next: [Security & IAM](/docs/cartridges/security-and-iam-policies).

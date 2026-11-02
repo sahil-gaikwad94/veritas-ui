@@ -1,50 +1,67 @@
 ---
-title: HuggingFace Transformers
-description: veritas.bridges.huggingface — hf_transformers LogitsProcessor integration.
+title: Hugging Face Transformers
+description: VeritasLogitsProcessor, HFTransformersBridge and from_spec for generate()-based pipelines.
 ---
 
-import { CodeBlock } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
-# HuggingFace Transformers Bridge
+`transformers` accepts a `LogitsProcessor` in `generate()`. Veritas ships one that builds an exact mask
+from the tokenizer vocabulary and applies it at every step.
 
-The HF adapter integrates Veritas with HuggingFace Transformers' `LogitsProcessor` API — masking logits before sampling in any HF model.
+## API
 
----
+<KeyValueTable
+  rows={[
+    { key: 'VeritasLogitsProcessor(tokenizer=None, spec=None, vocabulary=None, eos_token_id=None, cache_size=8192, prompt_len=0)', value: 'callable(input_ids, scores) -> scores' },
+    { key: 'VeritasLogitsProcessor.from_spec(spec, tokenizer=None, **kwargs)', value: 'classmethod' },
+    { key: 'HFTransformersBridge(model=None, spec=None, tokenizer=None)', value: 'bridge object' },
+    { key: 'bridge.generate_kwargs()', value: '{"logits_processor": [processor]}' },
+    { key: 'bridge.verify(text)', value: 'VerificationReport' },
+  ]}
+/>
 
-## LogitsProcessor
+<CodeBlock language="python" title="a generate() call" code={`from transformers import AutoModelForCausalLM, AutoTokenizer
+from veritas.bridges import VeritasLogitsProcessor
 
-### What It Does
+model_id = "meta-llama/Llama-3.1-8B-Instruct"
+tokenizer = AutoTokenizer.from_pretrained(model_id)
+model = AutoModelForCausalLM.from_pretrained(model_id)
 
-`VeritasLogitsProcessor` is a HuggingFace `LogitsProcessor` that applies Veritas PDA + HC4 masks to logits before sampling.
-
-### Example
-
-<CodeBlock language="python" code={`from transformers import LogitsProcessor
-from veritas.bridges.huggingface import VeritasLogitsProcessor
-from veritas._native import PdaHandle
-
-processor = VeritasLogitsProcessor(
-    schema=valid_portfolio,
-    tokenizer=tokenizer,
-    pda_handle=PdaHandle.new("{"),
-)
-
-model.generate(
-    prompt_ids,
-    logits_processor=[processor],
+processor = VeritasLogitsProcessor.from_spec(portfolio, tokenizer=tokenizer)
+inputs = tokenizer("produce a portfolio", return_tensors="pt")
+output = model.generate(
+    **inputs,
     max_new_tokens=512,
-)`} copyable />
+    do_sample=True,
+    temperature=0.7,
+    logits_processor=[processor],
+)
+text = tokenizer.decode(output[0][inputs["input_ids"].shape[-1]:], skip_special_tokens=True)
 
-### How It Works
+portfolio.verify(text).raise_if_failed()`} copyable />
 
-1. Before each token sample, `VeritasLogitsProcessor` is called
-2. It queries the PDA for valid next tokens
-3. It applies a logit mask (0.0 = valid, -inf = invalid)
-4. The LLM samples only from valid tokens
+<Callout variant="info" title="Prompt length matters">
+The processor reconstructs the generated prefix from `input_ids`. Set `prompt_len` when you batch
+prompts of different lengths, or the prefix will include prompt tokens that are not JSON. Passing
+`eos_token_id` explicitly is safer than relying on the tokenizer default.
+</Callout>
 
----
+## Bridge convenience
 
-## Next Steps
+<CodeBlock language="python" title="generate kwargs + verification" code={`from veritas.bridges import HFTransformersBridge
 
-- **[Outlines / Guidance / LMQL](/docs/bridges-and-integrations/outlines-guidance-lmql)** — grammar-based bridges
-- **[Async Stream Proxy](/docs/bridges-and-integrations/async-stream-proxy)** — Cloud API proxy
+bridge = HFTransformersBridge(model, spec=portfolio, tokenizer=tokenizer)
+output = model.generate(**inputs, max_new_tokens=512, **bridge.generate_kwargs())
+print(bridge.verify(text).status)     # PASS | FAIL | INCOMPLETE`} copyable />
+
+## Adapter status
+
+The processor works with any tokenizer exposing `get_vocab`/`convert_ids_to_tokens` and a decoded
+vocabulary; unusual tokenizers may need an explicit `vocabulary=` list. Masking is exact over that
+vocabulary, but it is a Python reference implementation — expect milliseconds, not microseconds, per
+step unless the native accelerator is loaded.
+
+Bridges are adapter-tested with fakes. Validate one prompt end to end before trusting a new model or
+tokenizer.
+
+Next: [OpenAI, Instructor & Outlines](/docs/bridges-and-integrations/outlines-guidance-lmql).

@@ -1,48 +1,57 @@
 ---
 title: Diffusion LLMs
-description: Gumbel-max factor-graph unmasking for diffusion models.
+description: Gumbel-max sampling, confidence-ordered unmasking and a DiffusionBridge for non-autoregressive models.
 ---
 
-import { CodeBlock, Callout } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
-# Diffusion LLMs
+Diffusion language models predict many positions at once and unmask them in an order chosen by
+confidence. Veritas provides the two primitives that bridge needs — Gumbel-max sampling and a stable
+unmask order — plus a small orchestration object.
 
-Support for diffusion-based LLMs via **Gumbel-max factor-graph unmasking** — Veritas constraints applied to discrete diffusion denoising.
+<KeyValueTable
+  rows={[
+    { key: 'gumbel_max_sample(logits, temperature=1.0, rng=None)', value: 'sample from a sequence or mapping' },
+    { key: 'unmask_order(confidences)', value: 'indices, most confident first (stable)' },
+    { key: 'DiffusionBridge(model=None, spec=None, seed=None)', value: 'stateful sampler' },
+    { key: 'bridge.sample_token(logits, temperature=1.0)', value: 'one draw' },
+    { key: 'bridge.step(token_logits, mask, temperature=1.0)', value: 'index of the position to unmask' },
+  ]}
+/>
 
----
+<CodeBlock language="python" title="sample and choose a position" code={`from veritas.bridges import DiffusionBridge, gumbel_max_sample, unmask_order
 
-## Gumbel-Max Unmasking
+# temperature 0 is deterministic argmax
+token = gumbel_max_sample({"a": 0.1, "b": 2.0, "c": 0.4}, temperature=0)
+assert token == "b"
 
-### What It Does
+order = unmask_order([0.2, 0.9, 0.5, 0.9])
+print(order)     # [1, 3, 2, 0] — stable on ties
 
-Diffusion LLMs generate tokens by iteratively denoising a discrete representation. Veritas applies constraints to the denoising process — masking tokens that would violate constraints at each denoising step.
+bridge = DiffusionBridge(spec=portfolio, seed=7)
+position = bridge.step(
+    token_logits=[[0.1, 2.0], [3.0, 0.1], [0.5, 0.5]],
+    mask=[True, True, False],
+)
+print(position)  # 0 or 1 — the more confident masked position`} copyable />
 
-### Example
-
-<CodeBlock language="python" code={`from veritas.bridges.diffusion import gumbel_max_unmask
-
-# Apply Veritas constraints to diffusion denoising
-masked_logits = gumbel_max_unmask(
-    logits=diffusion_logits,
-    schema=valid_portfolio,
-    temperature=1.0,
-)`} copyable />
-
-### How It Works
-
-1. Diffusion model produces logits for each token position
-2. Veritas applies PDA + HC4 masks to the logits
-3. Gumbel-max sampling selects from valid tokens only
-4. Iterate until complete document
-
-<Callout variant="info" title="Research Feature">
-
-Diffusion LLM support is an active research area — contributions welcome.
-
+<Callout variant="info" title="Seeded determinism">
+`DiffusionBridge(seed=...)` owns a `random.Random` instance, so a run is reproducible given the same
+logits. `gumbel_max_sample` also accepts an explicit `rng`.
 </Callout>
 
----
+## How the mask still applies
 
-## Next Steps
+The sampling primitives do not enforce your spec. Apply the JSON mask to each position's logits before
+sampling (set invalid entries to `-inf`) and verify the finished canvas once unmasked. Zero-DoF
+splicing is autoregressive by nature; in diffusion you compute the derived field after its inputs are
+decoded and re-mask the dependent positions.
 
-- **[Proof Certificates](/docs/proofs-rl-and-cli/proof-certificates)** — SHA-256 verification
+## Status
+
+This is an **experimental** bridge: the sampling and ordering primitives are tested, but there is no
+end-to-end diffusion model integration in the test suite. Treat it as a reference implementation to
+adapt, not a supported production path.
+
+Next: back to [Installation](/docs/getting-started/installation) or the
+[Python API](/docs/api-reference/python-public-api).

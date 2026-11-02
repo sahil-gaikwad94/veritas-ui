@@ -1,154 +1,177 @@
 ---
 title: Installation
-description: Install Veritas — pip install veritas-ai with optional extras [z3, cas, rl]. Verify with `veritas doctor`.
+description: Install Veritas 2.0.0 from source, add optional extras, and confirm which engine is live with veritas doctor.
 ---
 
-import { Callout, CodeBlock, Badge, Card, CardContent, CardHeader, CardTitle } from '@/components/mdx-components';
+import { Callout, CodeBlock, FeatureGrid, Feature, KeyValueTable, Badge } from '@/components/mdx-components';
 
-# Installation
+Veritas needs **Python 3.11+**. The core package has three runtime dependencies — `pydantic>=2.0`,
+`jsonschema>=4.18` and `sqlglot>=25` — and no mandatory Rust toolchain.
 
-## What You're Installing
-
-When you run `pip install veritas-ai`, you're getting two things in one package:
-
-1. **A pure-Python reference engine** — works everywhere Python 3.11+ runs. No compilation needed.
-2. **A dependency-free Rust native accelerator** — compiled machine code that runs the same engine 17.9x faster. If your system can load it, Veritas uses it automatically.
-
-The Rust core has **zero external dependencies** — it doesn't need Z3, NumPy, or anything else to function. This means it's lightweight, portable, and easy to deploy.
-
----
-
-## Standard Zero-Dependency Install
-
-<CodeBlock language="bash" code={`# Install Veritas (core package, no extras needed)
-pip install veritas-ai
-
-# Verify it worked
-python -c "import veritas; print(veritas.__version__)"`} copyable />
-
-That's it. The core package requires only `pydantic>=2.0` and includes everything you need to start writing verified schemas.
-
----
-
-## Optional Extras
-
-Veritas has three optional feature groups you can add depending on what you need:
-
-<table className="w-full text-left text-sm border-collapse mb-6">
-<thead>
-<tr className="border-b border-border-subtle">
-<th className="py-3 text-ink-muted font-medium" style={{ width: '30%' }}>Install Command</th>
-<th className="py-3 text-ink-muted font-medium">What It Unlocks</th>
-<th className="py-3 text-ink-muted font-medium">When You Need It</th>
-</tr>
-</thead>
-<tbody>
-<tr className="border-b border-border-subtle">
-<td className="py-3 font-mono text-xs">`pip install "veritas-ai[z3]"`</td>
-<td className="py-3">
-  <strong>`z3-solver>=4.13`</strong> — Microsoft's Z3 theorem prover for non-linear and quantified constraint solving.
-</td>
-<td className="py-3 text-ink-muted">
-  You need to solve non-linear constraints (e.g., quadratic equations) or quantified formulas (forall/exists over infinite domains).
-</td>
-</tr>
-<tr className="border-b border-border-subtle">
-<td className="py-3 font-mono text-xs">`pip install "veritas-ai[cas]"`</td>
-<td className="py-3">
-  <strong>`sympy>=1.12`</strong> and <strong>`numpy>=1.26`</strong> — symbolic mathematics and linear algebra.
-</td>
-<td className="py-3 text-ink-muted">
-  You're using `quad_form` for portfolio optimization, Cholesky decomposition, or symbolic canonicalization.
-</td>
-</tr>
-<tr className="border-b border-border-subtle">
-<td className="py-3 font-mono text-xs">`pip install "veritas-ai[rl]"`</td>
-<td className="py-3">
-  <strong>`datasets>=2.0`</strong> and <strong>`transformers>=4.40`</strong> — RLHF dataset tools.
-</td>
-<td className="py-3 text-ink-muted">
-  You want to collect DPO/Process-GRPO preference data from CDCL jumpbacks for model fine-tuning.
-</td>
-</tr>
-</tbody>
-</table>
-
-<Callout variant="tip" title="Start Simple, Add Later">
-
-You don't need any extras to get started. `pip install veritas-ai` gives you the complete core engine. Add extras only when you hit a feature that requires them.
-
+<Callout variant="warn" title="PyPI status">
+The distribution metadata ships as `veritas-ai`, but the release is not on PyPI yet. Install directly
+from GitHub until that changes; the commands below already use the supported path.
 </Callout>
 
----
+## Install from GitHub
 
-## Verify Your Installation
+<CodeBlock language="bash" title="one-line install from the main branch" code={`pip install "git+https://github.com/sahil-gaikwad94/veritas.git"
 
-Run `veritas doctor` to check that everything is working correctly:
+# confirm the interpreter can see it
+python -c "import veritas; print(veritas.__version__)"   # 2.0.0`} copyable />
 
-<CodeBlock language="bash" code={`# Basic installation check
-$ python -m veritas doctor
+## Editable install (recommended for development)
 
-# Expected output:
-# Engine: accelerated (Rust native)
-# Wire Protocol: v2.0
-# Platform: linux-x86_64
-# Z3 Available: true
-# Native Extension: loaded
-# Tests: 499 passing
+<CodeBlock language="bash" title="clone + editable install" code={`git clone https://github.com/sahil-gaikwad94/veritas.git
+cd veritas
 
-# JSON output (useful for CI/CD scripts)
-$ python -m veritas doctor --json
-# {"engine": "accelerated", "wire_protocol": "2.0", "platform": "linux-x86_64", "z3": true, "native": true, "tests": 499}
+python -m venv .venv
+.venv/bin/pip install -e ".[dev]"
 
-# Strict mode — exits with code 1 if Rust native is not loaded
-# Use this in CI to guarantee you're running the accelerated engine
-$ python -m veritas doctor --strict
-# exit code: 0 (if native loaded) or 1 (if native missing)`} copyable />
+.venv/bin/python -m pytest tests/ -q
+.venv/bin/veritas --help`} copyable />
 
-### Understanding the Doctor Output
+If you prefer not to install while exploring the source tree, set `PYTHONPATH=python` and run modules
+directly:
 
-| Field | What It Means |
+```bash
+PYTHONPATH=python python -m veritas doctor
+```
+
+## Optional extras
+
+Extras are optional by design. Add one only when a feature needs it.
+
+<KeyValueTable
+  rows={[
+    { key: 'veritas-ai[z3]', value: 'z3-solver>=4.13', note: 'SMT oracle for non-linear or quantified fallback' },
+    { key: 'veritas-ai[cas]', value: 'sympy>=1.12, numpy>=1.26', note: 'symbolic canonicalisation and matrix helpers' },
+    { key: 'veritas-ai[rl]', value: 'datasets>=2.0, transformers>=4.40', note: 'DPO / GRPO trajectory export' },
+    { key: 'veritas-ai[dev]', value: 'pytest, hypothesis, ruff, build', note: 'test and lint toolchain' },
+  ]}
+/>
+
+With a direct Git reference, a PEP 508 requirement string is the least ambiguous form:
+
+<CodeBlock language="bash" title="extras from GitHub" code={`pip install "veritas-ai[z3] @ git+https://github.com/sahil-gaikwad94/veritas.git"
+pip install "veritas-ai[cas] @ git+https://github.com/sahil-gaikwad94/veritas.git"
+pip install "veritas-ai[rl] @ git+https://github.com/sahil-gaikwad94/veritas.git"`} copyable />
+
+Inside an editable clone, the short form works:
+
+```bash
+.venv/bin/pip install -e ".[z3]"
+```
+
+## Confirm what is actually running
+
+<CodeBlock language="bash" title="engine diagnostics" code={`python -m veritas doctor           # human readable
+python -m veritas doctor --json    # paste into a bug report
+python -m veritas doctor --strict  # exit 1 unless the native extension is loaded`} copyable />
+
+On a default install — no Rust toolchain, no compiled wheel — the real output is:
+
+```text
+veritas 2.0.0 on CPython 3.11.2
+  engine    reference python
+  reason    ModuleNotFoundError: No module named 'veritas_py'
+  wire      n/a
+  platform  Linux-6.1.158+-x86_64-with-glibc2.36
+  note      the pure-Python engine is complete; the extension would only be faster.
+```
+
+That `reason` line is not a warning: the reference engine is the complete product. When the optional
+wheel is installed the `engine` line becomes `<name> <version> (<abi>)` from `veritas.native.info()`,
+`wire` reports the negotiated wire version instead of `n/a`, and the `reason` and closing `note` lines
+disappear. `--strict` exists for deployment health checks: it exits 1 unless the accelerator is live.
+
+The same facts are available in Python — and this is the shape you can assert on:
+
+```python
+import veritas
+
+veritas.native.available()  # False on a default install
+veritas.native.info()
+# {'name': 'python', 'version': 'pure', 'wire_version': None,
+#  'native_available': False,
+#  'load_error': "ModuleNotFoundError: No module named 'veritas_py'"}
+
+veritas.doctor()
+# {'version': '2.0.0', 'python': 'pure',
+#  'engine': {'name': 'python', 'version': 'pure', 'wire_version': None,
+#             'native_available': False, 'load_error': "..."},
+#  'wire_version': None}
+```
+
+<Callout variant="info" title="The Python engine is the product">
+The Rust core is an accelerator, not a separate implementation you must trust. Python remains
+authoritative for every behaviour, and every native wrapper falls back to it. A native regression can
+cost speed; it should never cost soundness.
+</Callout>
+
+## Environment variables
+
+| Variable | Effect |
 | :--- | :--- |
-| **Engine** | `accelerated` = Rust native is loaded, `reference` = pure-Python fallback |
-| **Wire Protocol** | The version of Veritas's internal wire protocol (currently v2.0) |
-| **Platform** | Your OS and architecture (e.g., `linux-x86_64`, `darwin-arm64`) |
-| **Z3 Available** | Whether the optional Z3 solver is installed (only needed for non-linear constraints) |
-| **Native Extension** | Whether the Rust `.so`/`.pyd` file was successfully loaded |
-| **Tests** | Number of passing engine tests (499 in v2.0) |
+| `VERITAS_NO_NATIVE=1` | Force pure-Python execution for every call. Checked per call — no reinstall, no restart. |
+| `PYTHONPATH=python` | Run from a source checkout without installing (development only). |
 
----
+```bash
+# A/B a suspected accelerator bug without touching the environment
+VERITAS_NO_NATIVE=1 python -m pytest tests/test_native_backend.py -q
+```
 
-## Environment Variables & Kill Switches
+## Verify the install
 
-Veritas respects several environment variables that control its behavior:
+<CodeBlock language="bash" title="the suite that matters" code={`python -m pytest tests/ -q
 
-| Variable | Values | Effect |
+# default install:        378 passed, 41 skipped
+# native extension built: 419 passed, 0 skipped`} copyable />
+
+The 41 skips are the native/pure-Python parity corpus, kill-switch tests that need a live engine, and
+the randomised differential sweep. With the extension present, they run — and every other test then
+exercises native masks and numeric prefixes too.
+
+## Rust core (optional)
+
+Building the accelerator requires a Rust toolchain and `maturin` or `setuptools-rust`, depending on the
+crate. CI builds all three artefacts:
+
+<CodeBlock language="bash" title="native builds" code={`cargo test -p veritas-core --all-targets
+cargo build --release -p veritas-py
+cargo build -p veritas-wasm --target wasm32-unknown-unknown`} copyable />
+
+There are no C dependencies inside `veritas-core`; it uses no external crates.
+
+## Troubleshooting
+
+| Symptom | Cause | Fix |
 | :--- | :--- | :--- |
-| `VERITAS_NO_NATIVE` | `1` | Forces pure-Python reference execution. Useful for A/B testing or debugging native issues. |
-| `VERITAS_VERBOSE` | `1` | Enables detailed solver telemetry logging. Shows mask times, contraction times, and backtrack events. |
-| `VERITAS_LOG_LEVEL` | `debug`, `info`, `warn`, `error` | Controls log verbosity (default: `warn`). |
+| `ModuleNotFoundError: veritas` | Installed into a different interpreter/venv | Use the same binary for `pip` and `python` (`.venv/bin/python -m pip …`) |
+| `doctor` says `reference` | Extension not built or not loadable | Expected on most machines; build it or keep using Python |
+| `--strict` exits 1 | Native extension missing | This is the documented behaviour — use it only when you require native |
+| `pip` cannot resolve `git+https` | No network / private mirror | Clone and use `pip install -e .` |
+| Rust build fails | No toolchain | Not required: skip the accelerator and use the pure-Python engine |
+| Z3 import errors | Extra not installed | `pip install "veritas-ai[z3] @ git+…"` or use `solver="nano"` |
 
-<Callout variant="warn" title="VERITAS_NO_NATIVE=1">
+More edge cases — open bounds, pattern fallbacks, numeric digit budgets — are documented on
+[Troubleshooting & limits](/docs/getting-started/troubleshooting).
 
-Setting this forces Veritas to use the pure-Python engine even if Rust is available. This is **slower** (17.9x slower for PDA masking) but useful for:
+## Uninstall
 
-- Debugging native extension crashes
-- Comparing Python vs. Rust results
-- Running in environments where Rust compilation isn't possible
+```bash
+pip uninstall veritas-ai
+```
 
-</Callout>
+Nothing outside the environment is modified: no global config, no daemon, no database.
 
-<Callout variant="tip" title="Fault Isolation">
+## Next
 
-If a native Rust call ever panics, Veritas automatically falls back to the pure-Python reference engine. Your application never crashes — it just slows down temporarily.
-
-</Callout>
-
----
-
-## Next Steps
-
-Now that Veritas is installed:
-
-- **[Quickstart](/docs/getting-started/quickstart)** — Write your first `@verified_schema` in 60 seconds
-- **[How Veritas Works](/docs/getting-started/how-veritas-works)** — Understand the 3-tier engine pipeline
+<FeatureGrid>
+  <Feature title="Quickstart" icon="zap">
+    Write, preflight and verify a real schema. → [Quickstart](/docs/getting-started/quickstart)
+  </Feature>
+  <Feature title="Concepts" icon="layers">
+    Understand VIR and the three decoding tiers. → [How Veritas works](/docs/getting-started/how-veritas-works)
+  </Feature>
+</FeatureGrid>

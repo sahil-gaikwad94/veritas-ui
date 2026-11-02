@@ -1,77 +1,53 @@
 ---
-title: SGLang Integration
-description: veritas.bridges.sglang — SglangAdapter & jump-forward hooks.
+title: SGLang
+description: Use SGLangLogitsProcessor or patch_sglang to enforce a Veritas mask inside SGLang.
 ---
 
-import { CodeBlock, Callout } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
-# SGLang Bridge
+SGLang exposes `logits_processor` on its engine and request objects. The Veritas adapter targets the
+list form; it refuses to guess when the host shape differs.
 
-The `sglang` adapter integrates Veritas with SGLang's runtime — jump-forward hooks for Zero-DoF splicing.
+## API
 
----
+<KeyValueTable
+  rows={[
+    { key: 'SGLangLogitsProcessor(tokenizer=None, spec=None, ...)', value: 'subclass of VeritasLogitsProcessor' },
+    { key: 'SGLangBridge(model=None, spec=None, tokenizer=None)', value: 'bridge object' },
+    { key: 'bridge.sampling_params()', value: '{"logits_processor": [processor]}' },
+    { key: 'patch_sglang(engine, spec=None, tokenizer=None)', value: 'appends the processor to the engine' },
+  ]}
+/>
 
-## SglangAdapter
+<CodeBlock language="python" title="request-level wiring" code={`import sglang as sgl
+from veritas.bridges import SGLangBridge
 
-### What It Does
+engine = sgl.Engine(model_path="meta-llama/Llama-3.1-8B-Instruct")
+bridge = SGLangBridge(engine, spec=portfolio, tokenizer=engine.tokenizer)
 
-`SglangAdapter` registers Veritas with SGLang's runtime, enabling **jump-forward hooks** — when all input variables for a `derive` field are emitted, SGLang calls the hook to compute and splice the value directly.
-
-### Example
-
-<CodeBlock language="python" code={`from veritas.bridges.sglang import SglangAdapter
-
-adapter = SglangAdapter(schema=valid_portfolio)
-
-# Register jump-forward hook for Zero-DoF fields
-adapter.register_jump_forward_hook(
-    target_field="expected_return",
-    compute_fn=lambda state: dot(state.weights, RETURNS),
+state = engine.generate(
+    prompt="produce a portfolio",
+    sampling_params={"temperature": 0.7, "max_new_tokens": 512, **bridge.sampling_params()},
 )
+report = portfolio.verify(state["text"])
+report.raise_if_failed()`} copyable />
 
-# SGLang runtime calls the hook when all inputs are ready
-# Zero-DoF splice happens automatically — 0 LLM calls`} copyable />
+## Patching
 
-### Jump-Forward Hooks
+<CodeBlock language="python" code={`from veritas.bridges import patch_sglang
 
-SGLang's runtime supports custom jump-forward hooks. Veritas registers these for every `derive` field:
+patch_sglang(engine, spec=portfolio, tokenizer=engine.tokenizer)
+# engine.logits_processor now contains the Veritas processor`} copyable />
 
-1. All input variables emitted → hook triggered
-2. Hook computes derived value deterministically in Rust
-3. Value spliced into token stream
-4. LLM never samples the derived field
+<Callout variant="warn" title="Raising is the default">
+If `engine.logits_processor` is not a list, `patch()` raises `TypeError` instead of replacing the
+attribute. Use `sampling_params()` when you want an explicit, version-tolerant path.
+</Callout>
 
----
+## Adapter status
 
-## Complete Example
+Tested against fakes. SGLang's runtime API moves quickly; pin a version and assert that
+`len(engine.logits_processor)` changed after patching. The final `spec.verify(...)` remains mandatory —
+a mask prevents malformed tokens, not a malformed world.
 
-<CodeBlock language="python" code={`from veritas import verified_schema, require, derive, sum, dot
-from veritas.bridges.sglang import SglangAdapter
-
-RETURNS = {"AAPL": 0.12, "MSFT": 0.10, "NVDA": 0.15}
-
-@verified_schema
-def portfolio(p: Portfolio):
-    require(sum(p.weights.values()) == 1.0, tol=1e-6)
-    require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
-    derive(p.expected_return == dot(p.weights, RETURNS))
-    require(p.expected_return >= 0.10)
-
-# Create SGLang adapter
-adapter = SglangAdapter(schema=portfolio)
-
-# Register jump-forward hook
-adapter.register_jump_forward_hook(
-    target_field="expected_return",
-    compute_fn=lambda state: dot(state.weights, RETURNS),
-)
-
-# Use with SGLang runtime
-# sglang_engine.generate(..., veritas_adapter=adapter)`} copyable />
-
----
-
-## Next Steps
-
-- **[llama.cpp](/docs/bridges-and-integrations/llama-cpp)** — llama.cpp adapter
-- **[HuggingFace Transformers](/docs/bridges-and-integrations/huggingface-transformers)** — HF adapter
+Next: [llama.cpp](/docs/bridges-and-integrations/llama-cpp).

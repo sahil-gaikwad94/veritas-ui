@@ -1,84 +1,119 @@
 ---
-title: Code Analysis & Synthesis
-description: veritas.cartridges.code & code_synth — AST complexity limits, forbidden nodes, grammar-safe synthesis.
+title: Code analysis
+description: veritas.cartridges.code — scope-aware undefined identifiers, literal division by zero, index bounds and syntax checks.
 ---
 
-import { CodeBlock, Callout } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable, FeatureGrid, Feature } from '@/components/mdx-components';
 
-# Code Analysis & Synthesis Cartridge
+Generated Python is executable text. `code` (an alias of `code_synth`) parses it and reports what it can
+prove wrong before anything runs: undefined names under real scoping rules, literal division by zero,
+out-of-range literal indices and syntax errors.
 
-The `code` and `code_synth` cartridges provide AST-based constraints for code generation: complexity limits, forbidden node detection, and grammar-safe synthesis.
-
----
-
-## Core Constraints
-
-### AST Complexity Limits
-
-`ast_complexity` limits the number of AST nodes:
-
-<CodeBlock language="python" code={`from veritas.cartridges.code import ast_complexity
-
-@verified_schema
-def generated_code(c: Code):
-    require(ast_complexity(c.ast, max_nodes=100))`} copyable />
-
-### Forbidden Node Detection
-
-`forbidden_nodes` scans the AST for dangerous constructs:
-
-<CodeBlock language="python" code={`from veritas.cartridges.code import forbidden_nodes
-
-require(forbidden_nodes(c.ast, ["eval", "exec", "import os", "subprocess"]))`} copyable />
-
-### Maximum Depth
-
-`max_depth` limits AST nesting depth:
-
-<CodeBlock language="python" code={`from veritas.cartridges.code import max_depth
-
-require(max_depth(c.ast, max_depth=10))`} copyable />
-
----
-
-## Complete Example
-
-<CodeBlock language="python" code={`from veritas import verified_schema, require
-from veritas.cartridges.code import ast_complexity, forbidden_nodes, max_depth
-
-@verified_schema
-def safe_code(c: Code):
-    # Node count limit
-    require(ast_complexity(c.ast, max_nodes=100))
-
-    # No dangerous nodes
-    require(forbidden_nodes(c.ast, ["eval", "exec", "import os", "subprocess", "import socket"]))
-
-    # Depth limit
-    require(max_depth(c.ast, max_depth=10))
-
-    # Must be syntactically valid Python (enforced by PDA grammar)
-    # Every token checked against Python grammar during decoding`} copyable />
-
-<Callout variant="check" title="No Malicious Code">
-
-Dangerous AST nodes are blocked during decoding — the LLM cannot generate `eval()`, `exec()`, `import os`, or `subprocess`. Every token is checked against the Python grammar.
-
+<Callout variant="warn" title="Static checks, not a sandbox">
+This is an AST pass, not taint analysis, not a capability system, and not a substitute for running
+generated code in an isolated process. It catches a useful class of mistakes; it does not prove
+safety.
 </Callout>
 
----
+## Surface
 
-## Key Functions Reference
+<KeyValueTable
+  rows={[
+    { key: 'verify_python_source(source, filename="<synthesized>")', value: 'CodeReport' },
+    { key: 'report.ok', value: 'bool — no errors (warnings may still exist)' },
+    { key: 'report.errors / report.warnings', value: 'list[CodeIssue] with kind, message, line, column' },
+    { key: 'scope_safe(identifiers, used)', value: 'bool — every used name is declared' },
+    { key: 'no_division_by_zero(divisors)', value: 'bool' },
+    { key: 'array_bounds_ok(index, size)', value: 'bool' },
+    { key: 'type_compatible(expected, actual)', value: 'bool' },
+  ]}
+/>
 
-| Function | Signature | Description |
-| :--- | :--- | :--- |
-| `ast_complexity` | `(ast, max_nodes) -> bool` | Node count limit |
-| `forbidden_nodes` | `(ast, forbidden_list) -> bool` | No dangerous AST nodes |
-| `max_depth` | `(ast, max_depth) -> bool` | Nesting depth limit |
+<FeatureGrid>
+  <Feature title="Real scopes" icon="layers">
+    Function parameters, locals, comprehension targets, `global`/`nonlocal`, class bodies and imports are
+    tracked; builtins are seeded, not guessed.
+  </Feature>
+  <Feature title="Location-aware" icon="check">
+    Every issue carries line and column, so a repair loop gets a precise target.
+  </Feature>
+  <Feature title="Literal mistakes" icon="shield">
+    `1 / 0`, negative or oversized constant indices and syntax errors are reported without executing a
+    single statement.
+  </Feature>
+  <Feature title="Alias kept stable" icon="git">
+    `veritas.cartridges.code` re-exports `code_synth`, so both import paths are supported.
+  </Feature>
+</FeatureGrid>
 
----
+## Verify a generated function
 
-## Next Steps
+<CodeBlock language="python" title="undefined name and division by zero" code={`from veritas.cartridges.code import verify_python_source
 
-- **[Bridges & Integrations](/docs/bridges-and-integrations/vllm)** — vLLM adapter
-- **[Proof Certificates](/docs/proofs-rl-and-cli/proof-certificates)** — SHA-256 verification
+clean = verify_python_source(
+    "def total(xs):\\n"
+    "    return sum(xs) / len(xs)\\n"
+)
+print(clean.ok)          # True
+
+broken = verify_python_source(
+    "def total(xs):\\n"
+    "    return sum(xs) / missing\\n"
+)
+print(broken.as_dict())
+# {'ok': False,
+#  'errors': [{'kind': 'undefined_identifier',
+#              'message': "undefined identifier 'missing'",
+#              'line': 2, 'column': 15}],
+#  'warnings': []}
+
+divide = verify_python_source("def f(x):\\n    return 1 / 0\\n")
+print(divide.errors[0].kind)     # division_by_zero`} copyable />
+
+## Small predicates
+
+<CodeBlock language="python" title="for repair loops and tests" code={`from veritas.cartridges.code import (
+    scope_safe, no_division_by_zero, array_bounds_ok, type_compatible,
+)
+
+assert scope_safe({"x", "y"}, {"x"})
+assert not scope_safe({"x"}, {"x", "z"})
+
+assert no_division_by_zero([1, 2, 0.5])
+assert not no_division_by_zero([1, 0])
+
+assert array_bounds_ok(0, 3)
+assert not array_bounds_ok(3, 3)
+
+assert type_compatible("int", "float")
+assert not type_compatible("str", "float")`} copyable />
+
+## The repair loop
+
+<CodeBlock language="python" title="report errors back to the model, then re-check" code={`from veritas.cartridges.code import verify_python_source
+
+source = generate_code(prompt)
+for attempt in range(3):
+    report = verify_python_source(source)
+    if report.ok:
+        break
+    feedback = "\\n".join(f"{e.line}:{e.column} {e.message}" for e in report.errors)
+    source = repair(prompt, source, feedback)
+else:
+    raise RuntimeError("could not produce code that passes static checks")`} copyable />
+
+<Callout variant="info" title="Pair it with a spec">
+Static checks say nothing about behaviour. If the generated code must compute a specific value, express
+that in the schema with `vt.derive` / `vt.require` and verify the produced result — then run the code in
+isolation.
+</Callout>
+
+## Limits
+
+- Undefined-name detection follows Python scoping for the constructs it models; dynamic tricks
+  (`eval`, `exec`, `globals()` mutation, `__getattr__`) defeat static analysis, as they do any linter.
+- Division-by-zero detection covers **literal** divisors, not values computed at runtime.
+- `type_compatible` is a small compatibility table for common annotations, not a type checker.
+- Nothing here executes code, imports modules or inspects third-party APIs.
+
+Next: [Cartridges overview](/docs/cartridges/overview) or [Bridges](/docs/bridges/overview).

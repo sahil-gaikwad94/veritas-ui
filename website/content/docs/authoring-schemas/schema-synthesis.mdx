@@ -1,195 +1,125 @@
 ---
 title: Schema Synthesis
-description: Auto-generate @verified_schema from sample JSON using veritas synth.
+description: veritas synth turns sample JSON objects into a Pydantic model plus range, key-set and container invariants — and refuses to infer what the samples do not support.
 ---
 
-import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable, StatGrid, Stat } from '@/components/mdx-components';
 
-# Schema Synthesis
+Point `veritas synth` at a handful of real payloads and it writes a runnable `@vt.verified_schema`
+module: types, defaults, numeric ranges, key sets and per-container value bounds. The deterministic
+half of schema authoring — no model, no guessing, and an explicit refusal to invent constraints.
 
-Veritas can automatically infer field bounds, linear conservation laws, and `@verified_schema` Python code from sample JSON payloads. This is the fastest way to get started with an existing API — you don't need to write constraints by hand.
+<StatGrid>
+  <Stat value="2" label="samples for ranges" />
+  <Stat value="JSON" label="object or array" tone="cobalt" />
+  <Stat value="0" label="model calls" tone="pass" />
+  <Stat value="1" label="module written" />
+</StatGrid>
 
----
+## What it will and will not infer
 
-## What Is Schema Synthesis?
+<KeyValueTable
+  rows={[
+    { key: 'Types and defaults', value: 'int, float, str, bool, null', note: 'Optional[...] when a value is ever null; first sample becomes the default' },
+    { key: 'Numeric ranges', value: 'int exact, float padded ±10%', note: 'Only with two or more samples and a non-zero spread' },
+    { key: 'Dict key sets', value: 'keys_subset(p.field, [...])', note: 'The union of keys seen across samples' },
+    { key: 'Dict value bounds', value: 'forall(field.values(), ...)', note: 'Padded ±10% over the union of numeric values' },
+    { key: 'Conservation laws', value: 'never', note: 'A sum of 1.0 across samples is a coincidence until you assert it' },
+    { key: 'Derived expressions', value: 'never', note: 'Use derive() by hand: inference cannot know the formula is intended' },
+  ]}
+/>
 
-Schema synthesis (`veritas synth`) takes 2–3 sample JSON objects and automatically:
-
-1. **Infers field bounds** — numeric ranges from observed min/max values
-2. **Detects conservation laws** — fields that sum to a constant (e.g., weights sum to 1.0)
-3. **Identifies key sets** — which keys are always present
-4. **Generates `@verified_schema` code** — ready-to-copy Python
-
-This is especially useful when you have an existing API response and want to add Veritas verification to it.
-
----
-
-## `veritas synth` CLI
-
-### Basic Usage
-
-<CodeBlock language="bash" code={`# Create a JSONL file with 2-3 sample objects
-$ cat examples.jsonl
-{\"weights\": {\"AAPL\": 0.40, \"MSFT\": 0.35, \"NVDA\": 0.25}, \"expected_return\": 0.1615, \"sharpe_ratio\": 0.6422}
-{\"weights\": {\"AAPL\": 0.50, \"MSFT\": 0.30, \"NVDA\": 0.20}, \"expected_return\": 0.1550, \"sharpe_ratio\": 0.7100}
-{\"weights\": {\"AAPL\": 0.30, \"MSFT\": 0.40, \"NVDA\": 0.30}, \"expected_return\": 0.1450, \"sharpe_ratio\": 0.5800}
-
-# Generate a verified schema
-$ veritas synth --from-json examples.jsonl --out generated_schema.py
-# Inferred 3 samples, 7 fields, 2 conservation laws
-# Generated: generated_schema.py
-
-# View the generated schema
-$ cat generated_schema.py
-@verified_schema
-def inferred_schema(obj: dict):
-    require(keys_subset(obj, {\"weights\", \"expected_return\", \"sharpe_ratio\"}))
-    require(sum(obj[\"weights\"]) == 1.0, tol=1e-6)
-    require(forall(obj[\"weights\"], lambda v: (0.20 <= v) & (v <= 0.50)))
-    derive(obj[\"expected_return\"] == dot(obj[\"weights\"], RETURNS))
-    require(obj[\"sharpe_ratio\"] >= 0.58)`} copyable />
-
-### CLI Options
-
-| Option | Description | Default |
-| :--- | :--- | :--- |
-| `--from-json <file>` | Path to JSONL file with sample objects | Required |
-| `--out <file>` | Output Python file path | stdout |
-| `--tolerance <float>` | Numeric bound tolerance | `1e-6` |
-| `--conservation-laws` | Auto-detect linear conservation laws | `true` |
-| `--min-samples <int>` | Minimum samples to infer bounds | `2` |
-
-### JSON Output
-
-<CodeBlock language="bash" code={`$ veritas synth --from-json examples.jsonl --json
-# {
-#   "samples": 3,
-#   "fields": 7,
-#   "conservation_laws": 2,
-#   "inferred_bounds": {
-#     "weights.AAPL": "[0.30, 0.50]",
-#     "weights.MSFT": "[0.30, 0.40]",
-#     "weights.NVDA": "[0.20, 0.30]"
-#   },
-#   "conservation_laws": [
-#     "sum(weights) == 1.0"
-#   ],
-#   "derived_fields": ["expected_return", "sharpe_ratio"],
-#   "schema": "@verified_schema\\ndef inferred_schema(obj: dict):\\n    ..."
-# }`} copyable />
-
----
-
-## Inference Rules
-
-Veritas applies the following rules when inferring constraints from samples:
-
-| Pattern in Samples | Inferred Constraint |
-| :--- | :--- |
-| Numeric field with consistent range | `require(forall(field, lambda v: (lo <= v) & (v <= hi)))` |
-| Fields summing to ~1.0 across all samples | `require(sum(fields) == 1.0, tol=1e-6)` |
-| Field value consistent across samples (derived) | `derive(target == expression)` |
-| Fixed key set across all samples | `require(keys_subset(obj, {key_set}))` |
-| Numeric field with zero variance | `require(field == constant)` |
-
-### Example: Conservation Law Detection
-
-If all samples have `weights.AAPL + weights.MSFT + weights.NVDA == 1.0`, Veritas infers:
-
-```python
-require(sum(obj[\"weights\"]) == 1.0, tol=1e-6)
-```
-
-### Example: Derived Field Detection
-
-If `expected_return` is always `0.12*AAPL + 0.10*MSFT + 0.15*NVDA` across samples, Veritas infers:
-
-```python
-derive(obj[\"expected_return\"] == dot(obj[\"weights\"], RETURNS))
-```
-
----
-
-## Browser Widget
-
-<Callout variant="info" title="Live `veritas synth` in Browser">
-
-Try schema synthesis directly in the browser — no installation required. Paste 2–3 sample JSON objects and get a ready-to-copy `@verified_schema` at **[/verify](/verify)**.
-
-The widget runs entirely in-browser via `veritas-wasm` WebAssembly — zero server cost.
-
+<Callout variant="warn" title="A synthesiser that guesses is worse than none">
+The module docstring says it plainly: *it never invents constraints that the examples do not support*.
+Anything structural — conservation laws, `derive` expressions, conditional rules — stays your call, which
+is why the generated file is a first draft you review, not a spec you ship.
 </Callout>
 
----
+## A real run
 
-## Complete Example: From API Response to Verified Schema
+<CodeBlock language="bash" title="three payloads, one module" code={`$ cat port_examples.json
+[
+  {"weights": {"AAPL": 0.40, "MSFT": 0.35, "NVDA": 0.25}, "sharpe": 0.59},
+  {"weights": {"AAPL": 0.30, "MSFT": 0.45, "NVDA": 0.25}, "sharpe": 0.61},
+  {"weights": {"AAPL": 0.55, "MSFT": 0.20, "NVDA": 0.25}, "sharpe": 0.66}
+]
 
-### Step 1: Collect Sample API Responses
+$ veritas synth --from-json port_examples.json --name Portfolio --out port_schema.py
+wrote port_schema.py`} copyable />
 
-<CodeBlock language="bash" code={`# Save 3 sample API responses as JSONL
-$ cat api_responses.jsonl
-{\"portfolio\": {\"AAPL\": 0.40, \"MSFT\": 0.35, \"NVDA\": 0.25}, \"metrics\": {\"return\": 0.1615, \"volatility\": 0.1892, \"sharpe\": 0.6422}}
-{\"portfolio\": {\"AAPL\": 0.50, \"MSFT\": 0.30, \"NVDA\": 0.20}, \"metrics\": {\"return\": 0.1550, \"volatility\": 0.1700, \"sharpe\": 0.7100}}
-{\"portfolio\": {\"AAPL\": 0.30, \"MSFT\": 0.40, \"NVDA\": 0.30}, \"metrics\": {\"return\": 0.1450, \"volatility\": 0.1950, \"sharpe\": 0.5800}}`} copyable />
+<CodeBlock language="python" title="port_schema.py, generated verbatim" code={`"""Synthesized by veritas from concrete examples. Review before production use."""
 
-### Step 2: Generate Schema
+from __future__ import annotations
 
-<CodeBlock language="bash" code={`$ veritas synth --from-json api_responses.jsonl --out portfolio_schema.py
-# Inferred 3 samples, 9 fields, 1 conservation law
-# Generated: portfolio_schema.py`} copyable />
+from typing import Any, Optional
 
-### Step 3: Review and Customize
+import veritas as vt
+from pydantic import BaseModel, Field
 
-<CodeBlock language="python" code={`# portfolio_schema.py (auto-generated, then customized)
-from veritas import verified_schema, require, derive, sum, dot, forall
 
-RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15}
+class Portfolio(BaseModel):
+    weights: dict[str, float] = Field(default_factory=dict)
+    sharpe: float = 0.59
 
-@verified_schema
-def portfolio_schema(obj: dict):
-    # Auto-inferred: key set
-    require(keys_subset(obj, {\"portfolio\", \"metrics\"}))
 
-    # Auto-inferred: conservation law (portfolio sums to 1.0)
-    require(sum(obj[\"portfolio\"].values()) == 1.0, tol=1e-6)
+@vt.verified_schema()
+def portfolio(p: Portfolio):
+    vt.require(vt.keys_subset(p.weights, ['AAPL', 'MSFT', 'NVDA']))
+    vt.require(vt.forall(p.weights.values(), lambda v: (0.165 <= v) & (v <= 0.585)))
+    vt.require((0.583 <= p.sharpe) & (p.sharpe <= 0.667))`} copyable />
 
-    # Auto-inferred: value bounds
-    require(forall(obj[\"portfolio\"], lambda v: (0.20 <= v) & (v <= 0.50)))
+Note the arithmetic: the observed weight range was `0.20 … 0.55`, and the float bounds are padded by 10%
+of that spread → `0.165 … 0.585`. Integers are never padded.
 
-    # Auto-inferred: derived expected return
-    derive(obj[\"metrics\"][\"return\"] == dot(obj[\"portfolio\"], RETURNS))
+<CodeBlock language="bash" title="pre-flight the generated module" code={`$ veritas check-spec port_schema.py
+schema: portfolio  (SAT)
+  fields:   weights, sharpe
+  derived:  -
+  requires: 3  derives: 0
+  digest:   c3dba5463f906544c742e0e9e445f7713091981422cf5bb1b560f0c69cf01bc0`} copyable />
 
-    # Custom addition: quality threshold (not auto-inferred)
-    require(obj[\"metrics\"][\"sharpe\"] >= 0.60)`} copyable />
+## Options
 
-### Step 4: Run Pre-Flight Check
+<KeyValueTable
+  rows={[
+    { key: '--from-json <file>', value: 'examples', note: 'A JSON object or a non-empty array of objects — not JSONL' },
+    { key: '--out <file>', value: 'write the module', note: 'Omit to print the source to stdout' },
+    { key: '--name <name>', value: 'class name', note: 'Defaults to Synthesized; CamelCase and snake_case are derived from it' },
+    { key: '--no-ranges', value: 'types only', note: 'Skips every inferred require(), keeping the model shape' },
+    { key: '--from-doc <file>', value: 'refused in this build', note: 'error: --from-doc requires a model adapter' },
+  ]}
+/>
 
-<CodeBlock language="bash" code={`$ veritas check-spec portfolio_schema.py
-# ✓ Spec is SAT — all constraints mutually satisfiable
-# ✓ 0-token pre-flight gate passed
-# ✓ Zero-DoF fields: metrics.return`} copyable />
+There is no `--json` mode and no `--tolerance`/`--min-samples`/`--conservation-laws` flag: the output is
+a Python module, and the padding rule is fixed.
 
----
+## From Python
+
+`vt.synth` returns the same source text without touching the filesystem:
+
+<CodeBlock language="python" code={`import veritas as vt
+
+source = vt.synth(samples=[{"qty": 2, "price": 19.5}, {"qty": 5, "price": 4.25}])
+print(source)          # a complete module, ready to write to disk or exec`} copyable />
+
+<Callout variant="tip" title="What to add by hand">
+The generated module is where your intent starts. Add the parts inference cannot see — `sum(weights) == 1`,
+`derive(expected_return == dot(...))`, a quality threshold, a `pattern` on an identifier — then run
+`python -m veritas check-spec` and read the verdict before wiring it into a decode.
+</Callout>
 
 ## Limitations
 
-| Limitation | Details |
+| Limit | Why |
 | :--- | :--- |
-| Sample count | Needs at least 2 samples for bounds, 3+ for reliable conservation law detection |
-| Non-linear patterns | Can't infer quadratic forms or complex non-linear relationships |
-| Conditional constraints | Can't infer if-then-else style constraints |
-| Temporal constraints | Can't infer LTLf temporal logic patterns |
-
-<Callout variant="tip" title="Treat as Starting Point">
-
-The generated schema is a starting point, not a final product. Review it, add domain-specific constraints (like quality thresholds), and run `veritas check-spec` before using it in production.
-
-</Callout>
-
----
+| Ranges need two samples | One value is a point, not a range — and copying it would forbid every other input |
+| No conservation laws | Summing to 1.0 in three samples says nothing about sample four |
+| No derived expressions | A `derive` that is merely correlated with the data is a bug waiting to pass |
+| Flat key sets | Nested objects become `dict[str, T]`; per-key schemas inside them are not generated |
+| Not JSONL | The loader calls `json.loads` on the file, so use one JSON array |
 
 ## Next Steps
 
-- **[Proof Certificates](/docs/proofs-rl-and-cli/proof-certificates)** — SHA-256 + SMT-LIB2 verification
-- **[CLI Reference](/docs/proofs-rl-and-cli/cli-reference)** — All 6 CLI subcommands
-- **[WASM Browser API](/docs/api-reference/wasm-browser-api)** — Run synth in the browser
+- **[Pre-Flight SAT Gate](/docs/authoring-schemas/preflight-sat-gate)** — what the verdict means
+- **[CLI Reference](/docs/proofs-rl-and-cli/cli-reference)** — all six subcommands, real output
+- **[Verified Schema Decorator](/docs/authoring-schemas/verified-schema-decorator)** — the verbs `synth` cannot infer

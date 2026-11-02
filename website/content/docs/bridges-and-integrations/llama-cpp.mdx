@@ -1,60 +1,56 @@
 ---
-title: llama.cpp Integration
-description: veritas.bridges.llama_cpp — LlamaCppAdapter & from_llama_cpp.
+title: llama.cpp
+description: LlamaCppBridge, patch_llamacpp and GBNF generation — with a fail-closed grammar path.
 ---
 
-import { CodeBlock, Callout } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
-# llama.cpp Bridge
+llama.cpp hosts come in two shapes: those that accept a Python logits processor, and those that only
+accept a GBNF grammar string. The bridge handles both — and **refuses** the grammar-only path when you
+supply a spec, because a generic JSON grammar cannot enforce your constraints.
 
-The `llama.cpp` adapter integrates Veritas with llama.cpp's sampling pipeline — direct logit masking in C++.
+## API
 
----
+<KeyValueTable
+  rows={[
+    { key: 'LlamaCppBridge(model=None, spec=None, tokenizer=None)', value: 'bridge with .grammar and .logits_processor' },
+    { key: 'bridge.patch(model=None)', value: 'uses set_logits_processor, else grammar, else raises' },
+    { key: 'patch_llamacpp(model, spec=None, tokenizer=None)', value: 'one-line patch' },
+    { key: 'GBNF_JSON', value: 'generic JSON grammar constant' },
+    { key: 'generate_gbnf(spec) / generate_gbnf_from_schema(schema_or_spec)', value: 'str grammar' },
+  ]}
+/>
 
-## LlamaCppAdapter
+<CodeBlock language="python" title="grammar for the host" code={`from llama_cpp import Llama
+from veritas.bridges import LlamaCppBridge
 
-### What It Does
+model = Llama(model_path="./model.gguf", n_ctx=4096)
 
-`LlamaCppAdapter` wraps a llama.cpp model and adds Veritas token masking to its sampling pipeline. The mask is called from C++ via FFI — zero Python overhead per token.
+# No spec: a generic JSON grammar is safe to hand over
+bridge = LlamaCppBridge(model, spec=None)
+llm = Llama(model_path="./model.gguf", grammar=bridge.grammar)`} copyable />
 
-### Example
+<CodeBlock language="python" title="spec-aware host" code={`from veritas.bridges import patch_llamacpp
 
-<CodeBlock language="python" code={`from veritas.bridges.llama_cpp import LlamaCppAdapter
+# Host exposes set_logits_processor -> full spec enforcement
+patch_llamacpp(model, spec=portfolio, tokenizer=my_tokenizer)`} copyable />
 
-adapter = LlamaCppAdapter(schema=valid_portfolio)
-
-# Wrap llama.cpp model
-llm = adapter.wrap(model_path="./models/llama-3.1-8b.Q4_K_M.gguf")
-
-# Generate with Veritas masking
-result = llm.generate(
-    prompt="Create a portfolio with AAPL, MSFT, NVDA",
-    veritas_adapter=adapter,
-)`} copyable />
-
-### `from_llama_cpp`
-
-The `from_llama_cpp` factory creates a Veritas-verified model from an existing llama.cpp model path:
-
-<CodeBlock language="python" code={`from veritas.bridges.llama_cpp import from_llama_cpp
-
-# Zero code changes to your inference pipeline
-llm = from_llama_cpp(
-    model_path="./models/llama-3.1-8b.Q4_K_M.gguf",
-    schema=valid_portfolio,
-)
-
-result = llm.generate("Create a portfolio")`} copyable />
-
-<Callout variant="tip" title="C++ Performance">
-
-llama.cpp runs in C++ — the Veritas mask is called from C++ via FFI, adding zero Python overhead per token.
-
+<Callout variant="warn" title="Why the grammar path fails closed">
+A GBNF grammar describes syntax. If the host can only accept grammar, there is no way to apply interval
+contraction or zero-DoF splicing. Passing a spec in that situation raises instead of pretending the
+constraints are enforced.
 </Callout>
 
----
+## Inspecting the grammar
 
-## Next Steps
+<CodeBlock language="python" title="what a spec compiles to" code={`from veritas.bridges import generate_gbnf_from_schema
 
-- **[HuggingFace Transformers](/docs/bridges-and-integrations/huggingface-transformers)** — HF adapter
-- **[Outlines / Guidance / LMQL](/docs/bridges-and-integrations/outlines-guidance-lmql)** — grammar-based bridges
+grammar = generate_gbnf_from_schema(portfolio)
+print(grammar[:400])        # GBNF rules for the JSON shape`} copyable />
+
+## Adapter status
+
+Adapter-tested with fakes; llama.cpp Python bindings differ by build. Confirm that your host exposes
+`set_logits_processor` before promising spec enforcement, and always re-verify the returned object.
+
+Next: [Hugging Face Transformers](/docs/bridges-and-integrations/huggingface-transformers).

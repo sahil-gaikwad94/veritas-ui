@@ -1,56 +1,68 @@
 ---
-title: Async Stream Proxy
-description: Black-box SSE supervisor for OpenAI / cloud APIs.
+title: Async stream supervisor
+description: Validate provider streams as they arrive — withhold the final chunk until verification passes.
 ---
 
-import { CodeBlock } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
-# Async Stream Proxy
+Providers you cannot constrain still stream text. `AsyncStreamSupervisor` watches that stream, keeps the
+prefix grammatical, and **withholds the last chunk** until the completed document verifies — so a
+consumer never receives a complete-looking payload that is wrong.
 
-A black-box SSE supervisor that sits between your application and cloud LLM APIs (OpenAI, Anthropic, etc.) — adding Veritas verification to any streaming endpoint.
+## API
 
----
+<KeyValueTable
+  rows={[
+    { key: 'AsyncStreamSupervisor(spec=None, require_complete=True, on_violation=None)', value: 'supervisor' },
+    { key: 'await supervisor.supervise(stream)', value: 'async iterator of chunks' },
+    { key: 'await supervisor.collect(stream)', value: 'list of chunks' },
+    { key: 'StreamViolation(message, report=None, kind="grammar")', value: 'raised on failure' },
+    { key: 'abort_stream(reason="aborted by veritas")', value: 'returns a StreamViolation' },
+  ]}
+/>
 
-## Architecture
+<CodeBlock language="python" title="wrap an OpenAI-style stream" code={`import asyncio
+from veritas.bridges import AsyncStreamSupervisor, StreamViolation
 
-```
-Your App → Async Stream Proxy → Cloud LLM API
-                    ↓
-            Veritas WASM Worker
-            (0.23 ms PDA mask)
-```
-
----
-
-## Example
-
-<CodeBlock language="python" code={`from veritas.bridges.async_proxy import AsyncStreamProxy
-
-proxy = AsyncStreamProxy(
-    api_base="https://api.openai.com/v1",
-    api_key=os.environ["OPENAI_API_KEY"],
-    schema=valid_portfolio,
+supervisor = AsyncStreamSupervisor(
+    spec=portfolio,
+    require_complete=True,
+    on_violation=lambda violation: print("rejected:", violation, violation.kind),
 )
 
-async for chunk in proxy.stream(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": "Create a portfolio"}],
-    veritas_mask=True,
-):
-    # Each chunk is Veritas-verified in real time
-    print(chunk)`} copyable />
+async def consume(stream):
+    async for chunk in supervisor.supervise(stream):
+        yield chunk          # safe: grammar held, final chunk withheld
 
-### How It Works
+async def run(stream):
+    try:
+        async for chunk in consume(stream):
+            render(chunk)
+    except StreamViolation as exc:
+        # kinds: "grammar", "incomplete", "instance", "aborted"
+        await fail(exc, exc.report)`} copyable />
 
-1. Your app sends a request to the proxy
-2. Proxy forwards to the cloud LLM API
-3. As tokens stream back, Veritas WASM worker masks invalid tokens
-4. Only verified tokens reach your app
-5. Zero server cost — verification runs in the browser via WASM
+## Behaviour
 
----
+| Stage | What happens |
+| :--- | :--- |
+| Each chunk | Extract text (raw string, SSE `data:` frame, or OpenAI/Anthropic delta) and feed the PDA |
+| Invalid prefix | Raise `StreamViolation(kind="grammar")` immediately |
+| Final chunk | Held back until the document is structurally complete |
+| With a spec | Verify the completed text; raise `kind="instance"` on `FAIL` / `INCOMPLETE` |
+| Incomplete end | Raise `kind="incomplete"` when `require_complete=True` |
+| Callback | `on_violation` runs before the exception propagates; sync or async |
 
-## Next Steps
+<Callout variant="warn" title="This detects, it does not prevent">
+By the time a stream exists, the provider has already sampled the tokens. The supervisor protects your
+consumer and telemetry — it cannot mask or splice. Use a logits-processor bridge when you control the
+runtime.
+</Callout>
 
-- **[Diffusion LLMs](/docs/bridges-and-integrations/diffusion-llms)** — Diffusion model support
-- **[Proof Certificates](/docs/proofs-rl-and-cli/proof-certificates)** — SHA-256 verification
+## Adapter status
+
+Extraction for OpenAI and Anthropic delta shapes is adapter-tested with fake clients, not live traffic.
+If your provider changes its chunk schema, `_extract_text` may miss content and the supervisor will
+report an incomplete stream rather than passing it silently.
+
+Next: [Diffusion LLMs](/docs/bridges-and-integrations/diffusion-llms).

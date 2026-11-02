@@ -2,10 +2,7 @@
 title: VIR Compiler & DAG
 description: AstTranspiler, VirSpec, VirExpr, VirType, DependencyGraph — schema compilation pipeline explained.
 ---
-
 import { Callout, CodeBlock } from '@/components/mdx-components';
-
-# VIR Compiler & DAG
 
 The Veritas Intermediate Representation (VIR) compiler is the bridge between your Python `@verified_schema` code and the Rust engine. It transpiles Python AST into a structured intermediate representation that drives the entire solve pipeline.
 
@@ -39,7 +36,7 @@ It produces a `VirSpec` — a structured representation of everything Veritas ne
 
 ### Example
 
-<CodeBlock language="python" code={`from veritas._native import AstTranspiler, VirSpec
+<CodeBlock language="python" code={`from veritas import AstTranspiler, VirSpec
 
 transpiler = AstTranspiler()
 vir_spec = transpiler.transpile(valid_portfolio)
@@ -122,7 +119,7 @@ This ordering is **critical** for Zero-DoF splicing: by the time the LLM reaches
 
 ### Example
 
-<CodeBlock language="python" code={`from veritas._native import DependencyGraph, build_json_key_order
+<CodeBlock language="python" code={`from veritas import DependencyGraph, build_json_key_order
 
 graph = DependencyGraph(vir_spec)
 
@@ -190,7 +187,7 @@ Here's the complete flow from Python to Rust:
 
 ## Complete Example
 
-<CodeBlock language="python" code={`from veritas._native import AstTranspiler, DependencyGraph, build_json_key_order
+<CodeBlock language="python" code={`from veritas import AstTranspiler, DependencyGraph, build_json_key_order
 
 # Your schema
 @verified_schema
@@ -221,4 +218,4 @@ wire_json = vir_spec.to_wire_json()
 
 - **[Tier 0 — JSON PDA & Healing](/docs/engine-internals/tier0-json-pda-and-healing)** — `JSONPushdownAutomaton`, `TokenMasker`, `TokenHealer`
 - **[Tier 1 — HC4 + AF2 Contractors](/docs/engine-internals/tier1-hc4-and-affine-contractors)** — `Interval`, `AffineForm`, `Hc4AffineContractor`
-- **[Zero-DoF Jump-Forward](/docs/engine-internals/zero-dof-jump-forward)** — `ZeroDofRule`, `splice_and_step`
+- **[Zero-DoF Jump-Forward](/docs/engine-internals/zero-dof-jump-forward)** — `ZeroDofRule`, `ZeroDofEngine`

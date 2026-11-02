@@ -1,5 +1,1248 @@
-/* @import '../globals.css'; */
+@import "tailwindcss";
+@import "fumadocs-ui/css/preset.css";
 
-/* Tailwind v4 design tokens are imported via the root layout's globals.css */
+/* Fumadocs renders its layout utilities from node_modules; Tailwind skips
+   node_modules by default, which collapsed the docs sidebar to 0px. */
+@source "../../node_modules/fumadocs-ui/dist";
 
-/* Additional component-level overrides can go here */
+/* ==========================================================================
+   Veritas design system — "Luminous Cobalt & Tactile Precision"
+   Single source of truth for marketing pages and documentation.
+   ========================================================================== */
+
+@theme inline {
+  /* Surfaces — theme aware (see :root / .dark below) */
+  --color-bg-canvas: var(--vt-canvas);
+  --color-bg-elevated: var(--vt-elevated);
+  --color-bg-glass: var(--vt-glass);
+  --color-bg-subtle: var(--vt-subtle);
+  --color-bg-inset: var(--vt-inset);
+
+  /* Ink */
+  --color-ink-primary: var(--vt-ink);
+  --color-ink-secondary: var(--vt-ink-2);
+  --color-ink-muted: var(--vt-ink-3);
+
+  /* Borders */
+  --color-border-subtle: var(--vt-border);
+  --color-border-strong: var(--vt-border-strong);
+  --color-border-cobalt: var(--vt-border-cobalt);
+
+  /* Cobalt & azure spectrum */
+  --color-cobalt-50: #f2f6ff;
+  --color-cobalt-100: #dce8ff;
+  --color-cobalt-200: #bed3ff;
+  --color-cobalt-300: #8ab4ff;
+  --color-cobalt-400: #4b83ff;
+  --color-cobalt-500: #1e5eff;
+  --color-cobalt-600: #0047ff;
+  --color-cobalt-700: #0038cc;
+  --color-cobalt-800: #062a99;
+  --color-cobalt-900: #061b52;
+
+  /* Verification semantics */
+  --color-verify-pass: var(--vt-pass);
+  --color-verify-pass-bg: #d1fae5;
+  --color-verify-warn: var(--vt-warn);
+  --color-verify-warn-bg: #fef3c7;
+  --color-verify-fail: var(--vt-fail);
+  --color-verify-fail-bg: #ffe4e6;
+
+  /* Editorial accents — used sparingly, never for status */
+  --color-accent-coral: #ff5b39;
+  --color-accent-violet: #6e56ff;
+  --color-accent-acid: #d8ff3e;
+  --color-accent-sky: #7db4ff;
+
+  /* Terminal palette (used by code surfaces in both themes) */
+  --color-term-bg: #0a0d14;
+  --color-term-elevated: #101626;
+  --color-term-border: rgba(255, 255, 255, 0.1);
+
+  /* Typography */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-plus-jakarta), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Radii */
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-2xl: 36px;
+
+  /* Easing & motion */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Fumadocs */
+  --color-fd-background: var(--vt-canvas);
+  --color-fd-foreground: var(--vt-ink);
+  --color-fd-muted: var(--vt-subtle);
+  --color-fd-muted-foreground: var(--vt-ink-2);
+  --color-fd-popover: var(--vt-elevated);
+  --color-fd-popover-foreground: var(--vt-ink);
+  --color-fd-card: var(--vt-elevated);
+  --color-fd-card-foreground: var(--vt-ink);
+  --color-fd-border: var(--vt-border);
+  --color-fd-primary: #1e5eff;
+  --color-fd-primary-foreground: #ffffff;
+  --color-fd-secondary: var(--vt-subtle);
+  --color-fd-secondary-foreground: var(--vt-ink);
+  --color-fd-accent: var(--vt-subtle);
+  --color-fd-accent-foreground: var(--vt-ink);
+  --color-fd-ring: #1e5eff;
+}
+
+:root {
+  --vt-canvas: #f7f4ed;
+  --vt-elevated: #ffffff;
+  --vt-glass: rgba(255, 255, 255, 0.66);
+  --vt-subtle: #efece3;
+  --vt-inset: #f1ede4;
+  --vt-ink: #15130f;
+  --vt-ink-2: #57524a;
+  --vt-ink-3: #6b6559;
+  --vt-pass: #036b4f;
+  --vt-warn: #b45309;
+  --vt-fail: #be123c;
+  --vt-border: rgba(21, 19, 15, 0.1);
+  --vt-border-strong: rgba(21, 19, 15, 0.18);
+  --vt-border-cobalt: rgba(30, 94, 255, 0.28);
+  --vt-grid: rgba(18, 20, 26, 0.055);
+  --vt-glow-1: rgba(0, 71, 255, 0.18);
+  --vt-glow-2: rgba(75, 131, 255, 0.22);
+  --vt-nav-bg: rgba(247, 244, 237, 0.78);
+  --vt-shadow-card: 0 1px 2px rgba(21, 19, 15, 0.04), 0 18px 44px -28px rgba(21, 19, 15, 0.28);
+  --vt-shadow-lift: 0 2px 6px rgba(21, 19, 15, 0.05), 0 34px 70px -34px rgba(21, 19, 15, 0.35);
+  --vt-shadow-cobalt: 0 18px 40px -18px rgba(20, 78, 255, 0.55);
+  color-scheme: light;
+}
+
+.dark {
+  --vt-canvas: #080a10;
+  --vt-elevated: #0e1119;
+  --vt-glass: rgba(14, 17, 25, 0.68);
+  --vt-subtle: #12151f;
+  --vt-inset: #0b0d14;
+  --vt-ink: #f4f7fc;
+  --vt-ink-2: #a4b0c6;
+  --vt-ink-3: #7d8aa3;
+  --vt-pass: #34d399;
+  --vt-warn: #fbbf24;
+  --vt-fail: #fb7185;
+  --vt-border: rgba(255, 255, 255, 0.09);
+  --vt-border-strong: rgba(255, 255, 255, 0.16);
+  --vt-border-cobalt: rgba(96, 148, 255, 0.36);
+  --vt-grid: rgba(255, 255, 255, 0.05);
+  --vt-glow-1: rgba(0, 71, 255, 0.3);
+  --vt-glow-2: rgba(75, 131, 255, 0.18);
+  --vt-nav-bg: rgba(8, 10, 16, 0.76);
+  --vt-shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 18px 40px -24px rgba(0, 0, 0, 0.8);
+  --vt-shadow-lift: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 32px 60px -28px rgba(0, 0, 0, 0.9);
+  --vt-shadow-cobalt: 0 18px 50px -20px rgba(30, 94, 255, 0.7);
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    border-color: var(--vt-border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 6rem;
+    -webkit-text-size-adjust: 100%;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    @apply bg-bg-canvas text-ink-primary antialiased;
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background: #1e5eff;
+    color: #fff;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  :focus-visible {
+    outline: 2px solid #1e5eff;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(30, 94, 255, 0.24);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(30, 94, 255, 0.45);
+    background-clip: padding-box;
+  }
+}
+
+/* ==========================================================================
+   Layout primitives
+   ========================================================================== */
+
+@utility container-page {
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+  @media (min-width: 640px) {
+    padding-inline: 2rem;
+  }
+  @media (min-width: 1024px) {
+    padding-inline: 2.5rem;
+  }
+}
+
+@utility section-y {
+  padding-block: 4rem;
+  @media (min-width: 768px) {
+    padding-block: 6.5rem;
+  }
+}
+
+@utility eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--vt-ink-3);
+}
+
+@utility display-xl {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.042em;
+  line-height: 0.98;
+  font-size: clamp(2.5rem, 7.4vw, 5.1rem);
+}
+
+@utility display-lg {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.034em;
+  line-height: 1.02;
+  font-size: clamp(2rem, 4.6vw, 3.15rem);
+}
+
+@utility display-md {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.022em;
+  line-height: 1.2;
+  font-size: clamp(1.25rem, 2.2vw, 1.5rem);
+}
+
+@utility text-gradient {
+  background: linear-gradient(103deg, #0038cc 0%, #1e5eff 42%, #6aa2ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.dark .text-gradient {
+  background: linear-gradient(103deg, #9dc0ff 0%, #5f95ff 45%, #d8e6ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+@utility text-muted {
+  color: var(--vt-ink-2);
+}
+
+@utility hairline {
+  border-top: 1px solid var(--vt-border);
+}
+
+/* ==========================================================================
+   Surfaces, glass & glow
+   ========================================================================== */
+
+@utility card-surface {
+  background: var(--vt-elevated);
+  border: 1px solid var(--vt-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--vt-shadow-card);
+}
+
+@utility glass-panel {
+  background: var(--vt-glass);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border: 1px solid var(--vt-border);
+}
+
+@utility inner-highlight {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.dark .inner-highlight {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+@utility grid-bg {
+  background-image: linear-gradient(to right, var(--vt-grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--vt-grid) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+@utility dot-bg {
+  background-image: radial-gradient(var(--vt-grid) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+@utility mask-fade-y {
+  mask-image: linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent);
+}
+
+@utility mask-fade-x {
+  mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+}
+
+/* Tactile cobalt squircle */
+@utility cobalt-squircle {
+  border-radius: 24px;
+  background: linear-gradient(145deg, #3b76ff 0%, #1146e8 62%, #0a34b8 100%);
+  box-shadow: 0 24px 44px -16px rgba(20, 78, 255, 0.5), 0 4px 12px -2px rgba(20, 78, 255, 0.25),
+    inset 0 2px 3px rgba(255, 255, 255, 0.5), inset 0 -4px 8px rgba(4, 18, 74, 0.4);
+}
+
+/* Fluted / ribbed glass (CRUNCHY inspired) */
+.veritas-fluted-glass {
+  position: relative;
+  overflow: hidden;
+  border-radius: 34px;
+  background:
+    radial-gradient(120% 100% at 78% 34%, #0047ff 0%, #1e5eff 34%, #7db4ff 62%, #f7f4ed 92%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.dark .veritas-fluted-glass {
+  background: radial-gradient(circle at 68% 46%, #0b2ea8 0%, #0b3fe0 30%, #3f79e8 58%, #070a12 88%);
+}
+
+/* Horizontal scroll without ugly bars */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@utility snap-row {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ==========================================================================
+   Motion
+   ========================================================================== */
+
+@keyframes vt-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
+}
+
+@keyframes vt-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes vt-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(5, 150, 105, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0);
+  }
+}
+
+@keyframes vt-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes vt-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes vt-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes vt-dash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+@utility animate-float {
+  animation: vt-float 7s var(--ease-smooth) infinite;
+}
+
+@utility animate-marquee {
+  animation: vt-marquee 38s linear infinite;
+}
+
+@utility animate-pulse-ring {
+  animation: vt-pulse-ring 2.4s var(--ease-smooth) infinite;
+}
+
+@utility animate-blink {
+  animation: vt-blink 1.1s step-end infinite;
+}
+
+@utility animate-orbit {
+  animation: vt-orbit 26s linear infinite;
+}
+
+@utility animate-dash {
+  stroke-dasharray: 4 4;
+  animation: vt-dash 1.4s linear infinite;
+}
+
+@utility shimmer-text {
+  background: linear-gradient(90deg, var(--vt-ink-3) 20%, var(--vt-ink) 50%, var(--vt-ink-3) 80%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: vt-shimmer 3.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ==========================================================================
+   Documentation prose polish
+   ========================================================================== */
+
+.prose :where(code):not(:where(pre code)) {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  padding: 0.16em 0.38em;
+  border-radius: 5px;
+  background: var(--vt-subtle);
+  border: 1px solid var(--vt-border);
+  white-space: nowrap;
+}
+
+.prose :where(pre) {
+  border-radius: var(--radius-md);
+}
+
+.prose :where(table) {
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .prose :where(table) {
+    display: table;
+    white-space: normal;
+  }
+}
+
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.35rem 0;
+}
+
+.katex {
+  font-size: 1.02em;
+}
+
+/* Fumadocs sidebar + navbar tuning */
+#nd-sidebar {
+  --color-fd-muted: var(--vt-subtle);
+}
+
+#nd-nav {
+  backdrop-filter: blur(16px) saturate(150%);
+}
+
+/* Prevent long inline code from breaking mobile layouts */
+.prose :where(p, li) code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+@keyframes accordion-down {
+  from { height: 0; }
+  to { height: var(--radix-accordion-content-height); }
+}
+
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to { height: 0; }
+}
+
+/* ==========================================================================
+   Editorial layer — warm paper, aurora light, glass islands
+   Inspired by studio site design: soft colour fields, thick white cards,
+   oversized type, and one or two loud moments.
+   ========================================================================== */
+
+.aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.aurora::before,
+.aurora::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(70px);
+  opacity: 0.75;
+  will-change: transform;
+}
+
+.aurora::before {
+  width: min(760px, 92vw);
+  height: min(760px, 92vw);
+  top: -22rem;
+  left: 50%;
+  transform: translateX(-58%);
+  background:
+    radial-gradient(circle at 32% 42%, rgba(0, 71, 255, 0.55), transparent 62%),
+    radial-gradient(circle at 68% 62%, rgba(255, 91, 57, 0.3), transparent 60%);
+  animation: aurora-drift 26s var(--ease-smooth) infinite alternate;
+}
+
+.aurora::after {
+  width: min(520px, 80vw);
+  height: min(520px, 80vw);
+  top: 6rem;
+  right: -14rem;
+  background:
+    radial-gradient(circle at 40% 40%, rgba(110, 86, 255, 0.34), transparent 64%),
+    radial-gradient(circle at 70% 70%, rgba(125, 180, 255, 0.36), transparent 62%);
+  animation: aurora-drift 32s var(--ease-smooth) infinite alternate-reverse;
+}
+
+.dark .aurora::before {
+  opacity: 0.55;
+  background:
+    radial-gradient(circle at 32% 42%, rgba(30, 94, 255, 0.55), transparent 62%),
+    radial-gradient(circle at 68% 62%, rgba(255, 91, 57, 0.22), transparent 60%);
+}
+
+.dark .aurora::after {
+  opacity: 0.45;
+}
+
+@keyframes aurora-drift {
+  0% { translate: -3% 0; scale: 1; }
+  50% { translate: 4% 3%; scale: 1.08; }
+  100% { translate: -2% -2%; scale: 1.02; }
+}
+
+/* A single soft light behind a section headline */
+.aurora-soft {
+  position: absolute;
+  left: 50%;
+  top: -12rem;
+  width: min(900px, 110vw);
+  height: 460px;
+  transform: translateX(-50%);
+  background:
+    radial-gradient(ellipse at 40% 40%, rgba(0, 71, 255, 0.16), transparent 62%),
+    radial-gradient(ellipse at 66% 58%, rgba(255, 91, 57, 0.12), transparent 64%);
+  filter: blur(28px);
+  pointer-events: none;
+}
+
+.dark .aurora-soft {
+  background:
+    radial-gradient(ellipse at 40% 40%, rgba(30, 94, 255, 0.28), transparent 62%),
+    radial-gradient(ellipse at 66% 58%, rgba(255, 91, 57, 0.14), transparent 64%);
+}
+
+/* Thick, quiet card: the workhorse of the references */
+@utility card-luxe {
+  position: relative;
+  border-radius: 28px;
+  border: 1px solid rgba(21, 19, 15, 0.08);
+  background: var(--vt-elevated);
+  box-shadow:
+    0 1px 2px rgba(21, 19, 15, 0.03),
+    0 24px 60px -36px rgba(21, 19, 15, 0.3);
+}
+
+.dark .card-luxe {
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 24px 60px -36px rgba(0, 0, 0, 0.9);
+}
+
+/* Glass island — dark floating surface (Mizu command bar, terminal) */
+@utility glass-island {
+  background: linear-gradient(160deg, rgba(20, 22, 28, 0.96), rgba(8, 10, 16, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 40px 90px -44px rgba(8, 10, 16, 0.75);
+  backdrop-filter: blur(18px) saturate(130%);
+}
+
+/* Fluted glass louvers (Crunchy) */
+.veritas-fluted-louvers {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.34) 0px,
+    rgba(255, 255, 255, 0.06) 16px,
+    rgba(6, 27, 82, 0.18) 58px,
+    rgba(255, 255, 255, 0.4) 76px
+  );
+  mix-blend-mode: screen;
+  opacity: 0.85;
+}
+
+.veritas-fluted-louvers::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 45%, rgba(3, 15, 46, 0.22));
+}
+
+/* Pixel-stepped gradient (Tribe Capital) — used for one loud card, not everywhere */
+.pixel-field {
+  position: relative;
+  overflow: hidden;
+  background-color: #ff7a3d;
+  background-image:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.16) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.12) 1px, transparent 1px),
+    linear-gradient(135deg, #ff4d2e 0%, #ff9a3c 34%, #f3c8ff 62%, #8d6bff 100%);
+  background-size: 34px 34px, 34px 34px, 100% 100%;
+}
+
+.pixel-field::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  backdrop-filter: saturate(140%);
+  background: radial-gradient(90% 90% at 80% 20%, rgba(255, 255, 255, 0.42), transparent 58%);
+  mix-blend-mode: soft-light;
+}
+
+/* Sticker / annotation */
+@utility sticker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid var(--vt-border-strong);
+  background: var(--vt-elevated);
+  transform: rotate(-2deg);
+  box-shadow: 0 2px 0 rgba(21, 19, 15, 0.08);
+}
+
+/* Underline that draws itself */
+@utility link-draw {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.link-draw::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 320ms var(--ease-out-expo);
+}
+
+.link-draw:hover::after {
+  transform: scaleX(1);
+}
+
+/* Hover lift with a warm shadow */
+@utility lift {
+  transition:
+    transform 420ms var(--ease-spring),
+    box-shadow 420ms var(--ease-spring),
+    border-color 220ms ease;
+}
+
+.lift:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 2px 6px rgba(21, 19, 15, 0.04),
+    0 30px 60px -32px rgba(21, 19, 15, 0.32);
+}
+
+/* Grain overlay — subtle, and disabled for reduced motion / low power */
+.grain::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 220 220' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+.dark .grain::before {
+  opacity: 0.06;
+  mix-blend-mode: screen;
+}
+
+/* Rotated ticker band */
+@utility ticker-band {
+  display: flex;
+  width: max-content;
+  animation: vt-marquee 44s linear infinite;
+}
+
+/* ==========================================================================
+   Docs reading experience
+   ========================================================================== */
+
+#nd-page {
+  --fd-page-width: 900px;
+}
+
+#nd-page h1 {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+  font-size: clamp(2rem, 4.4vw, 2.9rem);
+  text-wrap: balance;
+}
+
+#nd-page h1::after {
+  content: "";
+  display: block;
+  width: 44px;
+  height: 3px;
+  margin-top: 14px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #0047ff 0%, #6e56ff 58%, #ff5b39 100%);
+}
+
+#nd-page > p:first-of-type {
+  max-width: 62ch;
+  color: var(--vt-ink-2);
+  text-wrap: pretty;
+}
+
+#nd-page [data-description] {
+  text-wrap: pretty;
+}
+
+.prose :where(:not(pre) > code) {
+  padding: 0.14em 0.38em;
+  border-radius: 6px;
+  border: 1px solid var(--vt-border);
+  background: var(--vt-subtle);
+  font-size: 0.88em;
+  font-weight: 500;
+}
+
+.prose {
+  --tw-prose-body: var(--vt-ink-2);
+  --tw-prose-headings: var(--vt-ink);
+  --tw-prose-links: #0038cc;
+  --tw-prose-bold: var(--vt-ink);
+  --tw-prose-counters: var(--vt-ink-3);
+  --tw-prose-bullets: rgba(0, 56, 204, 0.4);
+  --tw-prose-hr: var(--vt-border);
+  --tw-prose-quotes: var(--vt-ink-2);
+  --tw-prose-quote-borders: rgba(0, 71, 255, 0.3);
+  font-size: 0.975rem;
+  line-height: 1.75;
+}
+
+.dark .prose {
+  --tw-prose-links: #8ab4ff;
+}
+
+.prose :where(h2) {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.028em;
+  line-height: 1.12;
+  margin-top: 2.6em;
+  margin-bottom: 0.7em;
+  font-size: clamp(1.45rem, 2.6vw, 1.8rem);
+}
+
+.prose :where(h3) {
+  font-family: var(--font-display);
+  font-weight: 750;
+  letter-spacing: -0.018em;
+  margin-top: 2em;
+  margin-bottom: 0.5em;
+  font-size: 1.18rem;
+}
+
+.prose :where(h2, h3) > a {
+  text-decoration: none;
+}
+
+.prose :where(p, li) {
+  color: var(--vt-ink-2);
+}
+
+.prose :where(strong) {
+  color: var(--vt-ink);
+  font-weight: 650;
+}
+
+.prose :where(a):not(:where(.not-prose *)) {
+  text-decoration-color: rgba(0, 56, 204, 0.28);
+  text-underline-offset: 3px;
+  font-weight: 500;
+}
+
+.prose :where(a):hover {
+  text-decoration-color: currentColor;
+}
+
+.prose :where(blockquote) {
+  border-radius: 0 14px 14px 0;
+  background: linear-gradient(90deg, rgba(0, 71, 255, 0.06), transparent 70%);
+  padding: 0.35rem 1rem;
+  font-style: normal;
+}
+
+.prose :where(table) {
+  font-size: 0.88rem;
+  border-radius: 14px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  border: 1px solid var(--vt-border);
+}
+
+.prose :where(thead) {
+  background: var(--vt-subtle);
+}
+
+.prose :where(th) {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--vt-ink-3);
+}
+
+.prose :where(td, th) {
+  border-color: var(--vt-border) !important;
+}
+
+.prose :where(hr) {
+  margin-block: 3rem;
+}
+
+@media (max-width: 640px) {
+  .prose {
+    font-size: 0.94rem;
+    line-height: 1.7;
+  }
+  .prose :where(table) {
+    font-size: 0.82rem;
+  }
+  #nd-page h1 {
+    font-size: 1.9rem;
+  }
+}
+
+/* Konami-egg token fall (decorative only) */
+@keyframes vt-fall {
+  0% {
+    transform: translate3d(0, -8vh, 0) rotate(-6deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate3d(0, 112vh, 0) rotate(8deg);
+    opacity: 0;
+  }
+}
+
+/* Verification animation */
+@keyframes vt-scan {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(820px);
+    opacity: 0;
+  }
+}
+
+@keyframes vt-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ==========================================================================
+   Docs cover + reading sheet (orange poster, warm paper)
+   ========================================================================== */
+
+.doc-hero {
+  position: relative;
+  background:
+    radial-gradient(120% 150% at 88% 4%, rgba(255, 255, 255, 0.6), transparent 52%),
+    radial-gradient(80% 100% at 2% 100%, rgba(110, 86, 255, 0.28), transparent 58%),
+    linear-gradient(126deg, #ff5b39 0%, #ff7a3d 36%, #ffae6d 70%, #ffdcb4 100%);
+}
+
+.doc-hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.26) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.2) 1px, transparent 1px);
+  background-size: 44px 44px;
+  opacity: 0.55;
+  -webkit-mask-image: radial-gradient(130% 130% at 90% 0%, #000 0%, transparent 70%);
+  mask-image: radial-gradient(130% 130% at 90% 0%, #000 0%, transparent 70%);
+}
+
+.doc-hero-flutes {
+  position: absolute;
+  inset-block: -12%;
+  inset-inline-end: -3%;
+  width: 44%;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.34) 0 7px,
+    rgba(255, 255, 255, 0.03) 7px 19px,
+    rgba(255, 255, 255, 0.22) 19px 25px,
+    rgba(255, 255, 255, 0) 25px 52px
+  );
+  opacity: 0.6;
+  transform: skewX(-8deg);
+  -webkit-mask-image: linear-gradient(to left, #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 88%);
+  mask-image: linear-gradient(to left, #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 88%);
+}
+
+.doc-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.36rem 0.62rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.38);
+  backdrop-filter: blur(10px);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #34150a;
+}
+
+.doc-meta-chip:hover {
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.docs-sheet {
+  border-radius: 28px;
+  border: 1px solid var(--vt-border);
+  background: var(--vt-elevated);
+  box-shadow: var(--vt-shadow-card);
+  padding: clamp(1.15rem, 3.4vw, 2.6rem);
+}
+
+.docs-sheet > .prose {
+  max-width: none;
+}
+
+.docs-sheet .prose > :first-child {
+  margin-top: 0;
+}
+
+#nd-page .docs-sheet .prose :where(h2)::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.24em;
+  bottom: 0.18em;
+  width: 4px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #ff5b39 0%, #ffb072 100%);
+}
+
+#nd-page .docs-sheet .prose :where(h2) {
+  position: relative;
+  padding-left: 16px;
+}
+
+#nd-page .docs-sheet .prose :where(h2):first-child {
+  margin-top: 0;
+}
+
+/* Shiki fences: one dark, tactile surface in both themes */
+#nd-page .prose pre.shiki {
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: #0a0d14 !important;
+  box-shadow: 0 26px 48px -34px rgba(6, 27, 82, 0.6);
+  padding: 1rem 1.15rem;
+  font-size: 0.8rem;
+  line-height: 1.8;
+}
+
+#nd-page .prose pre.shiki code {
+  display: grid;
+  background: transparent !important;
+}
+
+#nd-page .prose pre.shiki .line {
+  display: block;
+  min-height: 1.2em;
+}
+
+#nd-page .prose pre.shiki span {
+  color: var(--shiki-dark, #e6edf3) !important;
+}
+
+#nd-page .prose figure:has(pre.shiki) {
+  margin-block: 1.35rem;
+}
+
+/* Right rail: table of contents */
+#nd-toc h3 {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--vt-ink-3);
+}
+
+#nd-toc a {
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+#nd-toc a[data-active='true'] {
+  color: #0047ff;
+  font-weight: 600;
+}
+
+#nd-toc a[data-active='true'] > div {
+  background: linear-gradient(180deg, #ff5b39, #ffb072);
+  width: 2px;
+}
+
+/* Prev / next cards */
+#nd-page article .grid.grid-cols-2 > a[href^='/docs'] {
+  border-radius: 20px;
+  border-color: var(--vt-border);
+  background: var(--vt-elevated);
+  padding: 1rem 1.15rem;
+  box-shadow: var(--vt-shadow-card);
+  transition:
+    transform 320ms var(--ease-spring),
+    border-color 220ms ease,
+    box-shadow 320ms var(--ease-spring);
+}
+
+#nd-page article .grid.grid-cols-2 > a[href^='/docs']:hover {
+  transform: translateY(-2px);
+  border-color: var(--vt-border-cobalt);
+  background: var(--vt-elevated);
+  box-shadow: var(--vt-shadow-lift);
+}
+
+@media (max-width: 640px) {
+  .docs-sheet {
+    border-radius: 22px;
+    padding: 1.1rem;
+  }
+
+  .doc-hero {
+    border-radius: 24px;
+  }
+
+  .doc-meta-chip {
+    font-size: 9px;
+    padding: 0.32rem 0.55rem;
+  }
+}
+
+/* Give the reading column room on laptops: the right rail returns at 1400px,
+   where there is space for both it and a comfortable code line length. */
+@media (max-width: 1399px) {
+  #nd-toc {
+    display: none;
+  }
+
+  #nd-tocnav {
+    display: flex;
+  }
+
+  #nd-page article {
+    max-width: 940px;
+  }
+}
+
+#nd-page article {
+  max-width: 940px;
+}
+
+#nd-tocnav {
+  background: color-mix(in srgb, var(--vt-canvas) 88%, transparent);
+  border-color: var(--vt-border);
+}
+
+#nd-tocnav button {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--vt-ink-3);
+}
+
+#nd-page div.grid.grid-cols-2.pb-6 > a {
+  min-height: 84px;
+}
+
+/* Sidebar active state: cobalt at 14px needs one more step of contrast */
+#nd-sidebar a[data-active='true'] {
+  color: #0038cc;
+}
+
+.dark #nd-sidebar a[data-active='true'] {
+  color: #9cc0ff;
+}
+
+/* Keep Shiki comments readable on the dark code surface */
+#nd-page .prose pre.shiki span[style*='--shiki-dark:#6A737D'],
+#nd-page .prose pre.shiki span[style*='--shiki-dark: #6A737D'],
+#nd-page .prose pre.shiki span[style*='--shiki-dark:#6a737d'],
+#nd-page .prose pre.shiki span[style*='--shiki-dark: #6a737d'] {
+  color: #9aa6b8 !important;
+}
+
+.hero-glass-edge {
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.34) 0px,
+    rgba(255, 255, 255, 0.04) 10px,
+    rgba(3, 15, 46, 0.3) 46px,
+    rgba(255, 255, 255, 0.45) 58px
+  );
+  mix-blend-mode: overlay;
+  opacity: 0.75;
+}

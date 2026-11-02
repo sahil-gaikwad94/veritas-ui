@@ -1,11 +1,8 @@
 ---
 title: Tier 0 — JSON PDA & Healing
-description: JSONPushdownAutomaton, TokenMasker, IncrementalJSONParser, TokenHealer — byte-level token masking during generation.
+description: JSONPushdownAutomaton, TokenMasker and TokenHealer — exact byte-level token masking during generation.
 ---
-
 import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
-
-# Tier 0 — JSON PDA & Healing
 
 Tier 0 is the outermost ring of Veritas's three-tier solver horizon. It's a **JSON Pushdown Automaton (PDA)** — a state machine that tracks JSON grammar structure as tokens are generated, ensuring the output is always syntactically valid JSON.
 
@@ -44,47 +41,47 @@ The PDA ensures the LLM can never produce invalid JSON syntax — every token it
 
 ---
 
-## `PdaHandle`
+## `JSONPushdownAutomaton`
 
-The `PdaHandle` is the main interface to the PDA. It's created once per decode and fed tokens one at a time.
+The automaton is the main interface. Construct one per decode, feed decoded token text, and ask for
+structure at any point. It is deterministic, cloneable and has no model dependency.
 
-### API Reference
+### API
 
-| Method | Signature | Description |
+| Member | Signature | Description |
 | :--- | :--- | :--- |
-| `new(seed)` | `(str) → PdaHandle` | Create a new PDA with initial seed text |
-| `push(token)` | `(str) → bool` | Feed a token into the PDA; returns False if token is invalid |
-| `is_alive()` | `() → bool` | PDA is still in a valid state |
-| `is_complete()` | `() → bool` | JSON document is syntactically complete |
-| `accepts(token)` | `(str) → bool` | Check if a token is valid without pushing it |
-| `depth()` | `() → int` | Current stack nesting depth |
-| `last_event()` | `() → str` | Description of the last PDA transition |
-| `candidates()` | `() → List[str]` | Top candidate next tokens (for UI) |
-| `mask()` | `() → Float32Array` | Full logit mask (0.0 = valid, -inf = invalid) |
-| `clone_handle()` | `() → PdaHandle` | Deep copy for speculative decoding |
+| `feed(text)` | `(str) -> bool` | Advance the machine; `False` on a syntax error |
+| `step(ch)` | `(str) -> bool` | Advance by one character |
+| `depth` | `int` (property) | Current nesting depth |
+| `state` | `str` | Current grammar state |
+| `stack` | `list[dict]` | Container stack with key roles |
+| `accepts()` | `() -> bool` | Prefix can still be completed |
+| `finish()` | `() -> bool` | Close pending numbers/literals, then check completeness |
+| `clone()` | `() -> JSONPushdownAutomaton` | Copy for speculative decoding |
+| `error` | `str | None` | First syntax error, if any |
 
-### Example Usage
+### Example
 
-<CodeBlock language="python" code={`from veritas._native import PdaHandle
+<CodeBlock language="python" title="feed a prefix and inspect the state" code={`from veritas import JSONPushdownAutomaton
 
-# Create PDA starting with an open brace
-handle = PdaHandle.new('{')
+machine = JSONPushdownAutomaton()
 
-# Feed tokens one at a time as the LLM generates them
-tokens = ['\"', 'w', 'e', 'i', 'g', 'h', 't', 's', '\"', ':']
-for token in tokens:
-    if not handle.push(token):
-        print(f\"Rejected token: {token}\")
-        break
+for chunk in ['{', '"weights"', ':', '{"AAPL": 0.4']:
+    if not machine.feed(chunk):
+        raise ValueError(machine.error)
 
-# Check state
-print(handle.depth())        # 1 — one level of nesting
-print(handle.is_alive())     # True — still valid
-print(handle.accepts('\"'))  # True — can start a string value
-print(handle.accepts('}'))   # False — can't close object without a value
+print(machine.depth)          # 2
+print(machine.state)          # inside an object, expecting a value
+print(machine.accepts())      # True — the prefix is still extendable
+print(machine.current_key_role())
 
-# Get the logit mask for the LLM
-mask = handle.mask()  # Float32Array: valid tokens = 0.0, invalid = -inf`} copyable />
+closed = machine.clone()
+assert closed.feed('}') and closed.feed('}')
+assert closed.accepts()
+
+bad = JSONPushdownAutomaton()
+assert not bad.feed('}')      # closing without opening
+print(bad.error)`} copyable />
 
 ---
 
@@ -110,70 +107,49 @@ The `TokenMasker` converts the PDA's valid-token set into a logit mask tensor th
 
 ---
 
-## `IncrementalJSONParser`
+## Incremental prefix status
 
-### What It Does
+For streaming you do not need a second parser. `veritas.native.prefix_status` classifies the prefix with
+the same automaton (native when available, Python otherwise) and returns a string, not a dict.
 
-Parses the token stream incrementally, maintaining PDA stack depth and detecting when JSON objects/arrays are complete. Used for streaming output — you can know when a complete JSON document has been generated without waiting for the entire stream.
+<CodeBlock language="python" title="know when the document is complete" code={`import veritas.native as native
 
-### Example
+buffer = ""
+for chunk in token_stream:
+    buffer += chunk
+    status = native.prefix_status(buffer)     # 'incomplete' | 'complete' | 'invalid'
+    if status == "invalid":
+        abort(buffer)
+    if status == "complete":
+        emit(buffer)
+        break`} copyable />
 
-<CodeBlock language="python" code={`from veritas._native import IncrementalJSONParser
-
-parser = IncrementalJSONParser()
-
-for token in token_stream:
-    parser.feed(token)
-    if parser.is_complete():
-        print(\"Complete JSON document generated!\")
-        break
-    print(f\"Depth: {parser.depth()}, Complete: {parser.is_complete()}\")`} copyable />
+`native.canonical_document(text)` returns a canonical rendering for a complete document, or `None` when
+the text is not valid JSON.
 
 ---
 
 ## `TokenHealer`
 
-### The Problem: BPE Token Boundaries
+BPE splits text in places JSON does not care about: `0.25` may tokenize as `["0.2", "5"]`. `TokenHealer`
+finds the minimal KV-cache backup that lets a spliced string tokenize exactly, and reports whether it
+succeeded instead of pretending.
 
-LLMs use subword tokenization (BPE, WordPiece, etc.). A number like `0.47` might be split into tokens `["0.", "47"]` or `["0", ".", "47"]`. The PDA sees each token individually and might not recognize `0.47` as a complete number.
+<CodeBlock language="python" title="a splice across a token boundary" code={`from veritas import TokenHealer
 
-### The Solution: TokenHealer
+healer = TokenHealer()          # ByteTokenizer by default
+prefill = healer.heal('{"w', 'eight": 0.25}', max_backup=4)
 
-`TokenHealer` repairs token boundaries mid-number so that numeric prefix contraction continues correctly across token splits.
+print(prefill.backup_tokens)    # tokens to rewind from the KV cache
+print(prefill.new_token_ids)    # ids to append after the rewind
+print(prefill.exact)            # True only when the boundary was reproduced exactly
+print(prefill.healed_text)      # full text after healing
 
-### Example
+# exact=True  -> the tokenizer agrees end to end
+# exact=False -> text-level splice only; never claim exact healing`} copyable />
 
-<CodeBlock language="python" code={`from veritas._native import TokenHealer
-
-# BPE splits "0.25" into ["0.2", "5"]
-healed = TokenHealer.heal_boundary("0.2", "5")
-# Result: "0.25" — the PDA sees the complete number
-
-# Without healing, the PDA would see:
-# Token "0.2" → interval [0.2, 0.3]
-# Token "5" → invalid continuation (would be masked)
-# With healing, the PDA sees:
-# Token "0.25" → interval [0.25, 0.25] (precise!)`} copyable />
-
----
-
-## PDA Handle API Summary
-
-<Callout variant="info" title="Quick Reference">
-
-```python
-handle = PdaHandle.new("{")
-handle.push('"')           # Push a token
-handle.is_alive()          # True/False
-handle.is_complete()       # True/False
-handle.accepts(token)      # Check without pushing
-handle.depth()             # Current nesting depth
-handle.last_event()        # Last transition description
-handle.candidates()        # Top candidate tokens
-handle.mask()              # Float32Array logit mask
-handle.clone_handle()      # Deep copy
-```
-</Callout>
+Splicing is only sound when `exact` is true. Otherwise the engine writes text and re-tokenizes, which
+costs a forward pass but keeps the stream consistent.
 
 ---
 

@@ -1,135 +1,107 @@
 ---
-title: Quantitative Finance
-description: veritas.cartridges.quant — portfolio simplex, Cholesky covariance, Black-Scholes, VaR.
+title: Quantitative finance
+description: veritas.cartridges.quant — simplex checks, covariance math, portfolio statistics, option bounds and accounting identities.
 ---
 
-import { CodeBlock, Callout } from '@/components/mdx-components';
+import { Callout, CodeBlock, KeyValueTable, StatGrid, Stat } from '@/components/mdx-components';
 
-# Quantitative Finance Cartridge
+The `quant` cartridge is a dependency-free reference implementation of the portfolio mathematics an
+LLM most often gets wrong. Every function takes concrete values and returns a number, a bool or a
+dataclass — nothing is deferred.
 
-The `quant` cartridge provides financial modeling constraints: portfolio simplex, Cholesky-decomposed covariance, Black-Scholes option pricing, and Value-at-Risk.
+<StatGrid>
+  <Stat value="wᵀΣw" label="Quadratic form" />
+  <Stat value="PSD" label="Covariance test" />
+  <Stat value="BS" label="Call / put pricing" />
+  <Stat value="GAAP" label="Balance identities" />
+</StatGrid>
 
----
+## Import surface
 
-## Installation
+<CodeBlock language="python" title="the functions you will actually use" code={`from veritas.cartridges.quant import (
+    portfolio_weights_valid, concentration_ok, long_only_ok,
+    expected_return, quad_form, portfolio_stats, sharpe_ratio,
+    covariance_matrix, cholesky, is_positive_semidefinite,
+    black_scholes_call, black_scholes_put, implied_volatility, no_arbitrage_bounds,
+    gaap_balance, cash_flow_reconciles, double_entry_balanced,
+)`} copyable />
 
-<CodeBlock language="bash" code={`pip install 'veritas-ai[cas]'`} copyable />
+<KeyValueTable
+  rows={[
+    { key: 'portfolio_weights_valid(weights, allowed=None, lo=0.05, hi=0.50, total=1.0, tol=1e-6)', value: 'bool' },
+    { key: 'concentration_ok(weights, max_weight, tol=1e-9)', value: 'bool' },
+    { key: 'long_only_ok(weights, tol=1e-12)', value: 'bool' },
+    { key: 'quad_form(weights, cov)', value: 'float — wᵀΣw with symmetrisation' },
+    { key: 'portfolio_stats(weights, returns, cov, risk_free=0.04)', value: 'PortfolioStats' },
+    { key: 'is_positive_semidefinite(matrix, tol=1e-9)', value: 'bool — singular PSD is accepted' },
+    { key: 'black_scholes_call/put(S, K, r, sigma, T)', value: 'float' },
+    { key: 'implied_volatility(price, S, K, r, T, is_call=True)', value: 'float | None' },
+    { key: 'no_arbitrage_bounds(price, S, K, r, T, is_call=True)', value: 'bool' },
+    { key: 'gaap_balance(assets, liabilities, equity, tol=1e-6)', value: 'bool' },
+  ]}
+/>
 
-The `[cas]` extra installs `sympy>=1.12` and `numpy>=1.26` for symbolic canonicalization and Cholesky matrix operations.
+## Check a portfolio
 
----
+<CodeBlock language="python" title="weights, risk and Sharpe from one call" code={`from veritas.cartridges.quant import (
+    portfolio_weights_valid, portfolio_stats, concentration_ok, is_positive_semidefinite,
+    covariance_matrix,
+)
 
-## Core Constraints
-
-### Portfolio Simplex
-
-Ensures weights sum to 1.0 with each weight in [0, 1]:
-
-<CodeBlock language="python" code={`from veritas.cartridges.quant import simplex
-
-require(simplex(p.weights))
-# Equivalent to:
-# require(sum(p.weights.values()) == 1.0, tol=1e-6)
-# require(forall(p.weights.values(), lambda w: (0.0 <= w) & (w <= 1.0)))`} copyable />
-
-### Quadratic Form (Portfolio Variance)
-
-Computes $w^T \Sigma w$ via Cholesky-decomposed affine forms:
-
-<CodeBlock language="python" code={`from veritas.cartridges.quant import quad_form
-
+RETURNS = {"AAPL": 0.14, "MSFT": 0.13, "NVDA": 0.24}
 COV = {
-    "AAPL": {"AAPL": 0.04, "MSFT": 0.01, "NVDA": 0.02},
-    "MSFT": {"AAPL": 0.01, "MSFT": 0.03, "NVDA": 0.015},
-    "NVDA": {"AAPL": 0.02, "MSFT": 0.015, "NVDA": 0.06},
+    ("AAPL", "AAPL"): 0.048, ("AAPL", "MSFT"): 0.031, ("AAPL", "NVDA"): 0.042,
+    ("MSFT", "MSFT"): 0.039, ("MSFT", "NVDA"): 0.036, ("NVDA", "NVDA"): 0.095,
 }
+weights = {"AAPL": 0.40, "MSFT": 0.35, "NVDA": 0.25}
 
-# Portfolio variance <= 4%
-require(quad_form(p.weights, COV) <= 0.04)`} copyable />
+assert portfolio_weights_valid(weights, allowed={"AAPL", "MSFT", "NVDA"}, lo=0.05, hi=0.50)
+assert concentration_ok(weights, max_weight=0.50)
+assert is_positive_semidefinite(covariance_matrix(list(weights), COV))
 
-### Black-Scholes Option Pricing
+stats = portfolio_stats(weights, RETURNS, COV, risk_free=0.04)
+print(stats.as_dict())
+# {'expected_return': 0.1615, 'volatility': 0.2044,
+#  'sharpe_ratio': 0.5945, 'variance': 0.041775, 'risk_free': 0.04}`} copyable />
 
-European option price constraint:
-
-<CodeBlock language="python" code={`from veritas.cartridges.quant import black_scholes
-
-# Option price must be >= market price
-require(black_scholes(p.S, p.K, p.T, p.r, p.sigma) >= p.market_price)`} copyable />
-
-### Value-at-Risk
-
-VaR at confidence level alpha:
-
-<CodeBlock language="python" code={`from veritas.cartridges.quant import value_at_risk
-
-# 95% VaR <= 5%
-require(value_at_risk(p.weights, RETURNS, COV, alpha=0.95) <= 0.05)`} copyable />
-
----
-
-## Key Functions Reference
-
-| Function | Signature | Description |
-| :--- | :--- | :--- |
-| `simplex` | `(weights: dict) -> bool` | $\sum w_i = 1.0$, $0 \le w_i \le 1$ |
-| `quad_form` | `(w: dict, cov: dict) -> float` | $w^T \Sigma w$ via Cholesky |
-| `black_scholes` | `(S, K, T, r, sigma) -> float` | European option price |
-| `value_at_risk` | `(weights, returns, cov, alpha) -> float` | VaR at confidence level |
-
----
-
-## Complete Example: Markowitz Portfolio
-
-<CodeBlock language="python" code={`from veritas import verified_schema, require, derive, sum, dot
-from veritas.cartridges.quant import simplex, quad_form, black_scholes, value_at_risk
-
-RETURNS = {"AAPL": 0.12, "MSFT": 0.10, "NVDA": 0.15}
-RISK_FREE = 0.04
-COV = {
-    "AAPL": {"AAPL": 0.04, "MSFT": 0.01, "NVDA": 0.02},
-    "MSFT": {"AAPL": 0.01, "MSFT": 0.03, "NVDA": 0.015},
-    "NVDA": {"AAPL": 0.02, "MSFT": 0.015, "NVDA": 0.06},
-}
-
-@verified_schema
-def markowitz_portfolio(p: Portfolio):
-    # Hard: portfolio simplex
-    require(simplex(p.weights))
-
-    # Hard: each weight between 5% and 50%
-    require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
-
-    # Hard: variance constraint via quadratic form
-    require(quad_form(p.weights, COV) <= 0.04)
-
-    # Zero-DoF: expected return
-    derive(p.expected_return == dot(p.weights, RETURNS))
-
-    # Zero-DoF: portfolio variance
-    derive(p.variance == quad_form(p.weights, COV))
-
-    # Zero-DoF: volatility
-    derive(p.volatility == sqrt(p.variance))
-
-    # Zero-DoF: Sharpe ratio
-    derive(p.sharpe_ratio == (p.expected_return - RISK_FREE) / p.volatility)
-
-    # Hard: quality threshold
-    require(p.sharpe_ratio >= 0.65)
-
-    # Soft: prefer low volatility
-    prefer(p.volatility <= 0.15, weight=0.7, tag="low_volatility")`} copyable />
-
-<Callout variant="tip" title="Cholesky Precomputation">
-
-The covariance matrix is Cholesky-decomposed **once at schema compilation time**, so each `quad_form` evaluation is $O(n^2)$ instead of $O(n^3)$ — critical for real-time token decoding.
-
+<Callout variant="info" title="Same numbers as the DSL">
+`portfolio_stats` mirrors `vt.dot`, `vt.quad_form` and `vt.sqrt`, so a value you spliced during
+decoding can be re-checked independently. The covariance map accepts either `(a, b)` tuples or nested
+dicts; only one triangle is required.
 </Callout>
 
----
+## Options
 
-## Next Steps
+<CodeBlock language="python" title="price, implied vol, no-arbitrage" code={`from veritas.cartridges.quant import black_scholes_call, implied_volatility, no_arbitrage_bounds
 
-- **[Text-to-SQL Safety](/docs/cartridges/sql-and-database-safety)** — sql cartridge
-- **[Security & IAM](/docs/cartridges/security-and-iam-policies)** — sec cartridge
-- **[Engine Internals — quad_form](/docs/engine-internals/tier1-hc4-and-affine-contractors)** — How quadratic forms are contracted
+price = black_scholes_call(S=100, K=100, r=0.05, sigma=0.2, T=1.0)
+print(round(price, 4))                       # 10.4506
+
+iv = implied_volatility(price, S=100, K=100, r=0.05, T=1.0)
+print(round(iv, 6))                          # 0.2
+
+assert no_arbitrage_bounds(price, S=100, K=100, r=0.05, T=1.0)
+assert not no_arbitrage_bounds(1.0, S=100, K=100, r=0.05, T=1.0)   # below intrinsic`} copyable />
+
+`implied_volatility` uses bisection on a monotone price function and returns `None` when no root exists
+— it never invents a number.
+
+## Accounting identities
+
+<CodeBlock language="python" code={`from veritas.cartridges.quant import gaap_balance, cash_flow_reconciles, double_entry_balanced
+
+assert gaap_balance(assets=100, liabilities=60, equity=40)
+assert double_entry_balanced(debits=[100, 25], credits=[75, 50])
+assert cash_flow_reconciles(opening=10, operating=50, investing=-20, financing=0, closing=40)`} copyable />
+
+## Limits
+
+- Covariance must be symmetric after construction; a negative variance raises `ValueError` rather than
+  being clamped with a ridge.
+- `implied_volatility` is bisection, not Newton: deterministic, bounded, `None` on failure.
+- Accounting helpers check **identities**, not accounting standards. They are guards, not an audit.
+- No function here is a substitute for in-decode constraints: use `vt.require` when a wrong value must
+  never be emitted.
+
+Next: [SQL safety](/docs/cartridges/sql-and-database-safety) or back to
+[all cartridges](/docs/cartridges/overview).

@@ -1,217 +1,196 @@
 ---
 title: Quickstart
-description: Your first @verified_schema in 60 seconds — portfolio constraints with Zero-DoF splicing.
+description: A runnable verified schema in 60 seconds — constraints, derived fields, preflight and a PASS report.
 ---
 
-import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
+import { Callout, CodeBlock, Steps, Step, FeatureGrid, Feature } from '@/components/mdx-components';
 
-# Quickstart
+This page goes from an empty file to a verified portfolio. If you have not installed Veritas yet, start
+with [Installation](/docs/getting-started/installation).
 
-In this quickstart, you'll write your first `@verified_schema` and decode a portfolio with an LLM. We'll use a concrete example: a financial portfolio with weight constraints, an expected return, and a Sharpe ratio.
+## The scenario
 
-By the end, you'll understand:
-- How to define a verified schema with `require` and `derive`
-- How to run a pre-flight check (`check-spec`)
-- How to decode with an LLM and get verified output
-- What Zero-DoF splicing means in practice
+An assistant proposes portfolio weights. You need four guarantees:
 
----
+1. the weights cover exactly the declared assets;
+2. they sum to **1.0** (fully invested);
+3. every weight is between **5%** and **50%**;
+4. expected return, volatility and Sharpe are **computed from the weights**, never guessed.
 
-## The Scenario
+The last point is what separates a verified schema from a JSON schema.
 
-You're building an AI assistant that creates investment portfolios. You want the LLM to output:
+## Step 1 — write the schema
 
-1. **Weights** for each stock (AAPL, MSFT, NVDA)
-2. **Expected return** (computed from the weights)
-3. **Sharpe ratio** (computed from expected return and volatility)
+Create `portfolio_spec.py`:
 
-The constraints:
-- Weights must sum to 1.0 (fully invested)
-- Each weight must be between 5% and 50% (diversification)
-- Sharpe ratio must be at least 0.65 (quality threshold)
-- Expected return and volatility are **derived** — computed from the weights, not guessed by the LLM
+<CodeBlock language="python" filename="portfolio_spec.py" code={`import veritas as vt
+from pydantic import BaseModel
 
----
-
-## Step 1: Define the Schema
-
-Create a file called `portfolio_spec.py`:
-
-<CodeBlock language="python" code={`from veritas import verified_schema, require, derive, sum, dot, forall
-
-# These are constants the LLM can reference
-RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15}
+RETURNS = {"AAPL": 0.14, "MSFT": 0.13, "NVDA": 0.24}
 RISK_FREE = 0.04
+COV = {
+    ("AAPL", "AAPL"): 0.048,
+    ("AAPL", "MSFT"): 0.031,
+    ("AAPL", "NVDA"): 0.042,
+    ("MSFT", "MSFT"): 0.039,
+    ("MSFT", "NVDA"): 0.036,
+    ("NVDA", "NVDA"): 0.095,
+}
 
-@verified_schema
-def valid_portfolio(p: Portfolio):
-    # Hard constraint: weights must sum to 1.0 (fully invested portfolio)
-    require(sum(p.weights.values()) == 1.0, tol=1e-6)
+class Portfolio(BaseModel):
+    weights: dict
+    expected_return: float
+    volatility: float
+    sharpe: float
 
-    # Hard constraint: each weight between 5% and 50% (diversification)
-    require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
+@vt.verified_schema()
+def portfolio(p: Portfolio):
+    # structural + algebraic invariants
+    vt.require(vt.keys_subset(p.weights, {"AAPL", "MSFT", "NVDA"}))
+    vt.require(vt.sum(p.weights.values()) == 1.0, tol=1e-6)
+    vt.require(vt.forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
 
-    # Zero-DoF derivation: expected_return is computed from weights, not sampled
-    derive(p.expected_return == dot(p.weights, RETURNS))
+    # zero degrees of freedom -> computed and spliced, never sampled
+    vt.derive(p.expected_return == vt.dot(p.weights, RETURNS), tol=1e-5)
+    vt.derive(p.volatility == vt.sqrt(vt.quad_form(p.weights, COV)), tol=1e-5)
+    vt.derive(p.sharpe == (p.expected_return - RISK_FREE) / p.volatility, tol=1e-5)
 
-    # Zero-DoF derivation: sharpe_ratio computed from expected_return and volatility
-    derive(p.sharpe_ratio == (p.expected_return - RISK_FREE) / p.volatility)
+    # quality threshold on a derived field
+    vt.require(p.sharpe >= 0.55)`} copyable />
 
-    # Hard constraint: Sharpe ratio quality threshold
-    require(p.sharpe_ratio >= 0.65)`} copyable />
+<Callout variant="info" title="Importing the schema">
+The module compiles the schema at import time. Compilation includes preflight, so an impossible spec
+raises `vt.InfeasibleSpecError` immediately — before any model or GPU is touched.
+</Callout>
 
-### What Each Line Does
+### What each verb means
 
-| Line | Meaning |
+| Call | Meaning |
 | :--- | :--- |
-| `require(sum(...) == 1.0)` | The weights must add up to exactly 100%. If they don't, Veritas masks tokens that would break this. |
-| `require(forall(...))` | Every individual weight must be between 0.05 and 0.50. No stock can dominate the portfolio. |
-| `derive(expected_return == ...)` | **Zero-DoF:** Veritas computes this value deterministically. The LLM doesn't guess it. |
-| `derive(sharpe_ratio == ...)` | **Zero-DoF:** Computed from expected_return and volatility. Zero LLM tokens spent. |
-| `require(sharpe_ratio >= 0.65)` | Quality filter. Only portfolios with good risk-adjusted returns pass. |
+| `require(expr, tol=…)` | Hard invariant. Every valid instance must satisfy it. |
+| `derive(target == expr, tol=…)` | A deterministic equality. The field is computed once its inputs are known. |
+| `prefer(expr, weight=…)` | Soft preference used to steer decoding; never overrides a hard constraint. |
+| `forall(iterable, predicate)` | Universal quantifier over a dynamic container. |
 
-<Callout variant="check" title="Key Insight: require vs. derive">
+## Step 2 — verify a concrete instance
 
-- **`require`** states a condition that must be true. Veritas enforces it by masking invalid tokens.
-- **`derive`** states a value that Veritas computes for you. The LLM never samples it — Veritas splices it in directly.
+<CodeBlock language="python" title="check the arithmetic yourself" code={`report = portfolio.verify({
+    "weights": {"AAPL": 0.40, "MSFT": 0.35, "NVDA": 0.25}
+})
 
+print(report.status)      # PASS | FAIL | INCOMPLETE
+print(report.values)      # {
+                          #   'weights': {...},
+                          #   'expected_return': 0.1615,
+                          #   'volatility': 0.2044,
+                          #   'sharpe': 0.5945
+                          # }
+print(report.spec_digest) # stable hash of the compiled specification`} copyable />
+
+You passed only the weights. The derived fields were filled because they are fully determined by the
+inputs. That is the same machinery the decoder uses, which is why passing `verify` means the decode
+would have accepted the object too.
+
+<Callout variant="check" title="Statuses are not optimistic">
+`PASS` means every constraint was evaluated and satisfied. `FAIL` includes violated constraints,
+residuals, a minimal unsat core and relaxation hints. `INCOMPLETE` means something could not be
+evaluated — and is never treated as a pass.
 </Callout>
 
----
+## Step 3 — run preflight from the CLI
 
-## Step 2: Run the Pre-Flight Check
+<CodeBlock language="bash" title="0-token feasibility check" code={`python -m veritas check-spec portfolio_spec.py
 
-Before you ever call an LLM, verify that your constraints are satisfiable:
+# schema: portfolio  (UNKNOWN)
+#   fields:   weights, expected_return, volatility, sharpe
+#   derived:  expected_return, volatility, sharpe
+#   requires: 4  derives: 3
+#   digest:   8578b89ceb5e41bef703919daf8242338cb963442908cecdb24e0475e96d28c0`} copyable />
 
-<CodeBlock language="bash" code={`$ veritas check-spec portfolio_spec.py
+`UNKNOWN` is the honest verdict for a schema built on a dynamic `dict` container: preflight proved the
+arithmetic, but it could not *construct* a witness for `weights`, and the tool never reports `SAT` on a
+witness it did not check. It is not a failure — `verify` still decides every instance, and `SAT` appears
+as soon as a witness is constructible (try a schema of plain scalars). A genuinely contradictory spec is
+different: it fails loudly and immediately.
 
-# Expected output:
-# ✓ Spec is SAT — all constraints mutually satisfiable
-# ✓ 0-token pre-flight gate passed
-# ✓ Zero-DoF fields: expected_return, volatility, sharpe_ratio
-# ✓ Interval bounds: weights ∈ [0.05, 0.50]`} copyable />
+Now tighten the spec until it is impossible — for example, demand that a window ends at or after 8 and
+at or before 3:
 
-<CodeBlock language="bash" code={`# For machine-readable output (CI/CD, scripting)
-$ veritas check-spec portfolio_spec.py --json
-# {
-#   "sat": true,
-#   "derived_fields": ["expected_return", "volatility", "sharpe_ratio"],
-#   "bounds": {"weights": "[0.05, 0.50]"},
-#   "tokens_saved": 0
-# }`} copyable />
+<CodeBlock language="bash" title="infeasible spec, exit 2" code={`$ python -m veritas check-spec window_spec.py
+error: InfeasibleSpecError: Spec window is infeasible at pre-flight
+# exit code 2 · no model, no tokens, no decode`} copyable />
 
-### What Pre-Flight Does
+## Step 4 — decode with a model
 
-The pre-flight check runs **0 LLM tokens** — it's pure local computation. It:
+The engine is model-agnostic: a model only needs a method that returns next-token logits for a prefix.
 
-1. **Compiles** your Python schema into `VirSpec` (Veritas Intermediate Representation)
-2. **Builds a dependency graph** to determine key ordering (inputs before outputs)
-3. **Runs interval contraction** to verify numeric bounds are feasible
-4. **Checks affine feasibility** to ensure linear constraints don't contradict
-5. **Detects circular derivations** (e.g., A derives B, B derives A)
-6. **Reports** any issues before you spend a single token on the LLM
+<CodeBlock language="python" title="solver-guided generation" code={`from veritas.testing import StructuredReasoningModel
 
-<Callout variant="warn" title="Why Pre-Flight Matters">
+model = StructuredReasoningModel()          # deterministic mock for a first run
+result = vt.generate(model=model, prompt="propose a portfolio", spec=portfolio)
 
-If your constraints are unsatisfiable (e.g., `sum(weights) == 1.0` AND `each weight <= 0.20` with 6 stocks), the pre-flight gate catches it immediately. Without pre-flight, you'd waste hundreds of LLM tokens trying to generate an impossible portfolio.
+print(result.raw)          # the exact JSON stream that was decoded
+print(result.value)        # validated model (or values dict)
+print(result.report.status) # verified before the result is returned`} copyable />
 
+Swap the mock for a real adapter when you are ready:
+
+<CodeBlock language="python" title="real runtimes" code={`# Hugging Face: a logits processor you pass to generate()
+from veritas.bridges import VeritasLogitsProcessor
+
+processor = VeritasLogitsProcessor.from_spec(portfolio, tokenizer=tokenizer)
+outputs = model.generate(**inputs, logits_processor=[processor])
+
+# vLLM / SGLang expose a list of processors; llama.cpp may only accept GBNF
+from veritas.bridges import patch_vllm
+patch_vllm(engine, spec=portfolio, tokenizer=tokenizer)
+
+# Providers you cannot constrain: verify post-hoc and raise on failure
+from veritas.bridges import patch_openai
+client = patch_openai(openai_client, spec=portfolio)`} copyable />
+
+<Callout variant="warn" title="Verify the adapter">
+GPU bridges are adapter-tested against fakes in this repository, not against live vendor servers. Read
+the bridge page for your runtime and add an integration test before production traffic.
 </Callout>
 
----
+## Step 5 — inspect and certify
 
-## Step 3: Decode with an LLM
+<CodeBlock language="bash" title="trace + certificate" code={`# render a standalone HTML trace report
+python -m veritas inspect trace.json --out report.html
 
-Now let's actually generate a verified portfolio:
-
-<CodeBlock language="python" code={`from veritas import decode
-
-# Decode with an LLM — Veritas enforces constraints in real time
-result = decode(
-    schema=valid_portfolio,
-    prompt=\"Create a low-volatility portfolio with AAPL, MSFT, and NVDA\",
-    model=\"gpt-4o\",
-    max_tokens=512,
-)
-
-print(\"Weights:\", result.weights)
-# {"AAPL": 0.40, "MSFT": 0.35, "NVDA": 0.25}
-
-print(\"Expected Return:\", result.expected_return)
-# 0.1615  (Zero-DoF spliced — 0 LLM calls)
-
-print(\"Volatility:\", result.volatility)
-# 0.1892  (Zero-DoF spliced — 0 LLM calls)
-
-print(\"Sharpe Ratio:\", result.sharpe_ratio)
-# 0.6422  (Zero-DoF spliced — 0 LLM calls)
-
-print(\"Witness SHA-256:\", result.witness_sha256)
-# "a3f5c8...8c21"  — tamper-proof proof certificate`} copyable />
-
-### What Just Happened?
-
-As the LLM generated each token, Veritas was working behind the scenes:
-
-| Stage | What Veritas Did | Time |
-| :--- | :--- | :--- |
-| **Tier 0 — PDA** | Masked tokens that would produce invalid JSON syntax | 0.23 ms per step |
-| **Tier 1 — HC4/AF2** | Narrowed numeric prefixes so weights stay in [0.05, 0.50] | 3.9 µs per step |
-| **Zero-DoF Splice** | When all weights were emitted, computed `expected_return`, `volatility`, `sharpe_ratio` deterministically | 0 LLM calls |
-| **Proof** | Generated a SHA-256 witness digest for the entire result | Instant |
-
-<Callout variant="check" title="The Result">
-
-The LLM never guessed the Sharpe ratio. It never emitted invalid JSON. Every number is mathematically consistent. And you got a cryptographic proof you can verify offline.
-
-</Callout>
-
----
-
-## Try It in the Browser
-
-Don't want to install anything yet? Try the live WASM playground:
-
-<Callout variant="info" title="Veritas Playground">
-
-Run the complete Veritas engine client-side in your browser at **[/playground](/playground)**. Zero server cost, 60 FPS, no installation required.
-
-</Callout>
-
----
-
-## Common Beginner Mistakes
-
-<Callout variant="warn" title="Mistake 1: Forgetting that derive fields are computed">
+# verify a certificate offline; exits 0 only when every check passes
+python -m veritas verify-proof proof.json`} copyable />
 
 ```python
-# WRONG: Trying to use a derived field before it's computed
-derive(p.expected_return == dot(p.weights, RETURNS))
-require(p.expected_return >= 0.10)  # This is fine — expected_return is derived
+certificate = vt.build_certificate(portfolio, report.values)
+assert vt.verify_proof(certificate).ok
+certificate.save("proof.json")
 
-# The DependencyGraph ensures expected_return is emitted after weights
-# Veritas handles the ordering automatically
-```
-</Callout>
-
-<Callout variant="warn" title="Mistake 2: Contradictory constraints">
-
-```python
-# WRONG: These can never both be true
-require(sum(p.weights.values()) == 1.0)
-require(forall(p.weights.values(), lambda w: w <= 0.20))  # 6 stocks × 0.20 = 1.20 ≠ 1.0
-
-# Fix: either reduce the number of stocks or increase the max weight
-require(forall(p.weights.values(), lambda w: w <= 0.25))  # 4 stocks × 0.25 = 1.0 ✓
+# bind verification to the spec you trust
+assert vt.verify_proof("proof.json", expected_spec=portfolio).ok
 ```
 
-Always run `veritas check-spec` before decoding to catch these.
+## Recap
 
-</Callout>
+<FeatureGrid>
+  <Feature title="You wrote a spec" icon="check">
+    Pydantic types plus `require` / `derive` / `forall`. No SMT-LIB, no new language.
+  </Feature>
+  <Feature title="You saw preflight" icon="shield">
+    Contradictions are refuted with zero tokens, before generation starts.
+  </Feature>
+  <Feature title="You decoded with a model" icon="cpu">
+    The same spec produced masks, interval cuts and spliced derived fields.
+  </Feature>
+  <Feature title="You can prove the result" icon="lock">
+    Certificates re-verify offline and can be bound to a trusted expected spec.
+  </Feature>
+</FeatureGrid>
 
----
+## Where to go next
 
-## Next Steps
-
-- **[How Veritas Works](/docs/getting-started/how-veritas-works)** — Deep dive into the 3-tier engine
-- **[Authoring Schemas](/docs/authoring-schemas/verified-schema-decorator)** — All constraint verbs and math primitives explained
-- **[Engine Internals](/docs/engine-internals/vir-compiler-and-dag)** — How the Rust core works under the hood
+- [How Veritas works](/docs/getting-started/how-veritas-works) — follow one token end to end.
+- [Authoring schemas](/docs/authoring-schemas/verified-schema-decorator) — every verb and primitive.
+- [Domain cartridges](/docs/cartridges/overview) — finance, SQL, agents, scheduling and more.
+- [Playground](/playground) — move the constraints and watch the decode react.
