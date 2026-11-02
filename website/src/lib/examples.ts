@@ -30,7 +30,7 @@ export const examples: Example[] = [
     hook: "Ask a model for five numbers that agree with each other. Watch two of them quietly stop agreeing.",
     modelSays: "tax: 29.99, total: 179.96",
     veritasSays: "tax: 29.994, total: 179.964 — computed, not sampled",
-    verdict: { label: "one cent short", tone: "fail", detail: "the derived tax is off by 0.004 and the total inherits it" },
+    verdict: { label: "off by 0.004", tone: "fail", detail: "the derived tax is off by 0.004 and the total inherits it" },
     bullets: [
       "`derive` turns tax, net and total into outputs: hand the engine `quantity`, `unit_price` and `tax_rate` and it returns the rest.",
       "The rounded answer fails on `tax == (net * tax_rate)` with a hint that names the constraint and the exact 0.004 to add.",
@@ -75,7 +75,7 @@ export const examples: Example[] = [
     verdict: { label: "plausible, wrong", tone: "fail", detail: "hand-supplied Sharpe is off by 0.185548 from the risk it claims to measure" },
     bullets: [
       "`vt.dot`, `vt.sqrt` and `vt.quad_form` run inside the constraint language, so expected return and volatility are spliced from the weights.",
-      "Preflight returns `UNKNOWN` — the honest answer for non-linear real arithmetic — and hands the instance to the solver path.",
+      "Preflight returns `UNKNOWN` rather than a false verdict, so `verify()` goes to the solver instead of guessing.",
       "Swap in a correct Sharpe and the model still has to clear `sharpe >= 0.55` before anyone allocates a rupee.",
     ],
     surface: ["vt.derive", "vt.dot", "vt.quad_form", "preflight"],

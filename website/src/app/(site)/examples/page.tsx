@@ -41,7 +41,7 @@ const facts = [
   { value: '5', label: 'domains', note: 'money, plans, risk, SQL, tools' },
   { value: '0', label: 'model calls', note: 'the engine decides, not the LLM' },
   { value: '3', label: 'refusals', note: 'in the SQL example alone' },
-  { value: '1', label: 'cent', note: 'enough to fail a schema' },
+  { value: '0.004', label: 'residual', note: 'enough to fail the invoice' },
 ];
 
 export default function ExamplesPage() {
@@ -133,7 +133,7 @@ export default function ExamplesPage() {
                       <Pill tone={ex.verdict.tone}>{ex.verdict.label}</Pill>
                     </div>
 
-                    <h2 className="mt-3 font-display text-[19px] font-extrabold leading-tight tracking-tight text-ink-primary sm:text-[22px]">
+                    <h2 className="mt-3 text-balance font-display text-[19px] font-extrabold leading-tight tracking-tight text-ink-primary sm:text-[22px]">
                       {ex.title}
                     </h2>
                     <p className="mt-2 text-[13.5px] leading-relaxed text-ink-secondary">{ex.hook}</p>
