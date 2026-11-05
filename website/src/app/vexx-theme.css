@@ -355,6 +355,20 @@ html.dark .vx-sheet {
   border-color: rgba(36, 71, 221, 0.4);
 }
 
+/* --vx-ink flips to near-white in dark mode, which would render this white
+   button white-on-white. Give the sheet its own dark secondary treatment. */
+html.dark .vx-btn-light {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f7fc;
+  border-color: rgba(255, 255, 255, 0.24);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+html.dark .vx-btn-light:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.34);
+}
+
 .vx-btn-field {
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
@@ -572,6 +586,20 @@ header.doc-hero .doc-meta-chip {
 header.doc-hero .doc-meta-chip:hover {
   background: rgba(255, 255, 255, 0.24);
   color: #fff;
+}
+
+/* Code lines are unbreakable, so the block itself must scroll instead of
+   pushing the whole document wider than the phone viewport. */
+body #nd-page .prose pre {
+  overflow-x: auto;
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+}
+
+body #nd-page .prose table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 body #nd-page h1::after {

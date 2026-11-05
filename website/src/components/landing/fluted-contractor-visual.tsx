@@ -53,13 +53,13 @@ export function FlutedContractorVisual() {
         </div>
 
         <div
-          className="relative mx-auto max-w-4xl h-[340px] sm:h-[420px] lg:h-[520px] rounded-[34px] vexx-fluted-glass border border-white/30 shadow-[var(--vt-shadow-lift)]"
+          className="relative mx-auto max-w-4xl h-[240px] sm:h-[420px] lg:h-[520px] rounded-[34px] vexx-fluted-glass border border-white/30 shadow-[var(--vt-shadow-lift)]"
         >
           <div className="vexx-fluted-louvers" />
           <div className="absolute inset-0 bg-gradient-to-t from-white/20 via-transparent to-black/10" />
 
           {/* callout columns floating inside the glass */}
-          <div className="absolute inset-0 flex items-end justify-between p-8 sm:p-12 pointer-events-none">
+          <div className="pointer-events-none absolute inset-0 hidden items-end justify-between p-8 sm:flex sm:p-12">
             {CALLS.map((call, i) => {
               const delay = i * 0.08;
               const x = (i / (CALLS.length - 1)) * 100;
@@ -102,7 +102,7 @@ export function FlutedContractorVisual() {
           </div>
 
           {/* bottom legend */}
-          <div className="absolute bottom-8 left-8 right-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border border-white/20 bg-white/10 backdrop-blur-md px-4 py-3 rounded-xl text-xs font-mono text-white/80">
+          <div className="absolute bottom-4 left-4 right-4 flex flex-col gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-3 font-mono text-xs text-white/80 backdrop-blur-md sm:bottom-8 sm:left-8 sm:right-8 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-1.5">
               <span className="h-1 w-1 rounded-full bg-sky-400" />
               <span>Tier 0 · PDA grammar mask</span>

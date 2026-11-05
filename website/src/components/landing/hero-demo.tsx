@@ -144,7 +144,7 @@ export function HeroDemo() {
 
         <div className="grid lg:grid-cols-[1.05fr_1fr]">
           {/* spec panel */}
-          <div className="relative border-b border-white/10 p-3.5 sm:p-4 lg:border-b-0 lg:border-r">
+          <div className="relative min-w-0 border-b border-white/10 p-3.5 sm:p-4 lg:border-b-0 lg:border-r">
             <div className="mb-2 flex items-center justify-between font-mono text-[9.5px] uppercase tracking-[0.14em] text-slate-400">
               <span>compiled spec</span>
               <span className="text-slate-400">VIR · vexx1.5</span>
@@ -153,14 +153,14 @@ export function HeroDemo() {
               tabIndex={0}
               role="region"
               aria-label="Compiled specification source"
-              className="max-h-[228px] overflow-x-auto overflow-y-auto no-scrollbar [mask-image:linear-gradient(to_right,#000_90%,transparent)] lg:[mask-image:none]"
+              className="max-h-[228px] min-w-0 overflow-x-auto overflow-y-auto no-scrollbar [mask-image:linear-gradient(to_right,#000_90%,transparent)] lg:[mask-image:none]"
             >
               <SpecCode />
             </div>
           </div>
 
           {/* output panel */}
-          <div className="relative p-3.5 sm:p-4">
+          <div className="relative min-w-0 p-3.5 sm:p-4">
             <div className="mb-2 flex items-center justify-between font-mono text-[9.5px] uppercase tracking-[0.14em] text-slate-400">
               <span>decoded stream</span>
               <span
