@@ -5,7 +5,7 @@ description: A runnable verified schema in 60 seconds — constraints, derived f
 
 import { Callout, CodeBlock, Steps, Step, FeatureGrid, Feature } from '@/components/mdx-components';
 
-This page goes from an empty file to a verified portfolio. If you have not installed Veritas yet, start
+This page goes from an empty file to a verified portfolio. If you have not installed Vexx yet, start
 with [Installation](/docs/getting-started/installation).
 
 ## The scenario
@@ -23,7 +23,7 @@ The last point is what separates a verified schema from a JSON schema.
 
 Create `portfolio_spec.py`:
 
-<CodeBlock language="python" filename="portfolio_spec.py" code={`import veritas as vt
+<CodeBlock language="python" filename="portfolio_spec.py" code={`import vexx as vx
 from pydantic import BaseModel
 
 RETURNS = {"AAPL": 0.14, "MSFT": 0.13, "NVDA": 0.24}
@@ -43,24 +43,24 @@ class Portfolio(BaseModel):
     volatility: float
     sharpe: float
 
-@vt.verified_schema()
+@vx.verified_schema()
 def portfolio(p: Portfolio):
     # structural + algebraic invariants
-    vt.require(vt.keys_subset(p.weights, {"AAPL", "MSFT", "NVDA"}))
-    vt.require(vt.sum(p.weights.values()) == 1.0, tol=1e-6)
-    vt.require(vt.forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
+    vx.require(vx.keys_subset(p.weights, {"AAPL", "MSFT", "NVDA"}))
+    vx.require(vx.sum(p.weights.values()) == 1.0, tol=1e-6)
+    vx.require(vx.forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
 
     # zero degrees of freedom -> computed and spliced, never sampled
-    vt.derive(p.expected_return == vt.dot(p.weights, RETURNS), tol=1e-5)
-    vt.derive(p.volatility == vt.sqrt(vt.quad_form(p.weights, COV)), tol=1e-5)
-    vt.derive(p.sharpe == (p.expected_return - RISK_FREE) / p.volatility, tol=1e-5)
+    vx.derive(p.expected_return == vx.dot(p.weights, RETURNS), tol=1e-5)
+    vx.derive(p.volatility == vx.sqrt(vx.quad_form(p.weights, COV)), tol=1e-5)
+    vx.derive(p.sharpe == (p.expected_return - RISK_FREE) / p.volatility, tol=1e-5)
 
     # quality threshold on a derived field
-    vt.require(p.sharpe >= 0.55)`} copyable />
+    vx.require(p.sharpe >= 0.55)`} copyable />
 
 <Callout variant="info" title="Importing the schema">
 The module compiles the schema at import time. Compilation includes preflight, so an impossible spec
-raises `vt.InfeasibleSpecError` immediately — before any model or GPU is touched.
+raises `vx.InfeasibleSpecError` immediately — before any model or GPU is touched.
 </Callout>
 
 ### What each verb means
@@ -99,7 +99,7 @@ evaluated — and is never treated as a pass.
 
 ## Step 3 — run preflight from the CLI
 
-<CodeBlock language="bash" title="0-token feasibility check" code={`python -m veritas check-spec portfolio_spec.py
+<CodeBlock language="bash" title="0-token feasibility check" code={`python -m vexx check-spec portfolio_spec.py
 
 # schema: portfolio  (UNKNOWN)
 #   fields:   weights, expected_return, volatility, sharpe
@@ -116,7 +116,7 @@ different: it fails loudly and immediately.
 Now tighten the spec until it is impossible — for example, demand that a window ends at or after 8 and
 at or before 3:
 
-<CodeBlock language="bash" title="infeasible spec, exit 2" code={`$ python -m veritas check-spec window_spec.py
+<CodeBlock language="bash" title="infeasible spec, exit 2" code={`$ python -m vexx check-spec window_spec.py
 error: InfeasibleSpecError: Spec window is infeasible at pre-flight
 # exit code 2 · no model, no tokens, no decode`} copyable />
 
@@ -124,10 +124,10 @@ error: InfeasibleSpecError: Spec window is infeasible at pre-flight
 
 The engine is model-agnostic: a model only needs a method that returns next-token logits for a prefix.
 
-<CodeBlock language="python" title="solver-guided generation" code={`from veritas.testing import StructuredReasoningModel
+<CodeBlock language="python" title="solver-guided generation" code={`from vexx.testing import StructuredReasoningModel
 
 model = StructuredReasoningModel()          # deterministic mock for a first run
-result = vt.generate(model=model, prompt="propose a portfolio", spec=portfolio)
+result = vx.generate(model=model, prompt="propose a portfolio", spec=portfolio)
 
 print(result.raw)          # the exact JSON stream that was decoded
 print(result.value)        # validated model (or values dict)
@@ -136,17 +136,17 @@ print(result.report.status) # verified before the result is returned`} copyable 
 Swap the mock for a real adapter when you are ready:
 
 <CodeBlock language="python" title="real runtimes" code={`# Hugging Face: a logits processor you pass to generate()
-from veritas.bridges import VeritasLogitsProcessor
+from vexx.bridges import VexxLogitsProcessor
 
-processor = VeritasLogitsProcessor.from_spec(portfolio, tokenizer=tokenizer)
+processor = VexxLogitsProcessor.from_spec(portfolio, tokenizer=tokenizer)
 outputs = model.generate(**inputs, logits_processor=[processor])
 
 # vLLM / SGLang expose a list of processors; llama.cpp may only accept GBNF
-from veritas.bridges import patch_vllm
+from vexx.bridges import patch_vllm
 patch_vllm(engine, spec=portfolio, tokenizer=tokenizer)
 
 # Providers you cannot constrain: verify post-hoc and raise on failure
-from veritas.bridges import patch_openai
+from vexx.bridges import patch_openai
 client = patch_openai(openai_client, spec=portfolio)`} copyable />
 
 <Callout variant="warn" title="Verify the adapter">
@@ -157,18 +157,18 @@ the bridge page for your runtime and add an integration test before production t
 ## Step 5 — inspect and certify
 
 <CodeBlock language="bash" title="trace + certificate" code={`# render a standalone HTML trace report
-python -m veritas inspect trace.json --out report.html
+python -m vexx inspect trace.json --out report.html
 
 # verify a certificate offline; exits 0 only when every check passes
-python -m veritas verify-proof proof.json`} copyable />
+python -m vexx verify-proof proof.json`} copyable />
 
 ```python
-certificate = vt.build_certificate(portfolio, report.values)
-assert vt.verify_proof(certificate).ok
+certificate = vx.build_certificate(portfolio, report.values)
+assert vx.verify_proof(certificate).ok
 certificate.save("proof.json")
 
 # bind verification to the spec you trust
-assert vt.verify_proof("proof.json", expected_spec=portfolio).ok
+assert vx.verify_proof("proof.json", expected_spec=portfolio).ok
 ```
 
 ## Recap
@@ -190,7 +190,7 @@ assert vt.verify_proof("proof.json", expected_spec=portfolio).ok
 
 ## Where to go next
 
-- [How Veritas works](/docs/getting-started/how-veritas-works) — follow one token end to end.
+- [How Vexx works](/docs/getting-started/how-vexx-works) — follow one token end to end.
 - [Authoring schemas](/docs/authoring-schemas/verified-schema-decorator) — every verb and primitive.
 - [Domain cartridges](/docs/cartridges/overview) — finance, SQL, agents, scheduling and more.
 - [Playground](/playground) — move the constraints and watch the decode react.

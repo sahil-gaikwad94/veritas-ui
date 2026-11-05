@@ -81,7 +81,7 @@ export function ZeroDofTape() {
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-ink-secondary sm:text-base">
             When an output field is fully determined by fields before it, sampling it is wasted compute —
-            and a chance to be wrong. Veritas topologically sorts the JSON keys so inputs always precede
+            and a chance to be wrong. Vexx topologically sorts the JSON keys so inputs always precede
             outputs, computes the derived value exactly, and splices its bytes into the stream.
           </p>
 

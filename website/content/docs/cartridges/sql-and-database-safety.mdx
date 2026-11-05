@@ -1,11 +1,11 @@
 ---
 title: Text-to-SQL safety
-description: veritas.cartridges.sql — real tokenisation, catalog resolution, foreign keys, tenant predicates and read-only enforcement.
+description: vexx.cartridges.sql — real tokenisation, catalog resolution, foreign keys, tenant predicates and read-only enforcement.
 ---
 
 import { Callout, CodeBlock, KeyValueTable, FeatureGrid, Feature } from '@/components/mdx-components';
 
-Generated SQL is a security boundary. `veritas.cartridges.sql` verifies one read-only `SELECT`
+Generated SQL is a security boundary. `vexx.cartridges.sql` verifies one read-only `SELECT`
 against your declared catalog using `sqlglot` — the same parser dependency the core package already
 ships with.
 
@@ -37,7 +37,7 @@ role and row-level security.
 
 ## Usage
 
-<CodeBlock language="python" title="catalog + verifier" code={`from veritas.cartridges.sql import SqlCatalog, SqlVerifier, ForeignKey
+<CodeBlock language="python" title="catalog + verifier" code={`from vexx.cartridges.sql import SqlCatalog, SqlVerifier, ForeignKey
 
 catalog = SqlCatalog(
     tables={

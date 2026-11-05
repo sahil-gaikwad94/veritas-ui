@@ -225,7 +225,7 @@ export function DecodeLab() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'veritas-trace.json';
+    a.download = 'vexx-trace.json';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -465,7 +465,7 @@ export function DecodeLab() {
                       InfeasibleSpecError · preflight UNSAT
                     </p>
                     <p className="mt-1.5 text-[13px] leading-relaxed text-slate-300">
-                      The spec is contradictory before generation starts. Veritas spends{' '}
+                      The spec is contradictory before generation starts. Vexx spends{' '}
                       <span className="font-semibold text-white">zero LLM tokens</span> to tell you the risk
                       ceiling and the concentration cap cannot both hold.
                     </p>
@@ -823,7 +823,7 @@ export function DecodeLab() {
             </p>
             <p className="mt-1.5 text-[11px] leading-relaxed text-ink-secondary">
               This is a deterministic replay of the engine&apos;s decision sequence. The real{' '}
-              <code className="font-mono text-[10px]">veritas-wasm</code> core can be compiled from the
+              <code className="font-mono text-[10px]">vexx-wasm</code> core can be compiled from the
               repository and dropped into this page.
             </p>
             <Link

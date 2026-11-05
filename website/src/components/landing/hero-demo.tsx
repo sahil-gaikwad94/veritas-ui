@@ -5,7 +5,7 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { AlertTriangle, Check, ShieldCheck, Sparkles, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type Mode = 'json' | 'veritas';
+type Mode = 'json' | 'vexx';
 
 const WEIGHTS = [
   { asset: 'AAPL', good: 0.4, bad: 0.5 },
@@ -70,9 +70,9 @@ function JsonLine({
 }
 
 export function HeroDemo() {
-  const [mode, setMode] = useState<Mode>('veritas');
+  const [mode, setMode] = useState<Mode>('vexx');
   const reduce = useReducedMotion();
-  const isVeritas = mode === 'veritas';
+  const isVexx = mode === 'vexx';
 
   return (
     <div className="relative">
@@ -119,25 +119,25 @@ export function HeroDemo() {
           >
             <button
               role="tab"
-              aria-selected={!isVeritas}
+              aria-selected={!isVexx}
               onClick={() => setMode('json')}
               className={cn(
                 'rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-wide transition-colors sm:px-3 sm:text-[10.5px]',
-                !isVeritas ? 'bg-rose-500/20 text-rose-200' : 'text-slate-400 hover:text-slate-200',
+                !isVexx ? 'bg-rose-500/20 text-rose-200' : 'text-slate-400 hover:text-slate-200',
               )}
             >
               JSON mode
             </button>
             <button
               role="tab"
-              aria-selected={isVeritas}
-              onClick={() => setMode('veritas')}
+              aria-selected={isVexx}
+              onClick={() => setMode('vexx')}
               className={cn(
                 'rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-wide transition-colors sm:px-3 sm:text-[10.5px]',
-                isVeritas ? 'bg-emerald-500/20 text-emerald-200' : 'text-slate-400 hover:text-slate-200',
+                isVexx ? 'bg-emerald-500/20 text-emerald-200' : 'text-slate-400 hover:text-slate-200',
               )}
             >
-              Veritas
+              Vexx
             </button>
           </div>
         </div>
@@ -147,7 +147,7 @@ export function HeroDemo() {
           <div className="relative border-b border-white/10 p-3.5 sm:p-4 lg:border-b-0 lg:border-r">
             <div className="mb-2 flex items-center justify-between font-mono text-[9.5px] uppercase tracking-[0.14em] text-slate-400">
               <span>compiled spec</span>
-              <span className="text-slate-400">VIR v1.1</span>
+              <span className="text-slate-400">VIR · vexx1.5</span>
             </div>
             <div
               tabIndex={0}
@@ -166,7 +166,7 @@ export function HeroDemo() {
               <span
                 className={cn(
                   'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] tracking-normal',
-                  isVeritas
+                  isVexx
                     ? 'bg-emerald-500/15 text-emerald-300'
                     : 'bg-rose-500/15 text-rose-300',
                 )}
@@ -175,7 +175,7 @@ export function HeroDemo() {
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-60" />
                   <span className="relative inline-flex h-1 w-1 rounded-full bg-current" />
                 </span>
-                {isVeritas ? 'verified' : 'unverified'}
+                {isVexx ? 'verified' : 'unverified'}
               </span>
             </div>
 
@@ -197,12 +197,12 @@ export function HeroDemo() {
                     <div key={w.asset} className="flex items-baseline justify-between gap-4 pl-3">
                       <span className="text-slate-400">
                         &quot;{w.asset}&quot;:{' '}
-                        <span className={isVeritas ? 'text-emerald-300' : 'text-rose-300'}>
-                          {(isVeritas ? w.good : w.bad).toFixed(2)}
+                        <span className={isVexx ? 'text-emerald-300' : 'text-rose-300'}>
+                          {(isVexx ? w.good : w.bad).toFixed(2)}
                         </span>
                         <span className="text-slate-400">,</span>
                       </span>
-                      {isVeritas && w.asset === 'NVDA' && (
+                      {isVexx && w.asset === 'NVDA' && (
                         <span className="rounded bg-sky-500/15 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-sky-300">
                           contracted
                         </span>
@@ -212,18 +212,18 @@ export function HeroDemo() {
                   <div className="text-slate-400">{'}'},</div>
                   <JsonLine
                     label="expected_return"
-                    value={isVeritas ? '0.1615' : '0.21'}
-                    accent={isVeritas ? 'pass' : 'fail'}
+                    value={isVexx ? '0.1615' : '0.21'}
+                    accent={isVexx ? 'pass' : 'fail'}
                   />
                   <JsonLine
                     label="volatility"
-                    value={isVeritas ? '0.2044' : '0.14'}
-                    accent={isVeritas ? 'pass' : 'fail'}
+                    value={isVexx ? '0.2044' : '0.14'}
+                    accent={isVexx ? 'pass' : 'fail'}
                   />
                   <JsonLine
                     label="sharpe"
-                    value={isVeritas ? '0.5945' : '1.214'}
-                    accent={isVeritas ? 'pass' : 'fail'}
+                    value={isVexx ? '0.5945' : '1.214'}
+                    accent={isVexx ? 'pass' : 'fail'}
                   />
                 </div>
                 <div className="text-slate-400">{'}'}</div>
@@ -231,7 +231,7 @@ export function HeroDemo() {
             </AnimatePresence>
 
             <div className="mt-3 border-t border-white/10 pt-2.5">
-              {isVeritas ? (
+              {isVexx ? (
                 <div className="flex flex-wrap gap-1.5">
                   <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-1 font-mono text-[9.5px] text-emerald-300">
                     <Check className="h-3 w-3" /> Σ weights = 1.000000
@@ -262,16 +262,16 @@ export function HeroDemo() {
 
         <div className="grid grid-cols-3 divide-x divide-white/10 border-t border-white/10 bg-term-elevated/60">
           {[
-            { k: 'PDA mask', v: isVeritas ? '0.23 ms' : 'off' },
-            { k: '0-DoF saved', v: isVeritas ? '24 tok' : '0 tok' },
-            { k: 'Witness', v: isVeritas ? 'SHA-256' : 'none' },
+            { k: 'PDA mask', v: isVexx ? '0.23 ms' : 'off' },
+            { k: '0-DoF saved', v: isVexx ? '24 tok' : '0 tok' },
+            { k: 'Witness', v: isVexx ? 'SHA-256' : 'none' },
           ].map((m) => (
             <div key={m.k} className="px-3 py-2.5">
               <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-slate-400">{m.k}</p>
               <p
                 className={cn(
                   'mt-0.5 font-mono text-[11px] font-medium sm:text-[12px]',
-                  isVeritas ? 'text-slate-100' : 'text-slate-400',
+                  isVexx ? 'text-slate-100' : 'text-slate-400',
                 )}
               >
                 {m.v}

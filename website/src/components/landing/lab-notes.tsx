@@ -20,7 +20,7 @@ export function LabNotes() {
               Different verb, different universe.
             </p>
             <Link
-              href="/docs/getting-started/how-veritas-works"
+              href="/docs/getting-started/how-vexx-works"
               className="link-draw mt-6 inline-flex text-[13px] font-semibold text-cobalt-700 dark:text-cobalt-300"
             >
               How the constraint reaches the token <ArrowUpRight className="h-3.5 w-3.5" />

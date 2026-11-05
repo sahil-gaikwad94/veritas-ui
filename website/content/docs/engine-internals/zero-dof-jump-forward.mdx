@@ -4,7 +4,7 @@ description: ZeroDofRule, ZeroDofEngine, build_json_key_order — deterministic 
 ---
 import { Callout, CodeBlock, Badge, InteractiveTraceViewer } from '@/components/mdx-components';
 
-Zero-DoF (Zero Degrees of Freedom) is Veritas's most powerful optimization. It **deterministically computes derived fields and splices them into the token stream** — the LLM never samples them, saving `_T_ − 1` LLM forward passes per derived field.
+Zero-DoF (Zero Degrees of Freedom) is Vexx's most powerful optimization. It **deterministically computes derived fields and splices them into the token stream** — the LLM never samples them, saving `_T_ − 1` LLM forward passes per derived field.
 
 ---
 
@@ -25,8 +25,8 @@ With Zero-DoF:
 ```json
 {
   "weights": {"AAPL": 0.40, "MSFT": 0.35, "NVDA": 0.25},
-  "expected_return": 0.1615,  ← Veritas computed this exactly
-  "sharpe_ratio": 0.5945      ← Veritas computed this exactly
+  "expected_return": 0.1615,  ← Vexx computed this exactly
+  "sharpe_ratio": 0.5945      ← Vexx computed this exactly
 }
 ```
 
@@ -91,7 +91,7 @@ Topologically sorts JSON keys using the `DependencyGraph` so that **inputs alway
 
 <Callout variant="check" title="Saves T − 1 Forward Passes">
 
-For each derived field, Veritas saves `_T_ − 1` LLM forward passes — where `_T_` is the number of tokens the LLM would have needed to guess the value correctly.
+For each derived field, Vexx saves `_T_ − 1` LLM forward passes — where `_T_` is the number of tokens the LLM would have needed to guess the value correctly.
 
 If a derived field would take 20 tokens to guess, Zero-DoF saves 19 forward passes per field. With 3 derived fields, that's 57 forward passes saved per decode.
 
@@ -101,28 +101,28 @@ If a derived field would take 20 tokens to guess, Zero-DoF saves 19 forward pass
 
 ## Complete Example
 
-<CodeBlock language="python" code={`import veritas as vt
+<CodeBlock language="python" code={`import vexx as vx
 
 RETURNS = {\"AAPL\": 0.14, \"MSFT\": 0.13, \"NVDA\": 0.24}
 RISK_FREE = 0.04
 
-@vt.verified_schema()
+@vx.verified_schema()
 def portfolio(p: Portfolio):
-    vt.require(vt.sum(p.weights.values()) == 1.0, tol=1e-6)
-    vt.require(vt.forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
+    vx.require(vx.sum(p.weights.values()) == 1.0, tol=1e-6)
+    vx.require(vx.forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
 
-    # These are Zero-DoF — computed by Veritas, not guessed by LLM
-    vt.derive(p.expected_return == vt.dot(p.weights, RETURNS), tol=1e-5)
-    vt.derive(p.volatility == vt.sqrt(vt.quad_form(p.weights, COV)), tol=1e-5)
-    vt.derive(p.sharpe_ratio == (p.expected_return - RISK_FREE) / p.volatility, tol=1e-5)
+    # These are Zero-DoF — computed by Vexx, not guessed by LLM
+    vx.derive(p.expected_return == vx.dot(p.weights, RETURNS), tol=1e-5)
+    vx.derive(p.volatility == vx.sqrt(vx.quad_form(p.weights, COV)), tol=1e-5)
+    vx.derive(p.sharpe_ratio == (p.expected_return - RISK_FREE) / p.volatility, tol=1e-5)
 
-    vt.require(p.sharpe_ratio >= 0.55)
+    vx.require(p.sharpe_ratio >= 0.55)
 
 # When decoded:
 # 1. LLM generates weights: {\"AAPL\": 0.40, \"MSFT\": 0.35, \"NVDA\": 0.25}
-# 2. Veritas computes expected_return = 0.1615 (Zero-DoF splice)
-# 3. Veritas computes volatility = 0.2044 (Zero-DoF splice)
-# 4. Veritas computes sharpe_ratio = 0.5945 (Zero-DoF splice)
+# 2. Vexx computes expected_return = 0.1615 (Zero-DoF splice)
+# 3. Vexx computes volatility = 0.2044 (Zero-DoF splice)
+# 4. Vexx computes sharpe_ratio = 0.5945 (Zero-DoF splice)
 # 5. LLM generates nothing more — document is complete
 
 # Result: 3 derived fields, 0 LLM calls for them`} copyable />
@@ -131,7 +131,7 @@ def portfolio(p: Portfolio):
 
 ## Token Classification
 
-Every token in a Veritas decode is one of three types:
+Every token in a Vexx decode is one of three types:
 
 | Type | Meaning | Example |
 | :--- | :--- | :--- |
@@ -145,7 +145,7 @@ Step through the real classification below — the numbers come from the portfol
 
 --- | :--- | :--- | :--- |
 | `sample` | LLM sampled this token (PDA + HC4 masked) | Blue | `0`, `4`, `.`, `"` |
-| `splice` | Veritas deterministically spliced this | Green | `0.1615` (expected_return) |
+| `splice` | Vexx deterministically spliced this | Green | `0.1615` (expected_return) |
 | `backtrack` | CDCL jumpback rewound to this point | Amber/Red | Rewinding after UNSAT conflict |
 
 <Callout variant="info" title="See It in Action">

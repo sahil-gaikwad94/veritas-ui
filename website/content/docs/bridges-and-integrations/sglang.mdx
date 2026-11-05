@@ -1,18 +1,18 @@
 ---
 title: SGLang
-description: Use SGLangLogitsProcessor or patch_sglang to enforce a Veritas mask inside SGLang.
+description: Use SGLangLogitsProcessor or patch_sglang to enforce a Vexx mask inside SGLang.
 ---
 
 import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
-SGLang exposes `logits_processor` on its engine and request objects. The Veritas adapter targets the
+SGLang exposes `logits_processor` on its engine and request objects. The Vexx adapter targets the
 list form; it refuses to guess when the host shape differs.
 
 ## API
 
 <KeyValueTable
   rows={[
-    { key: 'SGLangLogitsProcessor(tokenizer=None, spec=None, ...)', value: 'subclass of VeritasLogitsProcessor' },
+    { key: 'SGLangLogitsProcessor(tokenizer=None, spec=None, ...)', value: 'subclass of VexxLogitsProcessor' },
     { key: 'SGLangBridge(model=None, spec=None, tokenizer=None)', value: 'bridge object' },
     { key: 'bridge.sampling_params()', value: '{"logits_processor": [processor]}' },
     { key: 'patch_sglang(engine, spec=None, tokenizer=None)', value: 'appends the processor to the engine' },
@@ -20,7 +20,7 @@ list form; it refuses to guess when the host shape differs.
 />
 
 <CodeBlock language="python" title="request-level wiring" code={`import sglang as sgl
-from veritas.bridges import SGLangBridge
+from vexx.bridges import SGLangBridge
 
 engine = sgl.Engine(model_path="meta-llama/Llama-3.1-8B-Instruct")
 bridge = SGLangBridge(engine, spec=portfolio, tokenizer=engine.tokenizer)
@@ -34,10 +34,10 @@ report.raise_if_failed()`} copyable />
 
 ## Patching
 
-<CodeBlock language="python" code={`from veritas.bridges import patch_sglang
+<CodeBlock language="python" code={`from vexx.bridges import patch_sglang
 
 patch_sglang(engine, spec=portfolio, tokenizer=engine.tokenizer)
-# engine.logits_processor now contains the Veritas processor`} copyable />
+# engine.logits_processor now contains the Vexx processor`} copyable />
 
 <Callout variant="warn" title="Raising is the default">
 If `engine.logits_processor` is not a list, `patch()` raises `TypeError` instead of replacing the

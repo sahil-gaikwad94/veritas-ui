@@ -1,7 +1,8 @@
 {
-  "title": "Veritas Documentation",
+  "title": "Vexx Documentation",
   "pages": [
     "index",
+    "release-notes",
     "getting-started",
     "authoring-schemas",
     "engine-internals",

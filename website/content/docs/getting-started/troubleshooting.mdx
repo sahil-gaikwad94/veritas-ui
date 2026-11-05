@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting & limits
-description: Documented edges of Veritas 2.0 — grammar subset, pattern fallbacks, numeric budgets, error types and the honest scope.
+description: Documented edges of vexx1.5 — grammar subset, pattern fallbacks, numeric budgets, error types and the honest scope.
 ---
 
 import { Callout, CodeBlock, KeyValueTable, FeatureGrid, Feature } from '@/components/mdx-components';
@@ -12,19 +12,19 @@ deliberate design decision or a documented limitation, not a bug you are expecte
 
 | Exception | Raised when | What to do |
 | :--- | :--- | :--- |
-| `vt.InfeasibleSpecError` | Preflight proves the spec contradictory | Read `conflicts` / `relaxation`; loosen a bound |
-| `vt.CircularDerivationError` | `derive` statements form a cycle | Break the cycle; a derived field cannot depend on itself |
-| `vt.UnsupportedPattern` | A regex uses lookaround, backreferences, inline flags or word boundaries | Rewrite the pattern or rely on length masking + final verification |
-| `vt.VerificationError` | A concrete instance fails verification | Inspect the report: constraints, residuals, unsat core |
-| `vt.InstanceFormatError` | The instance is not a mapping/JSON object | Pass a dict or a JSON string |
-| `vt.DecodeError` / `vt.DeadEnd` | Decoding exhausts its budget | Raise `max_number_nodes`/digit budgets or relax a constraint |
-| `vt.ModelProtocolError` | The model adapter returns invalid logits | Return a mapping of token → score from `next_logits(prefix)` |
-| `vt.JSONSyntaxError` | Raw JSON is unparsable when lowering directly | Check the prefix; use the PDA instead of hand-parsing |
+| `vx.InfeasibleSpecError` | Preflight proves the spec contradictory | Read `conflicts` / `relaxation`; loosen a bound |
+| `vx.CircularDerivationError` | `derive` statements form a cycle | Break the cycle; a derived field cannot depend on itself |
+| `vx.UnsupportedPattern` | A regex uses lookaround, backreferences, inline flags or word boundaries | Rewrite the pattern or rely on length masking + final verification |
+| `vx.VerificationError` | A concrete instance fails verification | Inspect the report: constraints, residuals, unsat core |
+| `vx.InstanceFormatError` | The instance is not a mapping/JSON object | Pass a dict or a JSON string |
+| `vx.DecodeError` / `vx.DeadEnd` | Decoding exhausts its budget | Raise `max_number_nodes`/digit budgets or relax a constraint |
+| `vx.ModelProtocolError` | The model adapter returns invalid logits | Return a mapping of token → score from `next_logits(prefix)` |
+| `vx.JSONSyntaxError` | Raw JSON is unparsable when lowering directly | Check the prefix; use the PDA instead of hand-parsing |
 
 <CodeBlock language="python" title="inspect rather than guess" code={`try:
     report = portfolio.verify(instance)
     report.raise_if_failed()
-except vt.VerificationError as exc:
+except vx.VerificationError as exc:
     print(exc.report.status)          # FAIL
     print(exc.report.constraints)     # per-constraint outcomes
     print(exc.report.unsat_core)      # minimal conflicting set, when provable`} copyable />
@@ -100,7 +100,7 @@ culprit field — not silently rounded into a violation.
 ## Certificates
 
 - Hashes are **unkeyed integrity checks, not authentication**. Anyone can recompute them.
-- Bind verification to a trusted spec with `vt.verify_proof(cert, expected_spec=portfolio)`, or sign the
+- Bind verification to a trusted spec with `vx.verify_proof(cert, expected_spec=portfolio)`, or sign the
   artefact in your application.
 - Arbitrary Python/Pydantic validators are not portable. Certificates for non-portable schemas require
   the original trusted schema to re-run them.
@@ -109,10 +109,10 @@ culprit field — not silently rounded into a violation.
 
 ## Native accelerator
 
-- The native path is preferred only when `veritas.native.available()` is true; every wrapper falls back
+- The native path is preferred only when `vexx.native.available()` is true; every wrapper falls back
   to pure Python.
 - `tests/test_native_backend.py` pins parity. A native regression should cost speed, not soundness.
-- Set `VERITAS_NO_NATIVE=1` to force the reference path for an A/B comparison; it is checked per call.
+- Set `VEXX_NO_NATIVE=1` to force the reference path for an A/B comparison; it is checked per call.
 - Claimed speedups come from `benchmarks/native_speedup.py` on a GitHub Actions runner. Measure your own.
 
 ## Scope summary
@@ -129,6 +129,6 @@ culprit field — not silently rounded into a violation.
 </FeatureGrid>
 
 <Callout variant="info" title="Found something undocumented?">
-If you hit a behaviour not described here, it is worth an issue. Repro with `veritas doctor --json`,
-the failing spec, and the trace from `veritas inspect` — that is the fastest path to a fix.
+If you hit a behaviour not described here, it is worth an issue. Repro with `vexx doctor --json`,
+the failing spec, and the trace from `vexx inspect` — that is the fastest path to a fix.
 </Callout>

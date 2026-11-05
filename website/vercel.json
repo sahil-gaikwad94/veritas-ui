@@ -12,6 +12,6 @@
   "crons": [],
   "regions": ["iad1"],
   "env": {
-    "VERITAS_NO_NATIVE": "0"
+    "VEXX_NO_NATIVE": "0"
   }
 }

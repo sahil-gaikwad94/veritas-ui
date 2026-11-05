@@ -22,7 +22,7 @@ supply a spec, because a generic JSON grammar cannot enforce your constraints.
 />
 
 <CodeBlock language="python" title="grammar for the host" code={`from llama_cpp import Llama
-from veritas.bridges import LlamaCppBridge
+from vexx.bridges import LlamaCppBridge
 
 model = Llama(model_path="./model.gguf", n_ctx=4096)
 
@@ -30,7 +30,7 @@ model = Llama(model_path="./model.gguf", n_ctx=4096)
 bridge = LlamaCppBridge(model, spec=None)
 llm = Llama(model_path="./model.gguf", grammar=bridge.grammar)`} copyable />
 
-<CodeBlock language="python" title="spec-aware host" code={`from veritas.bridges import patch_llamacpp
+<CodeBlock language="python" title="spec-aware host" code={`from vexx.bridges import patch_llamacpp
 
 # Host exposes set_logits_processor -> full spec enforcement
 patch_llamacpp(model, spec=portfolio, tokenizer=my_tokenizer)`} copyable />
@@ -43,7 +43,7 @@ constraints are enforced.
 
 ## Inspecting the grammar
 
-<CodeBlock language="python" title="what a spec compiles to" code={`from veritas.bridges import generate_gbnf_from_schema
+<CodeBlock language="python" title="what a spec compiles to" code={`from vexx.bridges import generate_gbnf_from_schema
 
 grammar = generate_gbnf_from_schema(portfolio)
 print(grammar[:400])        # GBNF rules for the JSON shape`} copyable />

@@ -1,16 +1,16 @@
 ---
 title: WASM browser API
-description: veritas-wasm — client-side prefix classification, validity checks, numeric intervals and an incremental PDA handle.
+description: vexx-wasm — client-side prefix classification, validity checks, numeric intervals and an incremental PDA handle.
 ---
 
 import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
-`crates/veritas-wasm` compiles the grammar and numeric primitives for `wasm32-unknown-unknown`. It is
+`crates/vexx-wasm` compiles the grammar and numeric primitives for `wasm32-unknown-unknown`. It is
 built for local tooling — a schema playground, a formatter, a mask preview — not as a replacement for
 server-side decoding.
 
 <Callout variant="warn" title="Not published to npm">
-There is no `veritas-wasm` package on the registry. Build the crate and vendor the generated `pkg/`
+There is no `vexx-wasm` package on the registry. Build the crate and vendor the generated `pkg/`
 directory, or serve the `.wasm` yourself. The import path in the examples assumes that local bundle.
 </Callout>
 
@@ -54,7 +54,7 @@ the vocabulary is malformed. It is not a `Float32Array` and there is no `cloneHa
   canonical_document,
   numeric_prefix,
   PdaHandle,
-} from './pkg/veritas_wasm';
+} from './pkg/vexx_wasm';
 
 await init();
 
@@ -81,7 +81,7 @@ console.log(numeric_prefix('0.2', 0, 1, false)); // Float64Array [0.2, 0.3]`} co
 A worker keeps parsing off the main thread. Load the module inside the worker and expose a small message
 protocol:
 
-<CodeBlock language="typescript" title="veritas.worker.ts" code={`import init, { prefix_status, is_valid_document } from './pkg/veritas_wasm';
+<CodeBlock language="typescript" title="vexx.worker.ts" code={`import init, { prefix_status, is_valid_document } from './pkg/vexx_wasm';
 
 let ready: Promise<unknown>;
 
@@ -100,7 +100,7 @@ self.onmessage = async (event: MessageEvent) => {
   }
 };`} copyable />
 
-<CodeBlock language="typescript" title="main thread" code={`const worker = new Worker(new URL('./veritas.worker.ts', import.meta.url), { type: 'module' });
+<CodeBlock language="typescript" title="main thread" code={`const worker = new Worker(new URL('./vexx.worker.ts', import.meta.url), { type: 'module' });
 
 function call<T>(method: string, ...args: unknown[]): Promise<T> {
   return new Promise((resolve, reject) => {

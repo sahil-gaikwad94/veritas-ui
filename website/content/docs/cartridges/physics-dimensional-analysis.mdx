@@ -1,6 +1,6 @@
 ---
 title: Physics & dimensional analysis
-description: veritas.cartridges.phys — rational-exponent dimensions over Q^7, AST equation checks and unit-aware quantities.
+description: vexx.cartridges.phys — rational-exponent dimensions over Q^7, AST equation checks and unit-aware quantities.
 ---
 
 import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
@@ -27,7 +27,7 @@ mismatch, and square roots of dimensions behave the way algebra says they should
 
 ## Check an equation
 
-<CodeBlock language="python" title="F = m·a, and a wrong E = m·v" code={`from veritas.cartridges.phys import (
+<CodeBlock language="python" title="F = m·a, and a wrong E = m·v" code={`from vexx.cartridges.phys import (
     FORCE, MASS, ACCELERATION, ENERGY, VELOCITY,
     check_equation, check_expression, dimension_of_expression,
 )
@@ -49,7 +49,7 @@ work as expected. Anything it cannot parse returns `(False, reason)` instead of 
 ## Dimension algebra
 
 <CodeBlock language="python" title="products, powers and square roots stay exact" code={`from fractions import Fraction
-from veritas.cartridges.phys import (
+from vexx.cartridges.phys import (
     LENGTH, TIME, MASS, VELOCITY, ACCELERATION, FORCE,
     mul_dim, div_dim, pow_dim, homogeneous, is_dimensionless, dim_to_str,
 )
@@ -79,7 +79,7 @@ there is no unit conversion layer.
 
 ## Schema guard
 
-<CodeBlock language="python" title="reject a formula before it reaches a calculator" code={`from veritas.cartridges.phys import check_equation, FORCE, MASS, ACCELERATION
+<CodeBlock language="python" title="reject a formula before it reaches a calculator" code={`from vexx.cartridges.phys import check_equation, FORCE, MASS, ACCELERATION
 
 report = formula_spec.verify(candidate)
 report.raise_if_failed()

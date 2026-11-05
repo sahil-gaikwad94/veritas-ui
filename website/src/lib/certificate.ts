@@ -1,7 +1,7 @@
 /**
  * Browser-side proof-certificate utilities.
  *
- * The Python verifier (`veritas verify-proof`) remains authoritative. This
+ * The Python verifier (`vexx verify-proof`) remains authoritative. This
  * module re-checks the parts that are checkable without the engine: JSON
  * shape, canonical SHA-256 digests, constraint outcomes, SMT-LIB2 presence
  * and — for the portfolio witness — the actual portfolio arithmetic.
@@ -244,9 +244,9 @@ export async function verifyCertificate(input: unknown): Promise<VerificationOut
 }
 
 /* ------------------------------------------------------------------------- *
- * Real `veritas verify-proof` certificates (format version "2.0")
+ * Real `vexx verify-proof` certificates (format version "2.0")
  *
- * The engine digests JSON the way `veritas.serde` does: sorted keys, compact
+ * The engine digests JSON the way `vexx.serde` does: sorted keys, compact
  * separators, ASCII escapes, and — for the witness — an explicit
  * `{"__pairs__": [[key, value], …]}` encoding with pairs sorted by repr(key).
  * Python also preserves number literals verbatim (`1.0` is not `1`), so the
@@ -372,7 +372,7 @@ function serializePython(value: JsonValue): string {
   return JSON.stringify(value);
 }
 
-/** `veritas.serde._encode_value`: dicts become sorted `__pairs__` arrays. */
+/** `vexx.serde._encode_value`: dicts become sorted `__pairs__` arrays. */
 function encodeForDigest(value: JsonValue): JsonValue {
   if (Array.isArray(value)) return value.map(encodeForDigest);
   if (value !== null && typeof value === 'object' && !(value instanceof RawNumber)) {
@@ -479,7 +479,7 @@ async function realCertificateChecks(cert: RealCertificate): Promise<Verificatio
     id: 'constraints',
     label: 'Constraint re-evaluation',
     detail:
-      'Not replayed in the browser: that is what `veritas verify-proof` does with the embedded VIR. Run it (exit 0) before relying on the certificate.',
+      'Not replayed in the browser: that is what `vexx verify-proof` does with the embedded VIR. Run it (exit 0) before relying on the certificate.',
     status: 'warn',
   });
 
@@ -527,7 +527,7 @@ const SAMPLE_WITNESS: JsonValue = {
 };
 
 const SAMPLE_SMT2 = [
-  '; veritas proof certificate (veritas1.1)',
+  '; vexx proof certificate (vexx1.5)',
   '; synthetic sample built in the browser in the engine certificate format',
   '(set-logic ALL)',
   '(declare-const w_AAPL Real)',

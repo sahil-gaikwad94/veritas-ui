@@ -1,16 +1,16 @@
 ---
 title: Domain cartridges
-description: Nine deterministic domain checkers that ship with Veritas — what they verify, and how to call them after a decode.
+description: Nine deterministic domain checkers that ship with Vexx — what they verify, and how to call them after a decode.
 ---
 
 import { Callout, FeatureGrid, Feature, KeyValueTable, CodeBlock } from '@/components/mdx-components';
 
 Cartridges are **plain Python modules with deterministic checks**. They do not change the decoder and
 they are not symbolic DSL predicates; they are concrete reference implementations you call on the
-verified object — in a guard, a test, an audit script, or a `vt.verified_tool` handler.
+verified object — in a guard, a test, an audit script, or a `vx.verified_tool` handler.
 
 <Callout variant="info" title="Two layers, one spec">
-Use the DSL (`vt.require`, `vt.dot`, `vt.quad_form`, `vt.forall`) for constraints that must hold
+Use the DSL (`vx.require`, `vx.dot`, `vx.quad_form`, `vx.forall`) for constraints that must hold
 *during* decoding. Use cartridges for domain logic that is easier to express as code — SMILES parsing,
 SQL tokenisation, scheduling feasibility, dimensional algebra — then run it on the `PASS` object.
 </Callout>
@@ -43,8 +43,8 @@ SQL tokenisation, scheduling feasibility, dimensional algebra — then run it on
 A single object can be checked by several domains. Verify the math with the engine, then run the domain
 guards on the concrete result:
 
-<CodeBlock language="python" title="one verified object, several domain guards" code={`import veritas as vt
-from veritas.cartridges import quant, sec, sql
+<CodeBlock language="python" title="one verified object, several domain guards" code={`import vexx as vx
+from vexx.cartridges import quant, sec, sql
 
 report = trading_action.verify(candidate)
 report.raise_if_failed()
@@ -68,7 +68,7 @@ assert result.ok, result.errors`} copyable />
 
 <Callout variant="warn" title="Guards are not the decoder">
 A cartridge guard runs **after** the object exists. It cannot mask a token or rewind a branch. If a
-condition must be enforced during decoding, express it in the schema with `vt.require`; keep cartridges
+condition must be enforced during decoding, express it in the schema with `vx.require`; keep cartridges
 for domain logic that is clearer as code.
 </Callout>
 
@@ -88,7 +88,7 @@ for domain logic that is clearer as code.
     stored generations.
   </Feature>
   <Feature title="You need in-decode enforcement" icon="layers">
-    Use the DSL. `vt.require` compiles into the mask and contractors, which is the only way to prevent
+    Use the DSL. `vx.require` compiles into the mask and contractors, which is the only way to prevent
     rather than detect.
   </Feature>
 </FeatureGrid>

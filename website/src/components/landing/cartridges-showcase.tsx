@@ -184,7 +184,7 @@ export function CartridgesShowcase() {
                         className="h-6 border-0 bg-transparent px-1.5 py-0 text-slate-400 shadow-none hover:text-white"
                       />
                     </div>
-                    <div className="overflow-x-auto p-3 font-mono text-[10.5px] leading-[1.85] sm:text-[11.5px]">
+                    <div className="overflow-x-auto p-3 font-mono text-[10px] leading-[1.85] [mask-image:linear-gradient(to_right,#000_93%,transparent)] sm:text-[11px] lg:[mask-image:none]">
                       {cartridge.code.split('\n').map((line, i) => renderCodeLine(line, i))}
                     </div>
                   </div>

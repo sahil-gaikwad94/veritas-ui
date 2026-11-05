@@ -4,13 +4,13 @@ description: AstTranspiler, VirSpec, VirExpr, VirType, DependencyGraph — schem
 ---
 import { Callout, CodeBlock } from '@/components/mdx-components';
 
-The Veritas Intermediate Representation (VIR) compiler is the bridge between your Python `@verified_schema` code and the Rust engine. It transpiles Python AST into a structured intermediate representation that drives the entire solve pipeline.
+The Vexx Intermediate Representation (VIR) compiler is the bridge between your Python `@verified_schema` code and the Rust engine. It transpiles Python AST into a structured intermediate representation that drives the entire solve pipeline.
 
 ---
 
 ## What Is VIR?
 
-**VIR** (Veritas Intermediate Representation) is a language-independent description of your schema. It captures:
+**VIR** (Vexx Intermediate Representation) is a language-independent description of your schema. It captures:
 
 - What fields exist in the output
 - What constraints must be satisfied
@@ -32,11 +32,11 @@ The `AstTranspiler` parses your decorated Python function's AST (Abstract Syntax
 3. All mathematical operators (`sum`, `dot`, `quad_form`, `sqrt`, `keys_subset`)
 4. Constant definitions (RETURNS, COV, etc.)
 
-It produces a `VirSpec` — a structured representation of everything Veritas needs to enforce your schema.
+It produces a `VirSpec` — a structured representation of everything Vexx needs to enforce your schema.
 
 ### Example
 
-<CodeBlock language="python" code={`from veritas import AstTranspiler, VirSpec
+<CodeBlock language="python" code={`from vexx import AstTranspiler, VirSpec
 
 transpiler = AstTranspiler()
 vir_spec = transpiler.transpile(valid_portfolio)
@@ -115,11 +115,11 @@ This means:
 
 The graph is topologically sorted to produce `key_order` — the order in which JSON keys should be emitted. Inputs first, derived fields last.
 
-This ordering is **critical** for Zero-DoF splicing: by the time the LLM reaches `expected_return`, all weights have already been emitted, so Veritas can compute it deterministically.
+This ordering is **critical** for Zero-DoF splicing: by the time the LLM reaches `expected_return`, all weights have already been emitted, so Vexx can compute it deterministically.
 
 ### Example
 
-<CodeBlock language="python" code={`from veritas import DependencyGraph, build_json_key_order
+<CodeBlock language="python" code={`from vexx import DependencyGraph, build_json_key_order
 
 graph = DependencyGraph(vir_spec)
 
@@ -187,7 +187,7 @@ Here's the complete flow from Python to Rust:
 
 ## Complete Example
 
-<CodeBlock language="python" code={`from veritas import AstTranspiler, DependencyGraph, build_json_key_order
+<CodeBlock language="python" code={`from vexx import AstTranspiler, DependencyGraph, build_json_key_order
 
 # Your schema
 @verified_schema

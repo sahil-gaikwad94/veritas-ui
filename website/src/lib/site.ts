@@ -1,20 +1,20 @@
 export const siteConfig = {
-  name: 'Veritas',
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://veritas-ui.vercel.app',
+  name: 'Vexx',
+  url: process.env.NEXT_PUBLIC_SITE_URL ?? 'https://vexx-ui.vercel.app',
   github: 'https://github.com/sahil-gaikwad94/veritas',
   githubRepo: 'sahil-gaikwad94/veritas',
   author: { name: 'Sahil Gaikwad', url: 'https://github.com/sahil-gaikwad94' },
   issues: 'https://github.com/sahil-gaikwad94/veritas/issues',
   newIssue: 'https://github.com/sahil-gaikwad94/veritas/issues/new',
   discussions: 'https://github.com/sahil-gaikwad94/veritas/discussions',
-  version: 'veritas1.1',
+  version: 'vexx1.5',
   license: 'Apache-2.0',
   description:
-    'Veritas compiles Pydantic schemas and algebraic constraints into a solver-guided decoder: grammar masking, interval contraction, zero-DoF splicing and offline proof certificates — inside the token loop.',
+    'Vexx compiles Pydantic schemas and algebraic constraints into a solver-guided decoder: grammar masking, interval contraction, zero-DoF splicing and offline proof certificates — inside the token loop.',
   shortDescription:
     'Solver-guided decoding and formal verification for LLM output. Pydantic on the surface, Rust solvers underneath.',
   installCommand: 'pip install "git+https://github.com/sahil-gaikwad94/veritas.git"',
-  npmWasm: 'cargo build -p veritas-wasm --target wasm32-unknown-unknown',
+  npmWasm: 'cargo build -p vexx-wasm --target wasm32-unknown-unknown',
 } as const;
 
 export const navLinks = [
@@ -99,11 +99,11 @@ def safe_query(q: Query):
     label: 'Security & agents',
     blurb: 'Tool policies, budgets, finite-trace LTLf',
     description:
-      'Declare tools, preconditions, effects and budgets. Veritas checks every call against the plan and evaluates temporal policies over the whole trace.',
+      'Declare tools, preconditions, effects and budgets. Vexx checks every call against the plan and evaluates temporal policies over the whole trace.',
     checks: ['Declared tools only', 'Preconditions before effects', 'Budget & blast-radius caps', 'LTLf trace policies'],
     accent: '#b91c1c',
-    code: `from veritas.ltlf import always, before
-from veritas.cartridges.sec import WorldState
+    code: `from vexx.ltlf import always, before
+from vexx.cartridges.sec import WorldState
 
 state = WorldState()
 state.assert_fact("authenticated")
@@ -199,10 +199,10 @@ def patch(p: Patch):
   },
 ];
 
-// Real classes/factories from `veritas.bridges` — keep in sync with the package.
+// Real classes/factories from `vexx.bridges` — keep in sync with the package.
 export const bridges = [
-  { name: 'Hugging Face', detail: 'VeritasLogitsProcessor' },
-  { name: 'vLLM', detail: 'VeritasVLLMBridge' },
+  { name: 'Hugging Face', detail: 'VexxLogitsProcessor' },
+  { name: 'vLLM', detail: 'VexxVLLMBridge' },
   { name: 'SGLang', detail: 'SGLangBridge' },
   { name: 'llama.cpp', detail: 'LlamaCppBridge' },
   { name: 'OpenAI', detail: 'patch_openai' },
@@ -213,53 +213,53 @@ export const bridges = [
 
 export const superpowers = [
   {
-    id: 'zero-dof',
-    kicker: 'Zero-DoF splicing',
-    title: 'Derived fields cost zero forward passes',
-    body: 'Keys are topologically sorted so inputs precede outputs. When the free variables close, Veritas computes the derived value and splices it into the stream — healing BPE boundaries on the way.',
-    metric: '0 LLM calls',
+    id: 'serve',
+    kicker: 'vexx serve',
+    title: 'A bouncer for the model you already rent',
+    body: 'Point an OpenAI-compatible proxy at your upstream. Non-streaming completions are re-verified against the schema before your app sees them: a violation comes back as 422, a pass comes back with a certificate. Streaming keeps flowing and gets a certificate event before it closes.',
+    metric: 'new in 1.5',
   },
   {
-    id: 'crane',
-    kicker: 'CRANE reasoning',
-    title: 'Think freely. Emit strictly.',
-    body: 'The model reasons inside <think> without a grammar lock, then switches to strict solver-guided decoding at <emit>. Candidate equations are mined passively along the way.',
-    metric: '<think> → <emit>',
+    id: 'mcp',
+    kicker: 'MCP firewall',
+    title: 'Tool calls with a constitution',
+    body: 'Declare the order tools may fire in, bind later arguments to earlier results, cap spend and taint untrusted strings. An agent that tries to refund more than the last order total gets stopped by the session, not by a postmortem.',
+    metric: 'new in 1.5',
   },
   {
-    id: 'cdcl',
-    kicker: 'CDCL jumpback',
-    title: 'Learn from dead ends instead of retrying',
-    body: 'On UNSAT, an entropy-weighted culprit score finds the earlier field to blame, rewinds the stream and records a half-space domain cut plus a tabu prefix.',
-    metric: '≤ 8 rewinds',
+    id: 'receipts',
+    kicker: 'KL receipts',
+    title: 'Know what the constraint actually cost',
+    body: 'Masking changes the distribution. Vexx measures it exactly: minus log of the probability mass your mask removed, tracked per field and per step, then bundled into a receipt with content hashes. No more guessing whether a spec quietly lobotomised the model.',
+    metric: 'new in 1.5',
+  },
+  {
+    id: 'explain',
+    kicker: 'Explain UNSAT',
+    title: 'An impossible spec, with the smallest fix',
+    body: 'Run explain-unsat and get a per-clause relaxation: the least widening or raising that makes the system satisfiable, or a straight answer that the conflict is structural and no single clause will save it.',
+    metric: 'new in 1.5',
+  },
+  {
+    id: 'soundness',
+    kicker: 'Soundness pass',
+    title: 'The audit found the scary things first',
+    body: 'Indefinite quadratic forms, word-boundary patterns, Fourier-Motzkin pruning and a wrong quadratic form are all fixed. Kohler pruning was replaced with subsumption so a refutation cannot be dropped on the floor. Bugs in a verifier are not a small deal, which is why they are listed publicly.',
+    metric: '8 fixes',
   },
   {
     id: 'proof',
     kicker: 'Proof certificates',
     title: 'Ship the receipt with the result',
-    body: 'Every PASS can carry a self-contained certificate: the versioned spec, the witness, an SMT-LIB2 rendering and SHA-256 digests that verify offline.',
+    body: 'Every PASS can carry a self-contained certificate: the versioned spec, the witness, an SMT-LIB2 rendering and SHA-256 digests that verify offline. Hand it to a reviewer who does not trust you, or to your own CI.',
     metric: 'SHA-256',
-  },
-  {
-    id: 'preflight',
-    kicker: 'Preflight gate',
-    title: 'Contradictions fail before the GPU spins',
-    body: 'Interval contraction, container feasibility and exact strict-bound refutation run against the compiled spec in zero tokens. Infeasible specs raise with relaxation hints.',
-    metric: '0 tokens',
-  },
-  {
-    id: 'rl',
-    kicker: 'RL trajectories',
-    title: 'Every backtrack is training data',
-    body: 'Rejected branches and verified completions become step-level DPO / Process-GRPO preference pairs you can export straight to your fine-tuning pipeline.',
-    metric: 'DPO · GRPO',
   },
 ] as const;
 
 export const faqs = [
   {
     q: 'How is this different from JSON mode or Pydantic validation?',
-    a: 'Grammar tools guarantee syntax; Pydantic validates after the fact. Veritas also reasons about cross-field algebra and inequalities while the tokens are being chosen, and computes derived fields instead of sampling them. Invalid math is never emitted, so you do not pay for a retry loop.',
+    a: 'Grammar tools guarantee syntax; Pydantic validates after the fact. Vexx also reasons about cross-field algebra and inequalities while the tokens are being chosen, and computes derived fields instead of sampling them. Invalid math is never emitted, so you do not pay for a retry loop.',
   },
   {
     q: 'Does a solver run on every token?',
@@ -267,7 +267,7 @@ export const faqs = [
   },
   {
     q: 'Do I need Rust or a C toolchain?',
-    a: 'No. The Python engine is the complete, tested product surface. The dependency-free Rust accelerator is optional and loaded automatically when available; every wrapper falls back to Python. Set VERITAS_NO_NATIVE=1 to force the reference path.',
+    a: 'No. The Python engine is the complete, tested product surface. The dependency-free Rust accelerator is optional and loaded automatically when available; every wrapper falls back to Python. Set VEXX_NO_NATIVE=1 to force the reference path.',
   },
   {
     q: 'What does it add to latency?',
@@ -278,12 +278,16 @@ export const faqs = [
     a: 'Anything that can expose logits or accept a mask: Hugging Face, vLLM, SGLang, llama.cpp, plus OpenAI/Instructor post-verification and an async stream proxy. The engine itself is model-agnostic — a model only needs next_logits(prefix).',
   },
   {
+    q: 'What actually changed in vexx1.5?',
+    a: 'A lot, and most of it is boring on purpose. Soundness fixes for indefinite quadratic forms, word-boundary regexes, Fourier-Motzkin pruning and the Rust quadratic contraction. Then the interesting part: per-field KL receipts, an OpenAI-compatible verifying proxy, an LTLf MCP firewall with spend caps and taint tracking, a minimal-relaxation wizard, RL trace export and an adaptive solver-feedback scratchpad on CDCL backtrack. 425 Python tests and 69 Rust unit tests agree.',
+  },
+  {
     q: 'Can I install it from PyPI today?',
-    a: 'Not yet — the package metadata ships as veritas-ai but the release is pending. Install straight from GitHub with pip install "git+https://github.com/sahil-gaikwad94/veritas.git" or clone and use an editable install for development.',
+    a: 'The distribution name is vexx-ai; the PyPI release is the last step. Until it lands, install straight from GitHub with pip install "git+https://github.com/sahil-gaikwad94/veritas.git" or use an editable install from a clone. Same engine, only the packaging is pending.',
   },
   {
     q: 'Is it production ready?',
-    a: 'The Python engine is complete and covered by 419 tests with the native extension built (378 in a default install). GPU bridges are adapter-tested against fakes, not live vendor servers, and the out-of-scope list is documented. Treat it as a rigorous 2.0 that still wants your own integration tests.',
+    a: 'The Python engine is complete and covered by 425 tests (41 native-parity tests skip unless the native wheel is built) plus 69 Rust unit tests. GPU bridges are adapter-tested against fakes, not live vendor servers, and the out-of-scope list is documented. Treat it as a rigorous 1.5 that still wants your own integration tests.',
   },
   {
     q: 'Will this make my model smarter?',

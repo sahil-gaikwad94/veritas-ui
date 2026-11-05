@@ -241,7 +241,7 @@ export function Superpowers() {
         <SectionHeading
           eyebrow="Beyond constraints"
           title="Six things a regex cannot do."
-          description="Grammar masking is a good start and a bad finish. Veritas follows the decode from the first brace to the final receipt — including the arithmetic your schema never sees."
+          description="Grammar masking is a good start and a bad finish. Vexx follows the decode from the first brace to the final receipt — including the arithmetic your schema never sees."
           align="left"
         />
 
@@ -250,7 +250,7 @@ export function Superpowers() {
             className="lg:col-span-2"
             kicker="Zero-DoF splicing"
             title="Derived fields cost zero forward passes"
-            body="Keys are topologically sorted so inputs precede outputs. When the free variables close, Veritas computes the derived value and splices it into the stream — healing BPE boundaries on the way."
+            body="Keys are topologically sorted so inputs precede outputs. When the free variables close, Vexx computes the derived value and splices it into the stream — healing BPE boundaries on the way."
             metric="0 LLM calls"
             href="/docs/engine-internals/zero-dof-jump-forward"
           >

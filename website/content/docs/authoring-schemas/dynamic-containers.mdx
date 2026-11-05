@@ -4,7 +4,7 @@ description: ResidualAccumulator, analyze_containers, ContainerInfo — constrai
 ---
 import { Callout, CodeBlock } from '@/components/mdx-components';
 
-Most real-world schemas have collections whose size is not known until decode time — a variable number of portfolio positions, an unknown list of tool calls, or a dictionary with dynamic keys. Veritas handles these with the **`ResidualAccumulator`** — an incremental bound-tracking structure that supports `forall` quantification over dynamic collections.
+Most real-world schemas have collections whose size is not known until decode time — a variable number of portfolio positions, an unknown list of tool calls, or a dictionary with dynamic keys. Vexx handles these with the **`ResidualAccumulator`** — an incremental bound-tracking structure that supports `forall` quantification over dynamic collections.
 
 ---
 
@@ -16,7 +16,7 @@ When you write:
 require(forall(p.weights.values(), lambda w: 0.05 <= w <= 0.50))
 ```
 
-Veritas doesn't know how many weights there will be until the LLM generates them. It can't check the constraint all at once — it needs to check **incrementally** as each weight is emitted.
+Vexx doesn't know how many weights there will be until the LLM generates them. It can't check the constraint all at once — it needs to check **incrementally** as each weight is emitted.
 
 That's what `ResidualAccumulator` does.
 
@@ -34,7 +34,7 @@ The `ResidualAccumulator` maintains running lower/upper bounds over a dynamic co
 ### Syntax
 
 ```python
-from veritas import ResidualAccumulator
+from vexx import ResidualAccumulator
 
 acc = ResidualAccumulator()
 for element in collection:
@@ -57,7 +57,7 @@ require(acc.min >= 0.05)
 
 ### Example
 
-<CodeBlock language="python" code={`from veritas import ResidualAccumulator, require
+<CodeBlock language="python" code={`from vexx import ResidualAccumulator, require
 
 @verified_schema
 def dynamic_portfolio(p: Portfolio):
@@ -93,7 +93,7 @@ As the LLM generates each weight value:
 ### Syntax
 
 ```python
-from veritas import analyze_containers, ContainerInfo
+from vexx import analyze_containers, ContainerInfo
 
 info = analyze_containers(my_schema)
 for container in info.containers:
@@ -105,7 +105,7 @@ for container in info.containers:
 
 ### Example
 
-<CodeBlock language="python" code={`from veritas import analyze_containers
+<CodeBlock language="python" code={`from vexx import analyze_containers
 
 info = analyze_containers(valid_portfolio)
 
@@ -146,7 +146,7 @@ ContainerInfo(
 
 ## Complete Example: Dynamic Position Sizing
 
-<CodeBlock language="python" code={`from veritas import verified_schema, require, derive, forall, sum, dot, ResidualAccumulator
+<CodeBlock language="python" code={`from vexx import verified_schema, require, derive, forall, sum, dot, ResidualAccumulator
 
 RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15}
 

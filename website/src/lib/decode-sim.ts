@@ -1,11 +1,11 @@
 /**
- * Deterministic, client-side model of a Veritas decode.
+ * Deterministic, client-side model of a Vexx decode.
  *
  * This is a faithful *replay* of the engine's behaviour for demonstration:
  * the portfolio arithmetic below is real (covariance → volatility → Sharpe),
  * and the token stream mirrors the order the decoder emits it in. The
  * production engine lives at github.com/sahil-gaikwad94/veritas — build
- * `veritas-wasm` to run the actual Rust core in this page.
+ * `vexx-wasm` to run the actual Rust core in this page.
  */
 
 export const ASSETS = ['AAPL', 'MSFT', 'NVDA'] as const;
@@ -314,9 +314,9 @@ export function decodedJson(weights: Weights, stats: PortfolioStats) {
 
 export function buildInspectorTrace(frames: Frame[], weights: Weights, stats: PortfolioStats, ceiling: number) {
   return {
-    engine: 'veritas-playground-replay',
-    version: 'veritas1.1',
-    note: 'Deterministic replay for the browser playground. Run `veritas inspect` on a real trace for full telemetry.',
+    engine: 'vexx-playground-replay',
+    version: 'vexx1.5',
+    note: 'Deterministic replay for the browser playground. Run `vexx inspect` on a real trace for full telemetry.',
     config: { vocabulary_size: 1000, risk_ceiling: ceiling, sharpe_floor: SHARPE_FLOOR },
     values: { weights, ...stats },
     steps: frames.map((f) => ({

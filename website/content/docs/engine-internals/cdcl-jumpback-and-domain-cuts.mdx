@@ -4,7 +4,7 @@ description: CdclJumpbackEngine, entropy culprit score, TabuPrefixTrie — confl
 ---
 import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
 
-When a UNSAT conflict is detected during decoding, Veritas doesn't retry the whole prompt — wasting all tokens generated so far. Instead, it uses **Conflict-Driven Clause Learning (CDCL)** to pinpoint the exact field responsible, rewind the token stream, and learn a half-space domain cut.
+When a UNSAT conflict is detected during decoding, Vexx doesn't retry the whole prompt — wasting all tokens generated so far. Instead, it uses **Conflict-Driven Clause Learning (CDCL)** to pinpoint the exact field responsible, rewind the token stream, and learn a half-space domain cut.
 
 ---
 
@@ -35,7 +35,7 @@ The CDCL jumpback engine analyzes UNSAT conflicts and:
 
 ### Example
 
-<CodeBlock language="python" code={`from veritas import CdclJumpbackEngine
+<CodeBlock language="python" code={`from vexx import CdclJumpbackEngine
 
 engine = CdclJumpbackEngine()
 
@@ -100,7 +100,7 @@ A **trie** (prefix tree) of previously-rejected token prefixes. Once a branch is
 ### How It Works
 
 1. When a UNSAT conflict is found, the prefix leading to it is inserted into the trie
-2. Before sampling any token, Veritas checks if the current prefix is tabu
+2. Before sampling any token, Vexx checks if the current prefix is tabu
 3. If tabu, the token is masked — the model can't repeat the same dead end
 
 ### Example
@@ -120,7 +120,7 @@ Current prefix: {"weights": {"AAPL": 0.50
 
 ## Half-Space Domain Cuts
 
-Instead of retrying from scratch, Veritas learns a **linear inequality (half-space cut)** that excludes the infeasible region:
+Instead of retrying from scratch, Vexx learns a **linear inequality (half-space cut)** that excludes the infeasible region:
 
 ```
 weights.AAPL <= 0.40    # Learned from UNSAT: AAPL=0.50 made sum > 1.0
@@ -158,7 +158,7 @@ CDCL jumpback typically saves 60-90% of tokens compared to full prompt retry —
 
 ## Complete Example
 
-<CodeBlock language="python" code={`from veritas import CdclJumpbackEngine
+<CodeBlock language="python" code={`from vexx import CdclJumpbackEngine
 
 engine = CdclJumpbackEngine()
 
@@ -183,5 +183,5 @@ engine.learn_cut(culprit.field, f\"{culprit.field} <= 0.40\")
 
 ## Next Steps
 
-- **[Rust Native & WASM Core](/docs/engine-internals/rust-native-and-wasm-core)** — `crates/veritas-core`, `veritas-wasm`
+- **[Rust Native & WASM Core](/docs/engine-internals/rust-native-and-wasm-core)** — `crates/vexx-core`, `vexx-wasm`
 - **[Proof Certificates](/docs/proofs-rl-and-cli/proof-certificates)** — SHA-256 + SMT-LIB2 verification

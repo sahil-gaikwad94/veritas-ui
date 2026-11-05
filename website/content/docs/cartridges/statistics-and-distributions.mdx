@@ -1,6 +1,6 @@
 ---
 title: Statistics & distributions
-description: veritas.cartridges.stat — probability simplex, Fréchet bounds, Bayes consistency, PSD matrices and d-separation.
+description: vexx.cartridges.stat — probability simplex, Fréchet bounds, Bayes consistency, PSD matrices and d-separation.
 ---
 
 import { Callout, CodeBlock, KeyValueTable, FeatureGrid, Feature } from '@/components/mdx-components';
@@ -39,7 +39,7 @@ independence.
 
 ## Coherence checks
 
-<CodeBlock language="python" title="probability, bounds and Bayes" code={`from veritas.cartridges.stat import (
+<CodeBlock language="python" title="probability, bounds and Bayes" code={`from vexx.cartridges.stat import (
     probability_simplex, frechet_ok, bayes_consistency, joint_table_valid,
 )
 
@@ -57,7 +57,7 @@ assert joint_table_valid([[0.1, 0.2], [0.3, 0.4]])`} copyable />
 
 ## Covariance and independence
 
-<CodeBlock language="python" title="PSD and d-separation" code={`from veritas.cartridges.stat import matrix_psd, covariance_psd, is_d_separated
+<CodeBlock language="python" title="PSD and d-separation" code={`from vexx.cartridges.stat import matrix_psd, covariance_psd, is_d_separated
 
 assert matrix_psd([[1.0, 0.5], [0.5, 1.0]])
 assert not matrix_psd([[1.0, 2.0], [2.0, 1.0]])     # negative eigenvalue
@@ -80,13 +80,13 @@ believe, not the one that makes the answer convenient.
 
 Probability coherence is cheap to state symbolically and should be enforced during decoding:
 
-<CodeBlock language="python" title="mask incoherent probabilities" code={`import veritas as vt
+<CodeBlock language="python" title="mask incoherent probabilities" code={`import vexx as vx
 
-@vt.verified_schema()
+@vx.verified_schema()
 def beliefs(b: Beliefs):
-    vt.require(vt.forall(b.probs.values(), lambda p: (0.0 <= p) & (p <= 1.0)))
-    vt.require(vt.sum(b.probs.values()) == 1.0, tol=1e-9)
-    vt.derive(b.joint_ab == b.probs["A"] * b.probs["B"], tol=1e-9)`} copyable />
+    vx.require(vx.forall(b.probs.values(), lambda p: (0.0 <= p) & (p <= 1.0)))
+    vx.require(vx.sum(b.probs.values()) == 1.0, tol=1e-9)
+    vx.derive(b.joint_ab == b.probs["A"] * b.probs["B"], tol=1e-9)`} copyable />
 
 Then call `frechet_ok`, `bayes_consistency` or `is_d_separated` on the concrete result for the parts that
 are easier to express as code.

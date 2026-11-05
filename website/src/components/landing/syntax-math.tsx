@@ -123,7 +123,7 @@ export function SyntaxMath() {
           <p className="mt-4 text-[15px] leading-relaxed text-ink-secondary sm:text-base">
             A schema can promise that <code className="font-mono text-[13px]">weights</code> is an object of
             floats. It cannot promise they add up to one — or that the Sharpe ratio agrees with the covariance
-            matrix. Grammar tools stop at syntax. Pydantic finds out too late. Veritas catches the math
+            matrix. Grammar tools stop at syntax. Pydantic finds out too late. Vexx catches the math
             <em>while the tokens are being chosen</em>, not after you’ve already paid for the retry loop.
           </p>
         </div>
@@ -163,7 +163,7 @@ export function SyntaxMath() {
             </p>
           </div>
 
-          {/* Veritas */}
+          {/* Vexx */}
           <div className="relative overflow-hidden rounded-[26px] border border-verify-pass/25 bg-bg-elevated p-5 shadow-[var(--vt-shadow-card)] sm:p-6">
             <div
               aria-hidden
@@ -172,7 +172,7 @@ export function SyntaxMath() {
             <div className="relative flex items-start justify-between gap-3">
               <div>
                 <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-verify-pass">
-                  Veritas solver mode
+                  Vexx solver mode
                 </p>
                 <h3 className="mt-1.5 text-[1.05rem] font-semibold text-ink-primary">
                   Valid syntax · verified algebra

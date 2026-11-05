@@ -4,7 +4,7 @@ description: ProofCertificate, SMT-LIB2 export, SHA-256 witness verification —
 ---
 import { CodeBlock, Callout, Badge } from '@/components/mdx-components';
 
-Every verified decode ships with a **tamper-evident SHA-256 witness digest** and an **offline-verifiable SMT-LIB2 proof script**. Verify with `veritas verify-proof` — zero backend storage required.
+Every verified decode ships with a **tamper-evident SHA-256 witness digest** and an **offline-verifiable SMT-LIB2 proof script**. Verify with `vexx verify-proof` — zero backend storage required.
 
 ---
 
@@ -33,7 +33,7 @@ A certificate is a JSON object with exactly these keys — `version`, `sha256`, 
   "smt2_sha256": "fda1ac1aefa5e74f0689a44a3220d3f98e4b161aed274cf51baaa9071c16…",
   "witness": {"priority": 2, "sla_hours": 12},
   "spec": {"version": 3, "model": "Ticket", "variables": {...}, "requires": [...]},
-  "smt2": "; veritas proof certificate (v2.0)\n(set-logic ALL)\n(declare-const priority Int)\n…",
+  "smt2": "; vexx proof certificate (v2.0)\n(set-logic ALL)\n(declare-const priority Int)\n…",
   "smt2_complete": true,
   "smt2_omitted": [],
   "metadata": {}
@@ -61,9 +61,9 @@ with `smt2_complete: false`. The certificate still verifies: `verify-proof` re-e
 constraints from the embedded VIR and says so in the `smt2_coverage` check.
 </Callout>
 
-## `veritas verify-proof` CLI
+## `vexx verify-proof` CLI
 
-<CodeBlock language="bash" code={`$ veritas verify-proof proof.json
+<CodeBlock language="bash" code={`$ vexx verify-proof proof.json
 certificate: VALID
   [ok] version: found '2.0', expected '2.0'
   [ok] sha256: content digest matches
@@ -84,7 +84,7 @@ Change one witness value and the digests stop agreeing. The constraints still pa
 witness was still a legal instance — but the certificate is rejected, and the report says exactly
 which bindings broke:
 
-<CodeBlock language="bash" code={`$ veritas verify-proof tampered_proof.json     # witness.sla_hours: 12 -> 11
+<CodeBlock language="bash" code={`$ vexx verify-proof tampered_proof.json     # witness.sla_hours: 12 -> 11
 certificate: INVALID
   [ok] version: found '2.0', expected '2.0'
   [FAIL] sha256: digest mismatch or missing
@@ -99,7 +99,7 @@ certificate: INVALID
 
 <Callout variant="warn" title="Hashes are integrity, not authentication">
 Anyone can recompute an unkeyed SHA-256. Bind verification to the spec you trust with
-`vt.verify_proof(cert, expected_spec=portfolio)`, or sign the artifact in your own application.
+`vx.verify_proof(cert, expected_spec=portfolio)`, or sign the artifact in your own application.
 
 </Callout>
 

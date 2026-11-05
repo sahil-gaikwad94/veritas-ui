@@ -1,19 +1,19 @@
 ---
 title: Hugging Face Transformers
-description: VeritasLogitsProcessor, HFTransformersBridge and from_spec for generate()-based pipelines.
+description: VexxLogitsProcessor, HFTransformersBridge and from_spec for generate()-based pipelines.
 ---
 
 import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
-`transformers` accepts a `LogitsProcessor` in `generate()`. Veritas ships one that builds an exact mask
+`transformers` accepts a `LogitsProcessor` in `generate()`. Vexx ships one that builds an exact mask
 from the tokenizer vocabulary and applies it at every step.
 
 ## API
 
 <KeyValueTable
   rows={[
-    { key: 'VeritasLogitsProcessor(tokenizer=None, spec=None, vocabulary=None, eos_token_id=None, cache_size=8192, prompt_len=0)', value: 'callable(input_ids, scores) -> scores' },
-    { key: 'VeritasLogitsProcessor.from_spec(spec, tokenizer=None, **kwargs)', value: 'classmethod' },
+    { key: 'VexxLogitsProcessor(tokenizer=None, spec=None, vocabulary=None, eos_token_id=None, cache_size=8192, prompt_len=0)', value: 'callable(input_ids, scores) -> scores' },
+    { key: 'VexxLogitsProcessor.from_spec(spec, tokenizer=None, **kwargs)', value: 'classmethod' },
     { key: 'HFTransformersBridge(model=None, spec=None, tokenizer=None)', value: 'bridge object' },
     { key: 'bridge.generate_kwargs()', value: '{"logits_processor": [processor]}' },
     { key: 'bridge.verify(text)', value: 'VerificationReport' },
@@ -21,13 +21,13 @@ from the tokenizer vocabulary and applies it at every step.
 />
 
 <CodeBlock language="python" title="a generate() call" code={`from transformers import AutoModelForCausalLM, AutoTokenizer
-from veritas.bridges import VeritasLogitsProcessor
+from vexx.bridges import VexxLogitsProcessor
 
 model_id = "meta-llama/Llama-3.1-8B-Instruct"
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 model = AutoModelForCausalLM.from_pretrained(model_id)
 
-processor = VeritasLogitsProcessor.from_spec(portfolio, tokenizer=tokenizer)
+processor = VexxLogitsProcessor.from_spec(portfolio, tokenizer=tokenizer)
 inputs = tokenizer("produce a portfolio", return_tensors="pt")
 output = model.generate(
     **inputs,
@@ -48,7 +48,7 @@ prompts of different lengths, or the prefix will include prompt tokens that are 
 
 ## Bridge convenience
 
-<CodeBlock language="python" title="generate kwargs + verification" code={`from veritas.bridges import HFTransformersBridge
+<CodeBlock language="python" title="generate kwargs + verification" code={`from vexx.bridges import HFTransformersBridge
 
 bridge = HFTransformersBridge(model, spec=portfolio, tokenizer=tokenizer)
 output = model.generate(**inputs, max_new_tokens=512, **bridge.generate_kwargs())

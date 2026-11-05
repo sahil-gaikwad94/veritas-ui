@@ -29,16 +29,16 @@ export const benchmarks: Benchmark[] = [
 export const testMatrix = [
   {
     suite: 'Python · default install',
-    result: '378 passed',
+    result: '425 passed, 41 skipped',
     detail: '41 skipped: native parity corpus, kill-switch tests and the randomized differential sweep',
   },
   {
     suite: 'Python · native extension built',
-    result: '419 passed',
+    result: '425 passed, 0 skipped',
     detail: '0 skipped — every test also exercises native masks and numeric prefixes',
   },
   {
-    suite: 'Rust · veritas-core',
+    suite: 'Rust · vexx-core',
     result: '68 unit + 12 property',
     detail: 'Property tests refute randomized constraints against a brute-force grid and re-check every UNSAT core',
   },

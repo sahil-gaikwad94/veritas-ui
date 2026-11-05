@@ -5,7 +5,7 @@ description: Attach an exact JSON token mask to vLLM with VLLMLogitsProcessor or
 
 import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
-vLLM accepts logits processors per request. Veritas supplies one that masks every token against the
+vLLM accepts logits processors per request. Vexx supplies one that masks every token against the
 JSON grammar — and against your schema when a spec is supplied.
 
 ## API
@@ -13,7 +13,7 @@ JSON grammar — and against your schema when a spec is supplied.
 <KeyValueTable
   rows={[
     { key: 'VLLMLogitsProcessor(tokenizer=None, spec=None, vocabulary=None, eos_token_id=None)', value: 'callable logits processor' },
-    { key: 'VeritasVLLMBridge(model=None, spec=None, tokenizer=None)', value: 'bridge object' },
+    { key: 'VexxVLLMBridge(model=None, spec=None, tokenizer=None)', value: 'bridge object' },
     { key: 'bridge.sampling_params()', value: '{"logits_processors": [processor]}' },
     { key: 'bridge.patch(engine=None)', value: 'appends to host list, or raises TypeError' },
     { key: 'patch_vllm(engine, spec=None, tokenizer=None)', value: 'one-line patch' },
@@ -21,10 +21,10 @@ JSON grammar — and against your schema when a spec is supplied.
 />
 
 <CodeBlock language="python" title="pass the processor through SamplingParams" code={`from vllm import LLM, SamplingParams
-from veritas.bridges import VeritasVLLMBridge
+from vexx.bridges import VexxVLLMBridge
 
 model = LLM(model="meta-llama/Llama-3.1-8B-Instruct")
-bridge = VeritasVLLMBridge(model, spec=portfolio, tokenizer=model.get_tokenizer())
+bridge = VexxVLLMBridge(model, spec=portfolio, tokenizer=model.get_tokenizer())
 
 params = SamplingParams(temperature=0.7, max_tokens=512, **bridge.sampling_params())
 outputs = model.generate(["produce a portfolio"], params)
@@ -35,7 +35,7 @@ report.raise_if_failed()`} copyable />
 
 ## Patching an engine
 
-<CodeBlock language="python" title="mutating an existing host" code={`from veritas.bridges import patch_vllm
+<CodeBlock language="python" title="mutating an existing host" code={`from vexx.bridges import patch_vllm
 
 try:
     patch_vllm(model, spec=portfolio, tokenizer=model.get_tokenizer())

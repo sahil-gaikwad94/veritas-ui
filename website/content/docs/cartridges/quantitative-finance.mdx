@@ -1,6 +1,6 @@
 ---
 title: Quantitative finance
-description: veritas.cartridges.quant — simplex checks, covariance math, portfolio statistics, option bounds and accounting identities.
+description: vexx.cartridges.quant — simplex checks, covariance math, portfolio statistics, option bounds and accounting identities.
 ---
 
 import { Callout, CodeBlock, KeyValueTable, StatGrid, Stat } from '@/components/mdx-components';
@@ -18,7 +18,7 @@ dataclass — nothing is deferred.
 
 ## Import surface
 
-<CodeBlock language="python" title="the functions you will actually use" code={`from veritas.cartridges.quant import (
+<CodeBlock language="python" title="the functions you will actually use" code={`from vexx.cartridges.quant import (
     portfolio_weights_valid, concentration_ok, long_only_ok,
     expected_return, quad_form, portfolio_stats, sharpe_ratio,
     covariance_matrix, cholesky, is_positive_semidefinite,
@@ -43,7 +43,7 @@ dataclass — nothing is deferred.
 
 ## Check a portfolio
 
-<CodeBlock language="python" title="weights, risk and Sharpe from one call" code={`from veritas.cartridges.quant import (
+<CodeBlock language="python" title="weights, risk and Sharpe from one call" code={`from vexx.cartridges.quant import (
     portfolio_weights_valid, portfolio_stats, concentration_ok, is_positive_semidefinite,
     covariance_matrix,
 )
@@ -65,14 +65,14 @@ print(stats.as_dict())
 #  'sharpe_ratio': 0.5945, 'variance': 0.041775, 'risk_free': 0.04}`} copyable />
 
 <Callout variant="info" title="Same numbers as the DSL">
-`portfolio_stats` mirrors `vt.dot`, `vt.quad_form` and `vt.sqrt`, so a value you spliced during
+`portfolio_stats` mirrors `vx.dot`, `vx.quad_form` and `vx.sqrt`, so a value you spliced during
 decoding can be re-checked independently. The covariance map accepts either `(a, b)` tuples or nested
 dicts; only one triangle is required.
 </Callout>
 
 ## Options
 
-<CodeBlock language="python" title="price, implied vol, no-arbitrage" code={`from veritas.cartridges.quant import black_scholes_call, implied_volatility, no_arbitrage_bounds
+<CodeBlock language="python" title="price, implied vol, no-arbitrage" code={`from vexx.cartridges.quant import black_scholes_call, implied_volatility, no_arbitrage_bounds
 
 price = black_scholes_call(S=100, K=100, r=0.05, sigma=0.2, T=1.0)
 print(round(price, 4))                       # 10.4506
@@ -88,7 +88,7 @@ assert not no_arbitrage_bounds(1.0, S=100, K=100, r=0.05, T=1.0)   # below intri
 
 ## Accounting identities
 
-<CodeBlock language="python" code={`from veritas.cartridges.quant import gaap_balance, cash_flow_reconciles, double_entry_balanced
+<CodeBlock language="python" code={`from vexx.cartridges.quant import gaap_balance, cash_flow_reconciles, double_entry_balanced
 
 assert gaap_balance(assets=100, liabilities=60, equity=40)
 assert double_entry_balanced(debits=[100, 25], credits=[75, 50])
@@ -100,7 +100,7 @@ assert cash_flow_reconciles(opening=10, operating=50, investing=-20, financing=0
   being clamped with a ridge.
 - `implied_volatility` is bisection, not Newton: deterministic, bounded, `None` on failure.
 - Accounting helpers check **identities**, not accounting standards. They are guards, not an audit.
-- No function here is a substitute for in-decode constraints: use `vt.require` when a wrong value must
+- No function here is a substitute for in-decode constraints: use `vx.require` when a wrong value must
   never be emitted.
 
 Next: [SQL safety](/docs/cartridges/sql-and-database-safety) or back to

@@ -1,12 +1,12 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
 import { Github } from 'lucide-react';
-import { VeritasLogo } from '@/components/site/logo';
+import { VexxLogo } from '@/components/site/logo';
 import { siteConfig } from '@/lib/site';
 
 export function baseOptions(): BaseLayoutProps {
   return {
     nav: {
-      title: <VeritasLogo compact />,
+      title: <VexxLogo compact />,
       url: '/',
       transparentMode: 'none',
     },

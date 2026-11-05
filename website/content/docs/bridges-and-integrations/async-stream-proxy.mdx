@@ -17,12 +17,12 @@ consumer never receives a complete-looking payload that is wrong.
     { key: 'await supervisor.supervise(stream)', value: 'async iterator of chunks' },
     { key: 'await supervisor.collect(stream)', value: 'list of chunks' },
     { key: 'StreamViolation(message, report=None, kind="grammar")', value: 'raised on failure' },
-    { key: 'abort_stream(reason="aborted by veritas")', value: 'returns a StreamViolation' },
+    { key: 'abort_stream(reason="aborted by vexx")', value: 'returns a StreamViolation' },
   ]}
 />
 
 <CodeBlock language="python" title="wrap an OpenAI-style stream" code={`import asyncio
-from veritas.bridges import AsyncStreamSupervisor, StreamViolation
+from vexx.bridges import AsyncStreamSupervisor, StreamViolation
 
 supervisor = AsyncStreamSupervisor(
     spec=portfolio,

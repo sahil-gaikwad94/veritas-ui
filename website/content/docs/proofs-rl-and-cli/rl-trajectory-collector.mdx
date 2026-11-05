@@ -5,7 +5,7 @@ description: Turn conflict branches and repair steps into DPO / Process-GRPO row
 
 import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
-Every UNSAT branch is a rejected completion. Every repair is a chosen one. `VeritasRLCollector` records
+Every UNSAT branch is a rejected completion. Every repair is a chosen one. `VexxRLCollector` records
 those pairs while you decode and exports them as training rows — with a digest so the dataset is
 reproducible.
 
@@ -19,7 +19,7 @@ Only `record_repair(...)` or `add_preference(...)` completes it.
 
 <KeyValueTable
   rows={[
-    { key: 'VeritasRLCollector()', value: 'records, steps' },
+    { key: 'VexxRLCollector()', value: 'records, steps' },
     { key: 'add_preference(prompt, chosen, rejected, *, unsat_core=None, margin=0.0, metadata=None)', value: 'ConflictBranchRecord' },
     { key: 'record_conflict_branch(state, clause, core_nodes, *, prompt, rejected, margin)', value: 'ConflictBranchRecord' },
     { key: 'record_repair(record, chosen)', value: 'same record, now complete' },
@@ -32,9 +32,9 @@ Only `record_repair(...)` or `add_preference(...)` completes it.
   ]}
 />
 
-<CodeBlock language="python" title="collect and export" code={`from veritas.rl.collector import VeritasRLCollector
+<CodeBlock language="python" title="collect and export" code={`from vexx.rl.collector import VexxRLCollector
 
-collector = VeritasRLCollector()
+collector = VexxRLCollector()
 
 # A branch that failed, and the completion that replaced it
 record = collector.record_conflict_branch(
@@ -75,11 +75,11 @@ the difference is auditable.
 
 ## Wiring it into a decode
 
-<CodeBlock language="python" title="collect from a real run" code={`import veritas as vt
-from veritas.rl.collector import VeritasRLCollector
+<CodeBlock language="python" title="collect from a real run" code={`import vexx as vx
+from vexx.rl.collector import VexxRLCollector
 
-collector = VeritasRLCollector()
-result = vt.generate(model=model, prompt="propose a portfolio", spec=portfolio)
+collector = VexxRLCollector()
+result = vx.generate(model=model, prompt="propose a portfolio", spec=portfolio)
 
 if result.report.status != "PASS":
     collector.record_conflict_branch(

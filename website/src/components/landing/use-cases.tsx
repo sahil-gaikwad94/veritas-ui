@@ -20,7 +20,7 @@ const USE_CASES = [
     icon: 'quant',
     title: 'Portfolio weights that actually sum to one',
     scenario: 'Your model emits {"AAPL": 0.55, "MSFT": 0.45, "NVDA": 0.30}. Valid JSON, broken math — weights sum to 1.30 and the Sharpe ratio contradicts the covariance matrix.',
-    fix: 'Veritas masks illegal digits mid-prefix, contracts intervals in 3.9 µs, and splices derived fields — so the decoded object is provably sound before a single token is sampled.',
+    fix: 'Vexx masks illegal digits mid-prefix, contracts intervals in 3.9 µs, and splices derived fields — so the decoded object is provably sound before a single token is sampled.',
     cta: 'See quant cartridge',
   },
   {
@@ -29,7 +29,7 @@ const USE_CASES = [
     icon: 'sql',
     title: 'Text-to-SQL that never invents tables',
     scenario: 'The LLM writes `SELECT * FROM users WHERE tenant_id = 5` but your schema has no `tenant_id` column — or worse, it joins a table that doesn\'t exist.',
-    fix: 'Veritas tokenizes real SQL with catalog-aware table, column, and alias resolution. Invented joins and missing tenant predicates are rejected before execution.',
+    fix: 'Vexx tokenizes real SQL with catalog-aware table, column, and alias resolution. Invented joins and missing tenant predicates are rejected before execution.',
     cta: 'See SQL cartridge',
   },
   {
@@ -38,7 +38,7 @@ const USE_CASES = [
     icon: 'sec',
     title: 'Agent tool calls with LTLf guardrails',
     scenario: 'An autonomous agent tries to call `transfer_funds` without first asserting `authenticated` — violating your temporal safety policy.',
-    fix: 'Declare tools, preconditions, effects, and budgets. Veritas checks every call against the plan and evaluates LTLf trace policies over the whole execution.',
+    fix: 'Declare tools, preconditions, effects, and budgets. Vexx checks every call against the plan and evaluates LTLf trace policies over the whole execution.',
     cta: 'See security cartridge',
   },
   {
@@ -47,7 +47,7 @@ const USE_CASES = [
     icon: 'chem',
     title: 'SMILES molecules that obey valence',
     scenario: 'The model generates a SMILES string with carbon forming 5 bonds — chemically impossible, but syntactically valid.',
-    fix: 'Veritas parses SMILES token-by-token, closes rings and branches correctly, and enforces valence, formal charge, and molecular weight constraints.',
+    fix: 'Vexx parses SMILES token-by-token, closes rings and branches correctly, and enforces valence, formal charge, and molecular weight constraints.',
     cta: 'See chemistry cartridge',
   },
   {
@@ -82,7 +82,7 @@ export function UseCases() {
             Verified output, not vibes.
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-ink-secondary">
-            Real scenarios where “roughly right” is wrong — and Veritas makes it right.
+            Real scenarios where “roughly right” is wrong — and Vexx makes it right.
           </p>
         </div>
 
@@ -127,7 +127,7 @@ export function UseCases() {
                   </p>
                   <p className="mt-3 text-[13.5px] leading-relaxed text-ink-secondary sm:text-sm">
                     <span className="block mb-1.5 font-mono text-[11px] uppercase tracking-wide text-verify-pass">
-                      How Veritas fixes it
+                      How Vexx fixes it
                     </span>
                     {useCase.fix}
                   </p>

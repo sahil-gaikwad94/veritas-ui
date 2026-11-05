@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: veritas-website
+    name: vexx-website
     env: node
     region: oregon
     branch: main
@@ -10,7 +10,7 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 20
-      - key: VERITAS_NO_NATIVE
+      - key: VEXX_NO_NATIVE
         value: 0
     autoDeploy: true
     healthCheckPath: /

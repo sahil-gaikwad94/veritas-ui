@@ -1,28 +1,28 @@
 ---
 title: Native accelerator API
-description: veritas.native — availability, prefix status, masks, numeric intervals, contraction and the Python objects that wrap them.
+description: vexx.native — availability, prefix status, masks, numeric intervals, contraction and the Python objects that wrap them.
 ---
 
 import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
 There is no separate native API to learn: the accelerator sits behind the same Python objects. The
-`veritas.native` module reports whether it is loaded and exposes the low-level calls used underneath.
+`vexx.native` module reports whether it is loaded and exposes the low-level calls used underneath.
 
 <Callout variant="info" title="Reference first">
 Every function below falls back to pure Python when the compiled extension is missing. The extension is
-`veritas_py` (PyO3, `abi3`); the public Python import stays `veritas`.
+`vexx_py` (PyO3, `abi3`); the public Python import stays `vexx`.
 </Callout>
 
 ## Availability
 
-<CodeBlock language="python" title="what is actually loaded" code={`import veritas.native as native
+<CodeBlock language="python" title="what is actually loaded" code={`import vexx.native as native
 
 print(native.available())        # False without the extension
 print(native.info())
 # {'name': 'python', 'version': 'pure', 'wire_version': None,
-#  'native_available': False, 'load_error': "ModuleNotFoundError: No module named 'veritas_py'"}
+#  'native_available': False, 'load_error': "ModuleNotFoundError: No module named 'vexx_py'"}
 
-print(native.disabled_by_env())  # True when VERITAS_NO_NATIVE is set
+print(native.disabled_by_env())  # True when VEXX_NO_NATIVE is set
 print(native.wire_version())     # None, or the native wire protocol version
 print(native.load_error())       # import error text, or None`} copyable />
 
@@ -30,7 +30,7 @@ print(native.load_error())       # import error text, or None`} copyable />
   rows={[
     { key: 'available()', value: 'bool — extension importable and not disabled' },
     { key: 'info()', value: 'dict — name, version, wire_version, native_available, load_error' },
-    { key: 'disabled_by_env()', value: 'bool — VERITAS_NO_NATIVE truthy' },
+    { key: 'disabled_by_env()', value: 'bool — VEXX_NO_NATIVE truthy' },
     { key: 'wire_version()', value: 'int | None' },
     { key: 'load_error()', value: 'str | None' },
   ]}
@@ -38,8 +38,8 @@ print(native.load_error())       # import error text, or None`} copyable />
 
 ## Primitives
 
-<CodeBlock language="python" title="status, mask, interval" code={`import veritas.native as native
-from veritas import Interval
+<CodeBlock language="python" title="status, mask, interval" code={`import vexx.native as native
+from vexx import Interval
 
 print(native.prefix_status('{"a":'))    # 'incomplete'
 print(native.prefix_status('{"a":1}'))  # 'complete'
@@ -70,7 +70,7 @@ print(native.canonical_document('{"b":1,"a":2}'))  # '{"b": 1, "a": 2}'`} copyab
 
 ## Higher-level objects
 
-The classes you normally touch are exported from `veritas` itself — importing them does **not** require
+The classes you normally touch are exported from `vexx` itself — importing them does **not** require
 the extension:
 
 | Object | Purpose |
@@ -78,14 +78,14 @@ the extension:
 | `Interval`, `AffineForm`, `Hc4AffineContractor`, `ResidualAccumulator` | Tier 1 numerics |
 | `JSONPushdownAutomaton`, `TokenMasker` | Tier 0 grammar and exact masks |
 | `TokenHealer`, `JumpForwardPrefill`, `ByteTokenizer`, `TokenizerProtocol` | Jump-forward token boundaries |
-| `VeritasNanoSolver`, `SolverStatus` | Tier 2 linear search |
+| `VexxNanoSolver`, `SolverStatus` | Tier 2 linear search |
 | `CdclJumpbackEngine`, `TabuPrefixTrie`, `ConflictBranchRecord` | Backtracking |
 | `CraneModeController`, `ShadowParser` | Reasoning and structural shadow state |
 | `ZeroDofEngine` | Ready-field derivation |
 | `ProofCertificate`, `build_certificate`, `verify_proof` | Certificates |
 
 ```python
-from veritas import Interval, TokenMasker, TokenHealer, VeritasNanoSolver
+from vexx import Interval, TokenMasker, TokenHealer, VexxNanoSolver
 
 span = Interval.from_numeric_prefix("0.4", (0.05, 0.5))
 masker = TokenMasker(['{', '}', '"a"', '1'])
@@ -94,8 +94,8 @@ masker.valid_mask('{"a":')
 
 ## Kill switch
 
-<CodeBlock language="bash" title="A/B the accelerator" code={`VERITAS_NO_NATIVE=1 python -m pytest tests/test_native_backend.py -q
-VERITAS_NO_NATIVE=1 python benchmarks/native_speedup.py`} copyable />
+<CodeBlock language="bash" title="A/B the accelerator" code={`VEXX_NO_NATIVE=1 python -m pytest tests/test_native_backend.py -q
+VEXX_NO_NATIVE=1 python benchmarks/native_speedup.py`} copyable />
 
 The switch is read **per call**, so a long-running process can flip it without reinstalling.
 
@@ -103,11 +103,11 @@ The switch is read **per call**, so a long-running process can flip it without r
 
 | Crate | Contents |
 | :--- | :--- |
-| `veritas-core` | Dependency-free ports: intervals, JSON automaton, tri-state evaluator, HC4, exact solver, CRANE, CDCL, 0-DoF, healing, SMT-LIB emission |
-| `veritas-py` | PyO3 `abi3` bindings exposed as `veritas_py` |
-| `veritas-wasm` | `wasm32-unknown-unknown` build for browser use |
+| `vexx-core` | Dependency-free ports: intervals, JSON automaton, tri-state evaluator, HC4, exact solver, CRANE, CDCL, 0-DoF, healing, SMT-LIB emission |
+| `vexx-py` | PyO3 `abi3` bindings exposed as `vexx_py` |
+| `vexx-wasm` | `wasm32-unknown-unknown` build for browser use |
 
-CI runs `cargo test -p veritas-core --all-targets`, `cargo clippy -D warnings`, the PyO3 build and the wasm
+CI runs `cargo test -p vexx-core --all-targets`, `cargo clippy -D warnings`, the PyO3 build and the wasm
 build. `tests/test_native_backend.py` pins parity with Python; a native disagreement falls back.
 
 <Callout variant="warn" title="No native = no speedup, not no verification">

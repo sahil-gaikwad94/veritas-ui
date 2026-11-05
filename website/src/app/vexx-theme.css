@@ -1,0 +1,603 @@
+/* ==========================================================================
+   VEXX 1.5 — "Cobalt Studio Sheet"
+   A single electric-cobalt field with one floating alabaster sheet, ribbed
+   glass optics, and printed micro-typography. Discipline over decoration:
+   cobalt + paper + ink, with emerald reserved for verified states.
+   ========================================================================== */
+
+html:root {
+  --vx-field-deep: #10249b;
+  --vx-field: #2447dd;
+  --vx-field-light: #5a83ff;
+  --vx-field-edge: #1630b8;
+  --vx-sheet: #fcfcfb;
+  --vx-wash: #f1f4fa;
+  --vx-hair: rgba(16, 17, 23, 0.09);
+  --vx-ink: #101117;
+
+  --vt-canvas: #f7f7f5;
+  --vt-elevated: #ffffff;
+  --vt-subtle: #eef2f9;
+  --vt-inset: #f1f4fa;
+  --vt-ink: #101117;
+  --vt-ink-2: #525a6a;
+  --vt-ink-3: #7f8798;
+  --vt-border: rgba(16, 17, 23, 0.09);
+  --vt-border-strong: rgba(16, 17, 23, 0.17);
+  --vt-border-cobalt: rgba(36, 71, 221, 0.3);
+  --vt-ghost: rgba(16, 17, 23, 0.045);
+  --vt-glow-1: rgba(36, 71, 221, 0.18);
+  --vt-glow-2: rgba(90, 131, 255, 0.2);
+  --vt-shadow-card: 0 1px 2px rgba(16, 17, 23, 0.04), 0 20px 44px -30px rgba(13, 23, 62, 0.28);
+  --vt-shadow-lift: 0 2px 6px rgba(16, 17, 23, 0.05), 0 34px 70px -34px rgba(13, 23, 62, 0.34);
+  --vt-shadow-cobalt: 0 18px 40px -18px rgba(36, 71, 221, 0.48);
+}
+
+html.dark {
+  --vx-field-deep: #050a26;
+  --vx-field: #0b1a63;
+  --vx-field-light: #2b4fd6;
+  --vx-field-edge: #04081c;
+  --vx-sheet: #0d1018;
+  --vx-wash: #10141e;
+  --vx-hair: rgba(255, 255, 255, 0.1);
+  --vx-ink: #f5f7fc;
+
+  --vt-canvas: #0d1018;
+  --vt-elevated: #131824;
+  --vt-subtle: #121723;
+  --vt-inset: #10141e;
+  --vt-ink: #f5f7fc;
+  --vt-ink-2: #a7b2c7;
+  --vt-ink-3: #7d89a0;
+  --vt-border: rgba(255, 255, 255, 0.1);
+  --vt-border-strong: rgba(255, 255, 255, 0.18);
+  --vt-border-cobalt: rgba(110, 150, 255, 0.36);
+  --vt-ghost: rgba(255, 255, 255, 0.05);
+  --vt-shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 20px 44px -28px rgba(0, 0, 0, 0.8);
+  --vt-shadow-lift: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 34px 70px -30px rgba(0, 0, 0, 0.9);
+}
+
+/* Only the marketing shell sits on the cobalt field; docs stay on paper. */
+.vx-shell {
+  background-color: var(--vx-field-edge);
+}
+
+/* ---- The field ---------------------------------------------------------- */
+
+.vx-field {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(75% 55% at 16% -8%, #7a9dff 0%, rgba(122, 157, 255, 0) 58%),
+    radial-gradient(70% 50% at 86% 2%, #86a6ff 0%, rgba(134, 166, 255, 0) 54%),
+    radial-gradient(80% 60% at 52% 112%, #10249b 0%, rgba(16, 36, 155, 0) 64%),
+    linear-gradient(158deg, var(--vx-field) 0%, #2c53ea 46%, var(--vx-field-edge) 100%);
+}
+
+/* out-of-focus light columns, like a studio softbox just off-frame */
+.vx-field__streaks {
+  position: absolute;
+  inset: -10% -6%;
+  background-image:
+    linear-gradient(90deg, transparent 0 6%, rgba(255, 255, 255, 0.5) 6.6%, rgba(255, 255, 255, 0.06) 12%, transparent 17%),
+    linear-gradient(90deg, transparent 0 57%, rgba(255, 255, 255, 0.42) 58%, rgba(255, 255, 255, 0.04) 64%, transparent 70%),
+    linear-gradient(90deg, transparent 0 82%, rgba(255, 255, 255, 0.32) 83%, transparent 92%);
+  filter: blur(42px);
+  opacity: 0.55;
+}
+
+.vx-field__glow {
+  position: absolute;
+  left: 50%;
+  top: -34vh;
+  height: 70vh;
+  width: 130%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 62%);
+  filter: blur(60px);
+  opacity: 0.4;
+}
+
+html.dark .vx-field {
+  background:
+    radial-gradient(70% 50% at 18% -8%, #2b4fd6 0%, rgba(43, 79, 214, 0) 58%),
+    radial-gradient(70% 50% at 84% 2%, #2440b4 0%, rgba(36, 64, 180, 0) 55%),
+    linear-gradient(160deg, #0a1650 0%, #08102f 52%, #04081c 100%);
+}
+
+html.dark .vx-field__streaks,
+html.dark .vx-field__glow {
+  opacity: 0.16;
+}
+
+/* ---- The sheet ---------------------------------------------------------- */
+
+.vx-sheet {
+  position: relative;
+  overflow: hidden;
+  border-radius: 30px;
+  background: var(--vx-sheet);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.4),
+    0 2px 4px rgba(6, 14, 56, 0.12),
+    0 70px 140px -60px rgba(4, 12, 50, 0.85);
+  isolation: isolate;
+}
+
+html.dark .vx-sheet {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 70px 140px -60px rgba(0, 0, 0, 0.95);
+}
+
+@media (min-width: 768px) {
+  .vx-sheet {
+    border-radius: 36px;
+  }
+}
+
+/* ---- Fluted cobalt orb -------------------------------------------------- */
+
+.vx-orb-panel {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% 60%, #1b3fd8 0%, #0c25a4 58%, #061568 100%);
+}
+
+.vx-orb {
+  position: absolute;
+  inset: -18%;
+  background:
+    radial-gradient(circle at 52% 44%, #f2f7ff 0%, #c3d7ff 5%, #86acff 11%, #4877ff 23%, #1a41e2 41%, #0a2296 61%, #050f57 86%);
+  filter: blur(8px);
+  animation: vx-orb-breathe 18s ease-in-out infinite;
+}
+
+.vx-orb::after {
+  content: "";
+  position: absolute;
+  left: 34%;
+  top: 22%;
+  width: 34%;
+  height: 40%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 70%);
+  filter: blur(24px);
+}
+
+/* vertical fluted glass: thin specular ridges + translucent panels */
+.vx-flutes {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0px,
+    rgba(255, 255, 255, 0.12) 26px,
+    rgba(255, 255, 255, 0.62) 31px,
+    rgba(255, 255, 255, 0.1) 35px,
+    rgba(9, 22, 84, 0.16) 55px,
+    rgba(9, 22, 84, 0.34) 61px,
+    rgba(255, 255, 255, 0.34) 65px,
+    rgba(255, 255, 255, 0) 88px
+  );
+  background-size: 88px 100%;
+  mix-blend-mode: overlay;
+  opacity: 0.9;
+}
+
+.vx-flutes--soft {
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.2) 0px,
+    rgba(255, 255, 255, 0.02) 30px,
+    rgba(4, 14, 62, 0.18) 58px,
+    rgba(255, 255, 255, 0.3) 66px
+  );
+  background-size: 88px 100%;
+  filter: blur(3px);
+  opacity: 0.5;
+}
+
+.vx-flutes-sheen {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.34) 38%,
+    rgba(255, 255, 255, 0.1) 46%,
+    transparent 62%
+  );
+  mix-blend-mode: screen;
+  opacity: 0.5;
+  animation: vx-sheen 16s ease-in-out infinite;
+}
+
+.vx-orb-word {
+  position: relative;
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  font-size: clamp(2.7rem, 5.4vw, 5rem);
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.94);
+  text-shadow:
+    0 2px 40px rgba(11, 27, 120, 0.55),
+    0 1px 0 rgba(255, 255, 255, 0.4);
+  text-indent: 0.13em;
+}
+
+.vx-orb-label {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  line-height: 1.5;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 1px 12px rgba(6, 16, 64, 0.6);
+}
+
+.vx-orb-label b {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+
+/* ---- Type --------------------------------------------------------------- */
+
+.vx-display {
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.045em;
+  line-height: 0.92;
+  font-size: clamp(2.55rem, 5.6vw, 4.35rem);
+  text-wrap: balance;
+}
+
+.vx-display-sm {
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+  line-height: 1.02;
+}
+
+.vx-mono {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.vx-dot {
+  display: inline-block;
+  height: 5px;
+  width: 5px;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.vx-rule {
+  height: 1px;
+  width: 100%;
+  background: var(--vx-hair);
+}
+
+/* ---- Buttons ------------------------------------------------------------ */
+
+.vx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  transition:
+    transform 260ms var(--ease-spring),
+    box-shadow 260ms var(--ease-spring),
+    background-color 200ms ease,
+    border-color 200ms ease;
+  will-change: transform;
+}
+
+.vx-btn:hover {
+  transform: translateY(-2px);
+}
+
+.vx-btn:active {
+  transform: translateY(0) scale(0.985);
+}
+
+.vx-btn-dark {
+  background: #101117;
+  color: #fff;
+  border: 1px solid #101117;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 10px 24px -14px rgba(16, 17, 23, 0.8);
+}
+
+.vx-btn-dark:hover {
+  background: #1c1e28;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 18px 34px -16px rgba(16, 17, 23, 0.75);
+}
+
+.vx-btn-light {
+  background: #fff;
+  color: var(--vx-ink);
+  border: 1px solid rgba(16, 17, 23, 0.12);
+  box-shadow:
+    0 1px 2px rgba(16, 17, 23, 0.05),
+    0 12px 26px -18px rgba(16, 17, 23, 0.45);
+}
+
+.vx-btn-light:hover {
+  border-color: rgba(36, 71, 221, 0.4);
+}
+
+.vx-btn-field {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(16px) saturate(150%);
+}
+
+.vx-btn-field:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* ---- Chips -------------------------------------------------------------- */
+
+.vx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--vt-border);
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.34rem 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--vt-ink-2);
+  backdrop-filter: blur(12px);
+}
+
+html.dark .vx-chip {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ---- Inverted island (code, receipts, loud moments) --------------------- */
+
+.vx-ink-island {
+  border-radius: 24px;
+  background:
+    radial-gradient(120% 100% at 82% 0%, rgba(59, 107, 255, 0.3) 0%, rgba(10, 14, 26, 0) 58%),
+    linear-gradient(165deg, #141824 0%, #0a0c14 62%, #07090f 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 30px 70px -40px rgba(4, 10, 40, 0.9);
+  color: #e8edf7;
+}
+
+.vx-cobalt-island {
+  border-radius: 24px;
+  background:
+    radial-gradient(100% 120% at 78% 8%, #4f7cff 0%, rgba(79, 124, 255, 0) 60%),
+    linear-gradient(150deg, #1230b4 0%, #2347dd 52%, #0e238f 100%);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 30px 70px -40px rgba(6, 16, 70, 0.8);
+}
+
+/* ---- Navigation --------------------------------------------------------- */
+
+.vx-nav {
+  transition:
+    background-color 300ms ease,
+    border-color 300ms ease,
+    box-shadow 300ms ease,
+    padding 300ms ease;
+}
+
+.vx-nav--top {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.vx-nav--solid {
+  background: rgba(13, 15, 22, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(22px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 22px 46px -24px rgba(4, 12, 50, 0.7);
+}
+
+/* ---- Footer ------------------------------------------------------------- */
+
+.vx-footer {
+  position: relative;
+  z-index: 10;
+  color: #fff;
+  overflow: hidden;
+}
+
+.vx-footer-word {
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 0.72;
+  font-size: clamp(4.5rem, 17vw, 15rem);
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.26);
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ---- Motion ------------------------------------------------------------- */
+
+@keyframes vx-orb-breathe {
+  0%,
+  100% {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  50% {
+    transform: scale(1.06) translate3d(1.5%, -1.5%, 0);
+  }
+}
+
+@keyframes vx-sheen {
+  0%,
+  100% {
+    transform: translateX(-18%);
+    opacity: 0.25;
+  }
+  50% {
+    transform: translateX(18%);
+    opacity: 0.55;
+  }
+}
+
+@keyframes vx-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.vx-rise {
+  animation: vx-rise 0.7s var(--ease-out-expo) both;
+}
+
+.vx-rise-1 {
+  animation-delay: 0.06s;
+}
+.vx-rise-2 {
+  animation-delay: 0.14s;
+}
+.vx-rise-3 {
+  animation-delay: 0.22s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vx-orb,
+  .vx-flutes-sheen,
+  .vx-rise {
+    animation: none !important;
+  }
+}
+
+/* ---- Section rhythm inside the sheet ----------------------------------- */
+
+.vx-band {
+  border-top: 1px solid var(--vx-hair);
+}
+
+.vx-wash {
+  background: var(--vx-wash);
+}
+
+.vx-hairline-shadow {
+  box-shadow: inset 0 1px 0 var(--vx-hair);
+}
+
+/* Docs chrome: keep the reader on paper, the letterhead on cobalt */
+.vx-docs-shell {
+  background: var(--vx-sheet);
+}
+
+header.doc-hero {
+  background:
+    radial-gradient(120% 150% at 88% 4%, rgba(255, 255, 255, 0.28), transparent 52%),
+    radial-gradient(90% 100% at 4% 100%, rgba(90, 131, 255, 0.55), transparent 58%),
+    linear-gradient(126deg, #10249b 0%, #2347dd 46%, #3d69ff 82%, #5a83ff 100%);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+header.doc-hero .doc-hero-grid {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.22) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.16) 1px, transparent 1px);
+}
+
+header.doc-hero .doc-hero-flutes {
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.42) 0 2px,
+    rgba(255, 255, 255, 0.04) 3px 17px,
+    rgba(6, 16, 64, 0.2) 34px 44px,
+    rgba(255, 255, 255, 0.24) 46px 48px,
+    rgba(255, 255, 255, 0) 50px 62px
+  );
+}
+
+header.doc-hero .doc-meta-chip {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+header.doc-hero .doc-meta-chip:hover {
+  background: rgba(255, 255, 255, 0.24);
+  color: #fff;
+}
+
+body #nd-page h1::after {
+  background: linear-gradient(90deg, #0047ff 0%, #2347dd 55%, #5a83ff 100%);
+}
+
+body #nd-page .docs-sheet .prose :where(h2)::before {
+  background: linear-gradient(180deg, #2347dd 0%, #5a83ff 100%);
+}
+
+body #nd-toc a[data-active='true'] > div {
+  background: linear-gradient(180deg, #2347dd, #5a83ff);
+  width: 2px;
+}
+
+/* One loud cobalt card, in place of the old orange field */
+article.pixel-field {
+  background-color: #2347dd;
+  background-image:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.14) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+    radial-gradient(90% 120% at 82% 12%, #7ba2ff 0%, #3d69ff 34%, #1230b4 74%, #0a1d7e 100%);
+  background-size: 34px 34px, 34px 34px, 100% 100%;
+}
+
+.pixel-field::after {
+  background: radial-gradient(90% 90% at 80% 20%, rgba(255, 255, 255, 0.42), transparent 58%);
+  mix-blend-mode: soft-light;
+}

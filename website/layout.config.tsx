@@ -1,8 +1,8 @@
 export const layoutConfig = {
-  title: 'Veritas',
+  title: 'Vexx',
   subtitle: 'Verified Mathematical Truth for LLMs',
   description:
-    'Pydantic ergonomics on the surface; dependency-free Rust theorem proving underneath. Veritas enforces algebraic equations, temporal logic, and domain invariants directly inside the token-generation loop.',
+    'Pydantic ergonomics on the surface; dependency-free Rust theorem proving underneath. Vexx enforces algebraic equations, temporal logic, and domain invariants directly inside the token-generation loop.',
   github: 'https://github.com/sahil-gaikwad94/veritas',
   githubDocs: 'https://github.com/sahil-gaikwad94/veritas/tree/main/website/content/docs',
   favicon: '/favicon.ico',

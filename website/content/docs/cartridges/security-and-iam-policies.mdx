@@ -1,11 +1,11 @@
 ---
 title: Security & IAM policies
-description: veritas.cartridges.sec — declared tools, preconditions, effect traces, budgets, rollback snapshots and LTLf policy checks.
+description: vexx.cartridges.sec — declared tools, preconditions, effect traces, budgets, rollback snapshots and LTLf policy checks.
 ---
 
 import { Callout, CodeBlock, KeyValueTable, FeatureGrid, Feature } from '@/components/mdx-components';
 
-An agent is a sequence of tool calls. `veritas.cartridges.sec` gives that sequence a state machine:
+An agent is a sequence of tool calls. `vexx.cartridges.sec` gives that sequence a state machine:
 declared tools with preconditions and effects, budgets that cannot be overdrawn, facts that gate
 capabilities, and finite-trace LTLf policies evaluated over the recorded trace.
 
@@ -39,7 +39,7 @@ capabilities, and finite-trace LTLf policies evaluated over the recorded trace.
 
 ## A guarded transfer
 
-<CodeBlock language="python" title="declare, gate, execute" code={`from veritas.cartridges.sec import WorldState, PolicyViolation
+<CodeBlock language="python" title="declare, gate, execute" code={`from vexx.cartridges.sec import WorldState, PolicyViolation
 
 state = WorldState()
 
@@ -76,7 +76,7 @@ is what the policy layer evaluates — declare them honestly.
 
 ## Policies over a trace
 
-<CodeBlock language="python" title="LTLf helpers" code={`from veritas.cartridges.sec import WorldState, kyc_before, budget_never_exceeded, no_double_spend
+<CodeBlock language="python" title="LTLf helpers" code={`from vexx.cartridges.sec import WorldState, kyc_before, budget_never_exceeded, no_double_spend
 
 state = WorldState()
 state.add_policy(kyc_before("transfer", "verify_kyc"), name="kyc-first")
@@ -95,14 +95,14 @@ useful for approval workflows and human-in-the-loop gates.
 
 ## Wiring into a verified tool
 
-<CodeBlock language="python" title="verify the return value before the caller sees it" code={`import veritas as vt
-from veritas.cartridges.sec import WorldState
+<CodeBlock language="python" title="verify the return value before the caller sees it" code={`import vexx as vx
+from vexx.cartridges.sec import WorldState
 
 state = WorldState()
 state.declare_tool("transfer", requires=["authenticated"], mutating=True)
 state.assert_fact("authenticated")
 
-@vt.verified_tool(spec=transfer_spec, world_state=state)
+@vx.verified_tool(spec=transfer_spec, world_state=state)
 def transfer(amount: float, to: str) -> dict:
     return {"amount": amount, "to": to, "status": "accepted"}`} copyable />
 

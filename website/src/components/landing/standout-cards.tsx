@@ -19,11 +19,11 @@ const CARDS = [
     id: 'version',
     tone: 'cobalt' as const,
     icon: 'sparkles',
-    label: 'veritas1.1',
-    sub: 'release',
-    body: 'The current release. Model-named, solver-backed, hallucination-resistant.',
-    href: '/docs/getting-started/installation',
-    cta: 'Install',
+    label: 'vexx1.5',
+    sub: 'the release',
+    body: 'Soundness fixes first, then an agentic layer: verifying proxy, tool firewall, KL receipts, relaxation wizard.',
+    href: '/docs/release-notes',
+    cta: 'Read the notes',
   },
   {
     id: 'speed',
@@ -31,49 +31,49 @@ const CARDS = [
     icon: 'zap',
     label: '0.23 ms',
     sub: 'native mask',
-    body: 'Native JSON mask per step — 17.9× faster than the Python reference.',
+    body: 'One JSON mask step across a 605-token vocabulary — 17.9× faster than the Python reference.',
     href: '/benchmarks',
     cta: 'Benchmarks',
   },
   {
-    id: 'preflight',
+    id: 'serve',
     tone: 'cobalt' as const,
     icon: 'terminal',
-    label: '0 tokens',
-    sub: 'preflight gate',
-    body: 'Impossible specs are refuted before the GPU spins.',
-    href: '/docs/authoring-schemas/preflight-sat-gate',
-    cta: 'Read',
+    label: '422',
+    sub: 'vexx serve',
+    body: 'An OpenAI-compatible proxy that refuses schema violations before your app ever buffers them.',
+    href: '/docs/proofs-rl-and-cli/cli-reference',
+    cta: 'How it works',
   },
   {
-    id: 'proof',
+    id: 'mcp',
     tone: 'warn' as const,
     icon: 'fingerprint',
-    label: 'SHA-256',
-    sub: 'certificate',
-    body: 'Offline-verifiable proof certificates ship with every PASS.',
-    href: '/verify',
-    cta: 'Verify',
+    label: 'LTLf',
+    sub: 'MCP firewall',
+    body: 'Tool ordering, spend caps and taint tracking for agents that are one hallucination away from expensive.',
+    href: '/docs/cartridges/security-and-iam-policies',
+    cta: 'The firewall',
   },
   {
-    id: 'splice',
+    id: 'receipts',
     tone: 'pass' as const,
     icon: 'check',
-    label: '0-DoF',
-    sub: 'derived fields',
-    body: 'Derived fields are computed and spliced — never sampled by the model.',
-    href: '/docs/engine-internals/zero-dof-jump-forward',
-    cta: 'Learn',
+    label: '−log P',
+    sub: 'KL receipts',
+    body: 'Exactly how much probability your mask removed, per field and per step. Served with the result.',
+    href: '/docs/proofs-rl-and-cli/proof-certificates',
+    cta: 'Receipts',
   },
   {
-    id: 'cartridges',
+    id: 'tests',
     tone: 'cobalt' as const,
     icon: 'arrow',
-    label: '9 cartridges',
-    sub: 'domain modules',
-    body: 'Quant, SQL, Sec, OR, Stat, Phys, Chem, Code & Code Synth.',
-    href: '/docs/cartridges/overview',
-    cta: 'Browse',
+    label: '425 + 69',
+    sub: 'tests',
+    body: 'Python tests plus Rust unit tests, including the ones written after the audit found real unsoundness.',
+    href: '/benchmarks',
+    cta: 'See the suites',
   },
 ] as const;
 
@@ -101,14 +101,15 @@ export function StandoutCards() {
       <div className="container-page relative">
         <div className="mx-auto max-w-2xl text-center mb-14">
           <span className="eyebrow">
-            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent-acid" />
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-cobalt-500" />
             The receipts
           </span>
           <h2 className="display-lg mt-3 text-ink-primary">
-            Standout numbers you can actually use.
+            Six claims, all checkable.
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-ink-secondary">
-            Pick a number, click through, and see the engine behind it.
+            Every number here lives in the repo, the release notes or the benchmark suite. Click
+            through and audit us.
           </p>
         </div>
 

@@ -53,11 +53,11 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: 'Veritas — solver-guided decoding for LLMs that must be right',
-    template: '%s · Veritas',
+    default: 'Vexx — solver-guided decoding for LLMs that must be right',
+    template: '%s · Vexx',
   },
   description: siteConfig.description,
-  applicationName: 'Veritas',
+  applicationName: 'Vexx',
   authors: [{ name: 'Sahil Gaikwad', url: siteConfig.github }],
   creator: 'Sahil Gaikwad',
   keywords: [
@@ -76,17 +76,15 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: siteConfig.url,
-    siteName: 'Veritas',
-    title: 'Veritas — make LLM output mathematically true',
+    siteName: 'Vexx',
+    title: 'Vexx — make LLM output mathematically true',
     description: siteConfig.description,
-    images: [{ url: '/og.png', width: 1200, height: 630, alt: 'Veritas — solver-guided decoding' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Veritas — make LLM output mathematically true',
+    title: 'Vexx — make LLM output mathematically true',
     description: siteConfig.shortDescription,
     creator: '@sahil_gaikwad94',
-    images: ['/og.png'],
   },
   robots: {
     index: true,

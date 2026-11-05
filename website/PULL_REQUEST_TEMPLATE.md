@@ -1,8 +1,8 @@
-# 🚀 Veritas UI — Website Deployment PR
+# 🚀 Vexx UI — Website Deployment PR
 
 ## Summary
 
-This PR adds the complete **veritas-ui** website — the official marketing, interactive WebAssembly playground, and documentation portal for [Veritas](https://github.com/sahil-gaikwad94/veritas).
+This PR adds the complete **vexx-ui** website — the official marketing, interactive WebAssembly playground, and documentation portal for [Vexx](https://github.com/sahil-gaikwad94/veritas).
 
 ## What's Included
 
@@ -21,14 +21,14 @@ This PR adds the complete **veritas-ui** website — the official marketing, int
 | Icons | Lucide React |
 | Animations | Framer Motion |
 | Code/Math | Shiki + KaTeX (compile-time) |
-| WASM Runtime | `veritas-wasm` in a dedicated Web Worker |
+| WASM Runtime | `vexx-wasm` in a dedicated Web Worker |
 | Search | Orama (static client-side index) |
 | Fonts | Plus Jakarta Sans, Inter, JetBrains Mono |
 
 ### 📄 Documentation (37 MDX pages, Diátaxis Structure)
 | Section | Pages |
 |---------|-------|
-| Getting Started | index, installation, quickstart, how-veritas-works |
+| Getting Started | index, installation, quickstart, how-vexx-works |
 | Authoring Schemas | verified-schema-decorator, mathematical-primitives, dynamic-containers, preflight-sat-gate, schema-synthesis |
 | Engine Internals | vir-compiler-and-dag, tier0-pda, tier1-hc4-affine, tier2-nano-solver, zero-dof-jump-forward, crane-dual-mode, cdcl-jumpback, rust-native-wasm-core |
 | Cartridges | overview, quant, sql, sec, or_sched, chem, phys, stat, code |
@@ -37,14 +37,14 @@ This PR adds the complete **veritas-ui** website — the official marketing, int
 | API Reference | python-public-api, rust-pyo3-native-api, wasm-browser-api, exceptions-and-diagnostics |
 
 ### 🖥 Interactive Components
-- `HeroModeToggle.tsx` — Live split diff between "Standard JSON Mode" and "Veritas Solver Mode"
+- `HeroModeToggle.tsx` — Live split diff between "Standard JSON Mode" and "Vexx Solver Mode"
 - `FlutedContractorVisual.tsx` — Tier-1 HC4/AF2 interval contractor visualization
 - `ConcentricTierDome.tsx` — Three-tier solver horizon rings
 - `CartridgeFloatingGrid.tsx` — 9 domain cartridges + 7 runtime bridges
 - `SpeedupBenchmarkChart.tsx` — 17.9x Rust vs Python benchmark
-- `InteractiveTraceViewer.tsx` — `veritas inspect` trace replay with timeline scrubber
+- `InteractiveTraceViewer.tsx` — `vexx inspect` trace replay with timeline scrubber
 - `TokenMaskHoverBox.tsx` — Per-token PDA mask inspection
-- `SchemaSynthWidget.tsx` — Browser `veritas synth` widget
+- `SchemaSynthWidget.tsx` — Browser `vexx synth` widget
 
 ### 🔧 Deployment Config
 - `render.yaml` — Render infrastructure-as-code

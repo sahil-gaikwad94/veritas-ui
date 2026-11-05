@@ -6,7 +6,7 @@ description: Gumbel-max sampling, confidence-ordered unmasking and a DiffusionBr
 import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
 Diffusion language models predict many positions at once and unmask them in an order chosen by
-confidence. Veritas provides the two primitives that bridge needs — Gumbel-max sampling and a stable
+confidence. Vexx provides the two primitives that bridge needs — Gumbel-max sampling and a stable
 unmask order — plus a small orchestration object.
 
 <KeyValueTable
@@ -19,7 +19,7 @@ unmask order — plus a small orchestration object.
   ]}
 />
 
-<CodeBlock language="python" title="sample and choose a position" code={`from veritas.bridges import DiffusionBridge, gumbel_max_sample, unmask_order
+<CodeBlock language="python" title="sample and choose a position" code={`from vexx.bridges import DiffusionBridge, gumbel_max_sample, unmask_order
 
 # temperature 0 is deterministic argmax
 token = gumbel_max_sample({"a": 0.1, "b": 2.0, "c": 0.4}, temperature=0)

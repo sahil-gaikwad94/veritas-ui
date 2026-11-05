@@ -12,7 +12,7 @@ import { siteConfig } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'Examples — five schemas that say no',
   description:
-    'Five runnable Veritas examples, beginner to expert: invoice arithmetic, GPU scheduling, portfolio risk, text-to-SQL tenant isolation and an agent refund policy. Every transcript captured from veritas1.1.',
+    'Five runnable Vexx examples, beginner to expert: invoice arithmetic, GPU scheduling, portfolio risk, text-to-SQL tenant isolation and an agent refund policy. Every transcript captured from vexx1.5.',
   alternates: { canonical: '/examples' },
 };
 
@@ -67,7 +67,7 @@ export default function ExamplesPage() {
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <CopyCommand command={siteConfig.installCommand} />
             <span className="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-bg-elevated px-2.5 py-1 font-mono text-[9.5px] text-ink-muted">
-              <CircleCheck className="h-2.5 w-2.5 text-verify-pass" /> engine veritas1.1 · CPython 3.11.2
+              <CircleCheck className="h-2.5 w-2.5 text-verify-pass" /> engine vexx1.5 · CPython 3.11.2
             </span>
             <span className="inline-flex items-center gap-1 rounded-full border border-border-subtle bg-bg-elevated px-2.5 py-1 font-mono text-[9.5px] text-ink-muted">
               <Terminal className="h-2.5 w-2.5 text-cobalt-500" /> captured, not composed
@@ -147,9 +147,9 @@ export default function ExamplesPage() {
                       </div>
                       <div className="flex flex-col gap-0.5 sm:flex-row sm:items-start sm:gap-3">
                         <dt className="flex shrink-0 items-center gap-1 font-mono text-[9px] uppercase tracking-[0.12em] text-ink-muted sm:w-[92px]">
-                          <CircleCheck className="h-2.5 w-2.5 text-verify-pass" /> veritas
+                          <CircleCheck className="h-2.5 w-2.5 text-verify-pass" /> vexx
                         </dt>
-                        <dd className="break-words font-mono text-[11px] text-ink-primary">{ex.veritasSays}</dd>
+                        <dd className="break-words font-mono text-[11px] text-ink-primary">{ex.vexxSays}</dd>
                       </div>
                     </dl>
 
@@ -237,7 +237,7 @@ export default function ExamplesPage() {
             <div className="mt-4 space-y-2">
               <CopyCommand command={siteConfig.installCommand} className="w-full justify-between" />
               <CopyCommand command="python 01_invoice_math.py" className="w-full justify-between" />
-              <CopyCommand command="veritas doctor" className="w-full justify-between" />
+              <CopyCommand command="vexx doctor" className="w-full justify-between" />
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <Link
@@ -285,7 +285,7 @@ export default function ExamplesPage() {
                 </p>
               </div>
               <p className="mt-4 border-t border-border-subtle pt-3 font-mono text-[9.5px] leading-relaxed text-ink-muted">
-                scripts and stdout captured 2026 · veritas1.1 · Linux x86_64 · CPython 3.11.2
+                scripts and stdout captured 2026 · vexx1.5 · Linux x86_64 · CPython 3.11.2
               </p>
             </div>
           </Reveal>

@@ -1,10 +1,10 @@
 ---
 title: Tier 2 — NanoSolver & Z3
-description: VeritasNanoSolver (Fourier-Motzkin), SmtBridge, Z3SmtOracle — exact linear solving for feasibility.
+description: VexxNanoSolver (Fourier-Motzkin), SmtBridge, Z3SmtOracle — exact linear solving for feasibility.
 ---
 import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
 
-Tier 2 is the core ring of Veritas's three-tier solver horizon. It provides **exact linear solving** for feasibility checks and contradiction detection — used by the pre-flight gate and CDCL jumpback engine.
+Tier 2 is the core ring of Vexx's three-tier solver horizon. It provides **exact linear solving** for feasibility checks and contradiction detection — used by the pre-flight gate and CDCL jumpback engine.
 
 ---
 
@@ -20,11 +20,11 @@ Tier 2 never runs per token — it runs at schema compile time (pre-flight) and 
 
 ---
 
-## `VeritasNanoSolver`
+## `VexxNanoSolver`
 
 ### What It Does
 
-`VeritasNanoSolver` is a dependency-free reference decision procedure for linear and difference constraints, using **bounded Fourier–Motzkin elimination** over exact `Fraction` arithmetic. Pure Python — no Z3, no solver dependency — and the module says what it is: a reference procedure, not a dual-simplex engine.
+`VexxNanoSolver` is a dependency-free reference decision procedure for linear and difference constraints, using **bounded Fourier–Motzkin elimination** over exact `Fraction` arithmetic. Pure Python — no Z3, no solver dependency — and the module says what it is: a reference procedure, not a dual-simplex engine.
 
 ### Fourier-Motzkin Elimination
 
@@ -37,10 +37,10 @@ Fourier-Motzkin is a variable elimination algorithm for linear systems:
 
 ### Example
 
-<CodeBlock language="python" code={`from veritas import VeritasNanoSolver, SolverStatus
+<CodeBlock language="python" code={`from vexx import VexxNanoSolver, SolverStatus
 
 # Rational linear feasibility over named variables
-solver = VeritasNanoSolver()
+solver = VexxNanoSolver()
 solver.assert_constraint(("eq", {"aapl": 1, "msft": 1, "nvda": 1}, 1.0))   # fully invested
 for name in ("aapl", "msft", "nvda"):
     solver.assert_constraint(("ge", {name: 1}, 0.05))
@@ -50,7 +50,7 @@ solver.check()                    # SolverStatus.SAT
 solver.get_float_model()          # {'nvda': 0.275, 'msft': 0.275, 'aapl': 0.1}
 
 # A contradiction yields an unsat core instead of a model
-bad = VeritasNanoSolver()
+bad = VexxNanoSolver()
 bad.assert_constraint(("ge", {"x": 1}, 8))
 bad.assert_constraint(("le", {"x": 1}, 3))
 bad.check()                       # SolverStatus.UNSAT
@@ -71,7 +71,7 @@ bad.get_unsat_core()              # [0, 1]`} copyable />
 
 ### What They Do
 
-For non-linear or quantified constraints, Veritas bridges to **Microsoft Z3** via `SmtBridge`. The `Z3SmtOracle` is used only as a fallback — the common case (linear constraints) is handled by the nano-solver.
+For non-linear or quantified constraints, Vexx bridges to **Microsoft Z3** via `SmtBridge`. The `Z3SmtOracle` is used only as a fallback — the common case (linear constraints) is handled by the nano-solver.
 
 ### Architecture
 
@@ -79,7 +79,7 @@ For non-linear or quantified constraints, Veritas bridges to **Microsoft Z3** vi
 Your Constraint
        ↓
 ┌───────────────┐
-│ VeritasNanoSolver │ ← Pure Rust, no dependencies
+│ VexxNanoSolver │ ← Pure Rust, no dependencies
 │ (linear only)   │
 └───────────────┘
        ↓ (if non-linear or quantified)
@@ -94,7 +94,7 @@ Your Constraint
 Z3 is only needed for non-linear/quantified SMT. Install with:
 
 ```
-pip install "veritas-ai[z3]"
+pip install "vexx-ai[z3]"
 ```
 
 The core engine never calls Z3 per token — Tier 0 and Tier 1 handle all per-token work.
@@ -115,17 +115,17 @@ The pre-flight gate uses Tier 2 for **exact affine feasibility checking** — pr
 
 ### Example
 
-<CodeBlock language="python" code={`import veritas as vt
+<CodeBlock language="python" code={`import vexx as vx
 
 # This spec is infeasible: sum(x) == 1 with every x <= 0.10 over 6 variables
 try:
     from infeasible_spec import weights          # pre-flight runs at import
-except vt.InfeasibleSpecError as exc:
+except vx.InfeasibleSpecError as exc:
     print(exc.conflicts)                        # [0, 1]
     print(exc.relaxation["suggestion"])         # 'Relax a listed constraint or a field bound.'
 
 # The same check without the exception path
-report = vt.run_preflight(spec)
+report = vx.run_preflight(spec)
 report.status        # 'UNSAT' | 'SAT' | 'UNKNOWN'
 report.is_sat        # True only when a witness was constructed and checked
 report.details       # ['exact rational linear relaxation is infeasible', ...]
@@ -136,20 +136,20 @@ report.details       # ['exact rational linear relaxation is infeasible', ...]
 
 ## Complete Example
 
-<CodeBlock language="python" title="pre-flight, then a real decode" code={`import veritas as vt
+<CodeBlock language="python" title="pre-flight, then a real decode" code={`import vexx as vx
 
 # The same solver backs pre-flight: no model, no tokens, just a verdict
-report = vt.run_preflight(portfolio.spec)
+report = vx.run_preflight(portfolio.spec)
 report.status                  # 'SAT' | 'UNKNOWN' | 'UNSAT'
 report.is_sat                  # True only when a witness was checked
 
 # During decoding the same core is used for CDCL conflict analysis
-engine = vt.CdclJumpbackEngine()
+engine = vx.CdclJumpbackEngine()
 outcome = engine.jumpback([2])          # unsat core from the tier-2 check
 outcome["target_clause"], outcome["rewind_to"]
 
 # And the result is verified concretely before it is returned
-result = vt.generate(model=model, prompt="propose a portfolio", spec=portfolio)
+result = vx.generate(model=model, prompt="propose a portfolio", spec=portfolio)
 result.report.status           # 'PASS' — checked, not assumed`} copyable />
 
 ---

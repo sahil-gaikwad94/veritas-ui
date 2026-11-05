@@ -1,0 +1,146 @@
+---
+title: Vexx 1.5 release notes
+description: What actually shipped in vexx1.5 — the soundness fixes, per-field KL receipts, the MCP firewall, the verifying proxy, explain-unsat, RL export, and a faster native core.
+---
+
+import { Callout } from '@/components/mdx-components';
+
+**vexx1.5 is the audit-driven hardening release.** Every bug, unsoundness and missing capability
+found in the `vexx1.1` audit was fixed first, then the next horizon of usability was built on top of
+it. The Python distribution continues its own numbering (`2.1.0`); the public milestone name is
+**vexx1.5**.
+
+If you only read one line: **the verifier got stricter, the decoder got faster, and the surrounding
+tooling went from "a library" to "a system".**
+
+## Phase 0 — soundness regressions fixed
+
+These are the entries that matter most, because a verifier that is subtly wrong is worse than no
+verifier at all.
+
+- **`quad_form_split` was mathematically unsound.** It registered two sign-flipped PSD constraints,
+  which are impossible over the reals, so it refuted every feasible box and produced false `UNSAT`
+  verdicts. It now encodes the difference-of-convex form `||L₊ᵀx||² − ||L₋ᵀx||² ≤ rhs` using only
+  sound interval arithmetic, with a forward check and a DC relaxation. `evaluate.py` and the SMT
+  certificate renderer now handle the constraint too instead of returning `INCOMPLETE`.
+- **The quadratic contraction was computed against `Lx` instead of `Lᵀx`** — the wrong quadratic form
+  entirely — in both Python and Rust. Fixed, with a regression test.
+- **The Rust Eq-quadratic import sample could exclude genuinely feasible assignments.** The
+  "narrow to the sampled window" shortcut is gone; the Rust revision is a pure outward-rounded
+  forward check.
+- **`eigendecomposition_split` hard-imported NumPy.** Replaced with a dependency-free cyclic Jacobi
+  eigensolver, so the split works with no optional extras installed.
+- **`\b` and `\B` raised `UnsupportedPattern`.** Word boundaries are legal masking. They are now
+  zero-width conditional edges resolved against the neighbouring character, verified exact against
+  `re.search` on exhaustive small-alphabet inputs.
+- **Kohler's pruning in the Fourier–Motzkin solvers could flip `UNSAT` to `SAT`/`UNKNOWN`.** An
+  8-row infeasible system demonstrated it: the lineage-size rule dropped the only refutation
+  combination. Both the Python and Rust solvers now use sound subsumption — bucket by sign-normalised
+  bound, keep the strongest — with regression tests on each side.
+- **329 build artefacts were committed.** `target/`, the compiled `vexx_py.so` and a root symlink
+  were removed from the index and ignored.
+
+## Horizon 1 — speed & caching
+
+- The Rust `VocabularyTrie` was rebuilt as a structured PDA-driven depth-first traversal: one call
+  returns the whole allowed-token set, or a packed `u64` bitset (`mask_bitset`), without cloning the
+  tokenizer vocabulary on every step.
+- Python's `TokenMasker` caches by a canonical PDA signature — stack shape, seen-key hash and pending
+  number/string state — instead of the raw prefix.
+- Rust Fourier–Motzkin elimination keeps provenance as a `u64` bitmask for exact `unsat_core` lineage.
+
+## Horizon 2 — per-field KL-distortion receipts
+
+At every sampled step, the distortion introduced by hard masking is exactly `−log(P_raw(allowed))`.
+Vexx now tracks it per field and per step (`DecodeTelemetry.field_kl_divergence`,
+`kl_distortion_tokens`).
+
+`result.receipt()` — on both `DecodeResult` and `generate()`'s `VerifiedResult` — returns a
+self-contained audit record:
+
+```python
+import vexx as vx
+
+result = vx.generate(model=model, prompt="port", spec=portfolio)
+print(result.receipt())
+# {
+#   'sha256': '…', 'status': 'PASS', 'attempts': 1, 'backtracks': 0,
+#   'jump_forward': {...}, 'field_kl_divergence': {'weight_a': 3.47, ...}
+# }
+```
+
+That number is the honest answer to "did the constraint cost me accuracy?" — instead of an opinion.
+
+## Horizon 3 — agentic ecosystem
+
+### `vexx serve` — a verifying OpenAI-compatible proxy
+
+```bash
+vexx serve --upstream http://localhost:11434/v1 --spec-module schemas.py --port 8080
+```
+
+Non-streaming `/v1/chat/completions` responses are re-verified against a `@vx.verified_schema`
+before the client sees them: `422 vexx_verification_failed` on violation, otherwise the completion
+returns with a `vexx_certificate` attached. Streaming (SSE) forwards token-by-token and injects a
+`data: {"vexx_certificate": …}` event before `[DONE]`, with chunked framing and a held-back
+terminator.
+
+### `vexx export-rl` — your backtracks are a dataset
+
+Decoder conflict traces (`DecodeConfig(rl_trace_path=...)`) become TRL-ready preference data: DPO
+shared-prefix pairs or dense per-step GRPO rewards, with counts and SHA-256 manifests for each export.
+
+### `vx.VexxMcpSession` — the MCP firewall
+
+Temporal masking of tool picks with LTLf (`session.allowed_tools()`), symbolic environment binding
+across turns (`last_order_total`, `<tool>.<key>`), accumulation counters (`refunded`, `total_cost`),
+per-call spend caps and budgets, taint tracking (`UntrustedString` plus pydantic-native validation),
+`requires_taint_free` blocking and `on_violation=raise|return`.
+
+```python
+session = vx.VexxMcpSession(temporal_policy=vx.before("lookup_order", "issue_refund"))
+
+@session.verified_tool(name="issue_refund", requires_taint_free=True)
+def issue_refund(args, state):
+    vx.mcp.mcp_require(args.refund_amount <= state.env["last_order_total"])
+    return {"refunded": args.refund_amount}
+```
+
+### `vexx explain-unsat` — the smallest fix, not a lecture
+
+For each core constraint, report the smallest additive slack that repairs the system — or say
+plainly that the conflict is structural. It also reports exact 1-D bound conflicts, including the
+bounds the transpiler tightened for you.
+
+### Adaptive `<|solver_feedback|>` reflex
+
+With `DecodeConfig(reflex_on_backtrack=True)`, a CDCL jumpback re-opens a bounded CRANE scratchpad
+seeded with the algebraic conflict: field, reason, domain cut. The span is appended to
+`result.reasoning` only — never to the decoded JSON — with explicit markers so an agent loop can
+lift it verbatim.
+
+## Verification status
+
+- **425 tests pass** in the default suite. 41 native-parity tests skip unless the wheel is built.
+- **69 Rust unit tests pass**; the crate builds and tests standalone, and CI exercises the full
+  workspace including pyo3 and wasm.
+- New coverage: the MCP firewall end to end, receipt numerics, `export-rl` manifests,
+  `explain-unsat` on both bound and clause conflicts, and the live proxy via a subprocess fixture.
+
+## Known limitations, honestly
+
+- `vexx serve` is a **monitor** for streaming traffic — token chunks cannot be un-emitted. Hard
+  enforcement is the non-streaming path, where the 422 arrives before the client's buffer fills.
+- `explain-unsat` computes single-clause minimal deltas by bisection. Joint relaxation is reported
+  but not globally optimised.
+- The relaxation wizard probes Fourier–Motzkin directly, so very large cores return status reports
+  rather than deltas (more than 12 variables).
+- This milestone ships no live LLM benchmark harness in-repo. `benchmarks/decode_smoke.py` and
+  `benchmarks/native_speedup.py` cover the reference engine deterministically.
+
+<Callout variant="check" title="Upgrading from vexx1.1">
+The public API is additive. The behavioural changes to know about: indefinite quadratic forms now
+verify instead of falsely refuting, `\b`/`\B` patterns now compile, and Fourier–Motzkin solvers use
+subsumption instead of Kohler pruning. If you were relying on the old (unsound) pruning to declare
+`UNSAT`, expect a slower but correct `UNKNOWN` instead.
+</Callout>

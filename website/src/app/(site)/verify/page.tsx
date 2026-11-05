@@ -7,7 +7,7 @@ import { CopyCommand } from '@/components/site/copy-command';
 export const metadata: Metadata = {
   title: 'Verify — proof certificate inspector',
   description:
-    'Inspect a Veritas proof certificate in your browser: canonical SHA-256 digests, constraint outcomes, SMT-LIB2 structure and the derived arithmetic. No server, no storage.',
+    'Inspect a Vexx proof certificate in your browser: canonical SHA-256 digests, constraint outcomes, SMT-LIB2 structure and the derived arithmetic. No server, no storage.',
   alternates: { canonical: '/verify' },
 };
 
@@ -20,7 +20,7 @@ const info = [
   {
     icon: Terminal,
     title: 'Verify from the CLI',
-    body: 'The authoritative check is `veritas verify-proof proof.json`. It re-evaluates the constraints from the embedded VIR and exits non-zero on any failure.',
+    body: 'The authoritative check is `vexx verify-proof proof.json`. It re-evaluates the constraints from the embedded VIR and exits non-zero on any failure.',
   },
   {
     icon: Lock,
@@ -94,7 +94,7 @@ export default function VerifyPage() {
           </p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-          <CopyCommand command="veritas verify-proof proof.json" className="w-full justify-between sm:w-auto" />
+          <CopyCommand command="vexx verify-proof proof.json" className="w-full justify-between sm:w-auto" />
           <Link
             href="/docs/proofs-rl-and-cli/proof-certificates"
             className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-border-subtle bg-bg-elevated px-3 py-2 text-[11.5px] font-semibold text-ink-primary transition-colors hover:border-border-cobalt"
@@ -105,7 +105,7 @@ export default function VerifyPage() {
       </section>
 
       <p className="container-page mt-4 text-center text-[10.5px] leading-relaxed text-ink-muted">
-        The sample is a synthetic certificate in the engine's <code className="font-mono text-[11px]">veritas1.1</code> format,
+        The sample is a synthetic certificate in the engine's <code className="font-mono text-[11px]">vexx1.5</code> format,
         sealed in your browser the way <code className="font-mono text-[11px]">ProofCertificate.seal()</code> seals a real
         one. Uploads of genuine certificates work too: the page verifies every digest it can recompute and says
         plainly that replaying the embedded VIR needs the CLI.

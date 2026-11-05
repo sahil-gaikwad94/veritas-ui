@@ -23,7 +23,7 @@ export function FinalCta() {
         <div className="relative grid gap-8 lg:grid-cols-[1.25fr_0.75fr] lg:items-center">
           <div>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/90">
-              <Sparkles className="h-3 w-3" /> Apache-2.0 · v{siteConfig.version}
+              <Sparkles className="h-3 w-3" /> Apache-2.0 · {siteConfig.version}
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-white/90">
               <span aria-hidden className="h-1 w-1 rounded-full bg-white/40" />

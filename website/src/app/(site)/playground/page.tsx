@@ -7,7 +7,7 @@ import { siteConfig } from '@/lib/site';
 export const metadata: Metadata = {
   title: 'Playground — solver-guided decode lab',
   description:
-    'Change the constraints, watch tokens get masked, derived fields get spliced and preflight refuse infeasible specs. A deterministic replay of the Veritas engine, entirely in your browser.',
+    'Change the constraints, watch tokens get masked, derived fields get spliced and preflight refuse infeasible specs. A deterministic replay of the Vexx engine, entirely in your browser.',
   alternates: { canonical: '/playground' },
 };
 

@@ -1,15 +1,21 @@
 ---
 title: Overview
-description: What Veritas is, why grammar masking is not enough, and how the five engine layers fit together.
+description: What Vexx is, why grammar masking is not enough, and how the five engine layers fit together.
 ---
 
 import { Callout, StatGrid, Stat, FeatureGrid, Feature, Tabs, TabsContent, TabsList, TabsTrigger, Card, CardContent, CardHeader, CardTitle, Badge, DocsMap } from '@/components/mdx-components';
 
-**Veritas turns plausible LLM output into checked output.** You write a Pydantic model and a few
-constraint statements; Veritas compiles them into a specification that every layer of decoding can
+**Vexx turns plausible LLM output into checked output.** You write a Pydantic model and a few
+constraint statements; Vexx compiles them into a specification that every layer of decoding can
 read — grammar, interval arithmetic, a small exact solver, and a final concrete evaluator.
 
 It is not a validator you run afterwards. The specification is inside the token loop.
+
+<Callout variant="check" title="You are reading the vexx1.5 docs">
+The audit-driven hardening release: soundness fixes first, then per-field KL receipts, a verifying
+OpenAI-compatible proxy, an LTLf MCP firewall, a minimal-relaxation wizard and RL trace export.
+[Read the release notes](/docs/release-notes) for the full, honest list — including the bugs.
+</Callout>
 
 <StatGrid>
   <Stat value="0.23 ms" label="JSON mask per step" tone="cobalt" />
@@ -38,7 +44,7 @@ The JSON is valid. The arithmetic is not: the weights sum to **1.25**, and the S
 inconsistent with the weights. Grammar-constrained decoders accept it. Pydantic raises after you have
 paid for every token. Retrying is a gamble with the same odds.
 
-Veritas eliminates the guess. While the model is choosing tokens, a compiled spec:
+Vexx eliminates the guess. While the model is choosing tokens, a compiled spec:
 
 1. **masks** tokens that would break JSON grammar (Tier 0 — pushdown automaton);
 2. **contracts** numeric domains with outward-rounded intervals (Tier 1 — HC4 + affine forms);
@@ -49,7 +55,7 @@ Veritas eliminates the guess. While the model is choosing tokens, a compiled spe
 ## A schema that cannot lie
 
 ```python
-import veritas as vt
+import vexx as vx
 from pydantic import BaseModel
 
 class Portfolio(BaseModel):
@@ -64,15 +70,15 @@ COV = {
     ("MSFT", "MSFT"): 0.039, ("MSFT", "NVDA"): 0.036, ("NVDA", "NVDA"): 0.095,
 }
 
-@vt.verified_schema()
+@vx.verified_schema()
 def portfolio(p: Portfolio):
-    vt.require(vt.keys_subset(p.weights, {"AAPL", "MSFT", "NVDA"}))
-    vt.require(vt.sum(p.weights.values()) == 1.0, tol=1e-6)
-    vt.require(vt.forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
+    vx.require(vx.keys_subset(p.weights, {"AAPL", "MSFT", "NVDA"}))
+    vx.require(vx.sum(p.weights.values()) == 1.0, tol=1e-6)
+    vx.require(vx.forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
 
-    vt.derive(p.expected_return == vt.dot(p.weights, RETURNS), tol=1e-5)
-    vt.derive(p.volatility == vt.sqrt(vt.quad_form(p.weights, COV)), tol=1e-5)
-    vt.derive(p.sharpe == (p.expected_return - 0.04) / p.volatility, tol=1e-5)
+    vx.derive(p.expected_return == vx.dot(p.weights, RETURNS), tol=1e-5)
+    vx.derive(p.volatility == vx.sqrt(vx.quad_form(p.weights, COV)), tol=1e-5)
+    vx.derive(p.sharpe == (p.expected_return - 0.04) / p.volatility, tol=1e-5)
 
 report = portfolio.verify({"weights": {"AAPL": 0.40, "MSFT": 0.35, "NVDA": 0.25}})
 print(report.status)        # PASS
@@ -96,7 +102,7 @@ not-yet-evaluable field — is never silently promoted to a pass.
     decode, not checked after it.
   </Feature>
   <Feature title="It computes instead of guessing" icon="zap">
-    When a field has zero degrees of freedom, Veritas computes it and splices the bytes in. No forward
+    When a field has zero degrees of freedom, Vexx computes it and splices the bytes in. No forward
     pass, no arithmetic hallucination.
   </Feature>
   <Feature title="It recovers from dead ends" icon="git">
@@ -128,7 +134,7 @@ not-yet-evaluable field — is never silently promoted to a pass.
 
 <TabsContent value="difference">
 
-Grammar tools constrain **syntax**. Pydantic validates **after generation**. Veritas additionally
+Grammar tools constrain **syntax**. Pydantic validates **after generation**. Vexx additionally
 reasons about cross-field algebra, inequalities and domain invariants **during** generation — and
 computes derived fields deterministically, so the model never has to guess arithmetic.
 
@@ -160,7 +166,7 @@ specification. SMT-LIB2, Rust and theorem-prover knowledge are not prerequisites
 | Tier 2 · search | Deterministic nano-solver, minimal unsat cores, CDCL jumpback, zero-DoF splices | bounded search |
 | Verify | Total concrete evaluation, derived fill, PASS / FAIL / INCOMPLETE, certificate | once per object |
 
-Read [How Veritas works](/docs/getting-started/how-veritas-works) for the full walkthrough, or
+Read [How Vexx works](/docs/getting-started/how-vexx-works) for the full walkthrough, or
 [Engine internals](/docs/engine-internals/vir-compiler-and-dag) for the mathematics.
 
 ## Where it fits
@@ -178,7 +184,7 @@ replacement for your integration tests. Grammar support is JSON with a documente
 
 <FeatureGrid>
   <Feature title="Installation" icon="terminal">
-    Install from source, add optional extras, and confirm the live engine with `veritas doctor`.
+    Install from source, add optional extras, and confirm the live engine with `vexx doctor`.
     → [Installation](/docs/getting-started/installation)
   </Feature>
   <Feature title="Quickstart" icon="zap">
@@ -196,7 +202,7 @@ replacement for your integration tests. Grammar support is JSON with a documente
 </FeatureGrid>
 
 <Callout variant="info" title="Version">
-This documentation describes **Veritas 2.0.0** (Apache-2.0). The package metadata ships as
-`veritas-ai`; install from GitHub until the PyPI release lands. See
+This documentation describes **vexx1.5** (Apache-2.0). The package metadata ships as
+`vexx-ai`; install from GitHub until the PyPI release lands. See
 [Installation](/docs/getting-started/installation) for exact commands.
 </Callout>

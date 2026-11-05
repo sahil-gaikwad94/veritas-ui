@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Check, Fingerprint, Lock, ShieldCheck } from 'lucide-react';
 import { Reveal } from '@/components/site/reveal';
-import { VeritasMark } from '@/components/site/logo';
+import { VexxMark } from '@/components/site/logo';
 
 // Values from a real certificate: vt.build_certificate(portfolio, weights) on 2.0.0.
 const rows = [
@@ -21,7 +21,7 @@ export function ProofSection() {
           </span>
           <h2 className="display-lg mt-3 text-ink-primary">Every answer leaves a paper trail.</h2>
           <p className="mt-4 text-[15px] leading-relaxed text-ink-secondary sm:text-base">
-            A verified value is only as good as your ability to check it later. Veritas certificates embed
+            A verified value is only as good as your ability to check it later. Vexx certificates embed
             the versioned spec, the witness and an SMT-LIB2 rendering, then hash both. Verification is offline,
             tamper-evident and re-evaluates the constraints from the embedded spec.
           </p>
@@ -80,12 +80,12 @@ export function ProofSection() {
               />
               <div className="relative flex items-start justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  <VeritasMark className="h-8 w-8" animated />
+                  <VexxMark className="h-8 w-8" animated />
                   <div>
                     <p className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-ink-muted">
                       ProofCertificate
                     </p>
-                    <p className="font-mono text-[11px] text-ink-secondary">schema v1 · veritas1.1</p>
+                    <p className="font-mono text-[11px] text-ink-secondary">schema v1 · vexx1.5</p>
                   </div>
                 </div>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-verify-pass/30 bg-verify-pass/10 px-2.5 py-1 font-mono text-[9.5px] font-semibold uppercase tracking-[0.1em] text-verify-pass">

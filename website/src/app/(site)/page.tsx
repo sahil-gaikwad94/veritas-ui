@@ -21,7 +21,7 @@ import { FinalCta } from '@/components/landing/final-cta';
 import { siteConfig } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Veritas — make the model prove it',
+  title: 'Vexx — make the model prove it',
   description: siteConfig.description,
   alternates: { canonical: '/' },
 };
@@ -30,7 +30,7 @@ export default function LandingPage() {
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    name: 'Veritas',
+    name: 'Vexx',
     applicationCategory: 'DeveloperApplication',
     operatingSystem: 'Linux, macOS, Windows',
     description: siteConfig.description,

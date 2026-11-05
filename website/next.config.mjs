@@ -5,7 +5,10 @@ const config = {
   reactStrictMode: true,
   output: 'standalone',
   poweredByHeader: false,
-  allowedDevOrigins: ['*.e2b.app'],
+  allowedDevOrigins: [
+    '*.e2b.app',
+    ...(process.env.NEXT_DEV_ORIGINS?.split(',').map((o) => o.trim()).filter(Boolean) ?? []),
+  ],
   experimental: {
     optimizePackageImports: ['lucide-react', 'framer-motion'],
   },

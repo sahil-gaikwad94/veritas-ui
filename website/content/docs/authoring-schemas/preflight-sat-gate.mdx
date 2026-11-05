@@ -5,7 +5,7 @@ description: run_preflight, PreflightResult, InfeasibleSpecError — 0-token con
 
 import { Callout, CodeBlock, KeyValueTable, StatGrid, Stat } from '@/components/mdx-components';
 
-Before Veritas touches a GPU or spends a token, it checks whether the constraints can be satisfied at
+Before Vexx touches a GPU or spends a token, it checks whether the constraints can be satisfied at
 all. That is the whole promise of the gate: **0 LLM tokens**, pure local computation, and a verdict you
 can put in CI.
 
@@ -43,7 +43,7 @@ A step that cannot decide returns `UNKNOWN`. It never turns "unsupported" into "
 ## `schema.preflight` and `run_preflight(spec)`
 
 <CodeBlock language="python" title="reading the result" code={`from portfolio_spec import portfolio          # pre-flight already ran at import
-from veritas import run_preflight
+from vexx import run_preflight
 
 report = portfolio.preflight                  # PreflightResult, computed once
 print(report.status)                          # 'SAT' | 'UNKNOWN' | 'UNSAT'
@@ -73,23 +73,23 @@ decides every concrete instance, and generation has its own masks. Treat `UNKNOW
 not as "broken".
 </Callout>
 
-## The CLI: `veritas check-spec`
+## The CLI: `vexx check-spec`
 
-<CodeBlock language="bash" title="a scalar schema: SAT, exit 0" code={`$ veritas check-spec ticket_spec.py
+<CodeBlock language="bash" title="a scalar schema: SAT, exit 0" code={`$ vexx check-spec ticket_spec.py
 schema: ticket  (SAT)
   fields:   priority, sla_hours
   derived:  -
   requires: 1  derives: 0
   digest:   fa7eb9478ab886630f7ae37c0c946c4e1f072481a55f670d69a1167251b5f66b`} copyable />
 
-<CodeBlock language="bash" title="a dynamic container: UNKNOWN, exit 1" code={`$ veritas check-spec portfolio_spec.py
+<CodeBlock language="bash" title="a dynamic container: UNKNOWN, exit 1" code={`$ vexx check-spec portfolio_spec.py
 schema: portfolio  (UNKNOWN)
   fields:   weights, expected_return, volatility, sharpe
   derived:  expected_return, volatility, sharpe
   requires: 4  derives: 3
   digest:   8578b89ceb5e41bef703919daf8242338cb963442908cecdb24e0475e96d28c0`} copyable />
 
-<CodeBlock language="bash" title="a contradiction: exit 2, no report" code={`$ veritas check-spec window_spec.py
+<CodeBlock language="bash" title="a contradiction: exit 2, no report" code={`$ vexx check-spec window_spec.py
 error: InfeasibleSpecError: Spec window is infeasible at pre-flight
 # exit 2`} copyable />
 
@@ -109,11 +109,11 @@ module raises at import.
 Raised at import when the spec cannot be satisfied. It carries the indices that conflict and, when the
 cause is understood, a structured relaxation hint:
 
-<CodeBlock language="python" code={`import veritas as vt
+<CodeBlock language="python" code={`import vexx as vx
 
 try:
     from window_spec import window        # end >= 8 and end <= 3
-except vt.InfeasibleSpecError as exc:
+except vx.InfeasibleSpecError as exc:
     print(exc)                            # Spec window is infeasible at pre-flight
     print(exc.conflicts)                  # [0, 1]
     print(exc.relaxation["details"])
@@ -133,8 +133,8 @@ A `derive` chain that feeds back into itself. The exception is plain: one messag
 
 <CodeBlock language="python" code={`try:
     from circular_spec import circular
-except vt.CircularDerivationError as exc:
-    print(exc)     # Cycle detected in vt.derive dependency graph`} copyable />
+except vx.CircularDerivationError as exc:
+    print(exc)     # Cycle detected in vx.derive dependency graph`} copyable />
 
 <Callout variant="warn" title="No StrictBoundRefutation, no derived_fields">
 Earlier drafts of this page described a `StrictBoundRefutation` class and read `report.sat`,
@@ -145,7 +145,7 @@ table above.
 
 ## Complete example
 
-<CodeBlock language="python" title="pre-flight before decode" code={`import veritas as vt
+<CodeBlock language="python" title="pre-flight before decode" code={`import vexx as vx
 from pydantic import BaseModel, Field
 
 RETURNS = {"AAPL": 0.12, "MSFT": 0.10, "NVDA": 0.15}
@@ -154,13 +154,13 @@ class Portfolio(BaseModel):
     weights: dict
     expected_return: float
 
-@vt.verified_schema()
+@vx.verified_schema()
 def portfolio(p: Portfolio):
-    vt.require(vt.keys_subset(p.weights, {"AAPL", "MSFT", "NVDA"}))
-    vt.require(vt.sum(p.weights.values()) == 1.0, tol=1e-6)
-    vt.require(vt.forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.60)))
-    vt.derive(p.expected_return == vt.dot(p.weights, RETURNS), tol=1e-5)
-    vt.require(p.expected_return >= 0.10)
+    vx.require(vx.keys_subset(p.weights, {"AAPL", "MSFT", "NVDA"}))
+    vx.require(vx.sum(p.weights.values()) == 1.0, tol=1e-6)
+    vx.require(vx.forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.60)))
+    vx.derive(p.expected_return == vx.dot(p.weights, RETURNS), tol=1e-5)
+    vx.require(p.expected_return >= 0.10)
 
 print(portfolio.preflight.status)   # UNKNOWN for a dynamic map, never a guessed SAT
 print(portfolio.preflight.details)`} copyable />

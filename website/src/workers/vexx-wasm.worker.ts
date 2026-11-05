@@ -1,8 +1,8 @@
 /**
- * veritas-wasm Web Worker
- * Wraps the veritas-wasm WASM module for use in the browser playground.
+ * vexx-wasm Web Worker
+ * Wraps the vexx-wasm WASM module for use in the browser playground.
  *
- * Real exports of `crates/veritas-wasm` (see docs/api-reference/wasm-browser-api):
+ * Real exports of `crates/vexx-wasm` (see docs/api-reference/wasm-browser-api):
  *  - version()
  *  - prefix_status(text)
  *  - is_valid_document(text)
@@ -14,7 +14,7 @@
  * All calls are deterministic and run entirely client-side — zero server cost.
  */
 
-let veritasWasm: any = null;
+let vexxWasm: any = null;
 let wasmReady = false;
 let initPromise: Promise<void> | null = null;
 
@@ -25,25 +25,25 @@ async function initWasm(): Promise<void> {
       // The WASM module is built by `wasm-pack build --target web --out-dir public/wasm`
       // and loaded dynamically. In development/stub mode, we use a mock.
       const wasmUrl = new URL(
-        '../../public/wasm/veritas_wasm.js',
+        '../../public/wasm/vexx_wasm.js',
         import.meta.url
       ).href;
 
       const wasmModule = await import(wasmUrl);
       // wasm-pack generates a default export that returns a promise
       const wasm = await wasmModule.default?.() || wasmModule;
-      veritasWasm = wasm;
+      vexxWasm = wasm;
       wasmReady = true;
       // eslint-disable-next-line no-console
-      console.log('[veritas-wasm] WASM engine ready');
+      console.log('[vexx-wasm] WASM engine ready');
     } catch (err) {
       // WASM not built yet — fall back to stub mode for UI development
       // eslint-disable-next-line no-console
       console.warn(
-        '[veritas-wasm] WASM module not available, running in stub mode:',
+        '[vexx-wasm] WASM module not available, running in stub mode:',
         (err as Error).message
       );
-      veritasWasm = null;
+      vexxWasm = null;
       wasmReady = true;
     }
   })();
@@ -55,7 +55,7 @@ void initWasm();
 
 function stubResponse(method: string, data: any): any {
   // Deterministic stub responses for UI development without WASM
-  if (method === 'version') return 'veritas1.1-stub';
+  if (method === 'version') return 'vexx1.5-stub';
   if (method === 'prefix_status') {
     return { valid: true, depth: 0, complete: false };
   }
@@ -82,34 +82,34 @@ self.onmessage = async (e: MessageEvent) => {
   try {
     let result: any;
 
-    if (!veritasWasm) {
+    if (!vexxWasm) {
       // Stub mode
       result = stubResponse(method, args);
     } else {
       // Real WASM calls
       switch (method) {
         case 'version':
-          result = veritasWasm.version?.() || 'veritas1.1';
+          result = vexxWasm.version?.() || 'vexx1.5';
           break;
         case 'prefix_status':
-          result = veritasWasm.prefix_status?.(args[0]) || {
+          result = vexxWasm.prefix_status?.(args[0]) || {
             valid: true,
             depth: 0,
             complete: false,
           };
           break;
         case 'is_valid_document':
-          result = veritasWasm.is_valid_document?.(args[0]) || false;
+          result = vexxWasm.is_valid_document?.(args[0]) || false;
           break;
         case 'numeric_prefix_bounds':
-          result = veritasWasm.numeric_prefix_bounds?.(args[0]) || '{}';
+          result = vexxWasm.numeric_prefix_bounds?.(args[0]) || '{}';
           break;
         case 'contract_intervals_json':
-          result = veritasWasm.contract_intervals_json?.(args[0]) || '{}';
+          result = vexxWasm.contract_intervals_json?.(args[0]) || '{}';
           break;
         case 'emit_smtlib2_certificate':
           result =
-            veritasWasm.emit_smtlib2_certificate?.(args[0], args[1]) || '';
+            vexxWasm.emit_smtlib2_certificate?.(args[0], args[1]) || '';
           break;
         default:
           result = { error: `Unknown method: ${method}` };

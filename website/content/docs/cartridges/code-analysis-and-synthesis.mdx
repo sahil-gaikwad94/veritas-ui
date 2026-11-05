@@ -1,6 +1,6 @@
 ---
 title: Code analysis
-description: veritas.cartridges.code — scope-aware undefined identifiers, literal division by zero, index bounds and syntax checks.
+description: vexx.cartridges.code — scope-aware undefined identifiers, literal division by zero, index bounds and syntax checks.
 ---
 
 import { Callout, CodeBlock, KeyValueTable, FeatureGrid, Feature } from '@/components/mdx-components';
@@ -42,13 +42,13 @@ safety.
     single statement.
   </Feature>
   <Feature title="Alias kept stable" icon="git">
-    `veritas.cartridges.code` re-exports `code_synth`, so both import paths are supported.
+    `vexx.cartridges.code` re-exports `code_synth`, so both import paths are supported.
   </Feature>
 </FeatureGrid>
 
 ## Verify a generated function
 
-<CodeBlock language="python" title="undefined name and division by zero" code={`from veritas.cartridges.code import verify_python_source
+<CodeBlock language="python" title="undefined name and division by zero" code={`from vexx.cartridges.code import verify_python_source
 
 clean = verify_python_source(
     "def total(xs):\\n"
@@ -72,7 +72,7 @@ print(divide.errors[0].kind)     # division_by_zero`} copyable />
 
 ## Small predicates
 
-<CodeBlock language="python" title="for repair loops and tests" code={`from veritas.cartridges.code import (
+<CodeBlock language="python" title="for repair loops and tests" code={`from vexx.cartridges.code import (
     scope_safe, no_division_by_zero, array_bounds_ok, type_compatible,
 )
 
@@ -90,7 +90,7 @@ assert not type_compatible("str", "float")`} copyable />
 
 ## The repair loop
 
-<CodeBlock language="python" title="report errors back to the model, then re-check" code={`from veritas.cartridges.code import verify_python_source
+<CodeBlock language="python" title="report errors back to the model, then re-check" code={`from vexx.cartridges.code import verify_python_source
 
 source = generate_code(prompt)
 for attempt in range(3):
@@ -104,7 +104,7 @@ else:
 
 <Callout variant="info" title="Pair it with a spec">
 Static checks say nothing about behaviour. If the generated code must compute a specific value, express
-that in the schema with `vt.derive` / `vt.require` and verify the produced result — then run the code in
+that in the schema with `vx.derive` / `vx.require` and verify the produced result — then run the code in
 isolation.
 </Callout>
 

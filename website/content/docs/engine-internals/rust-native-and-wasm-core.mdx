@@ -9,7 +9,7 @@ The Python engine is the reference. The Rust engine is a **port of the same laye
 accelerator, and the WASM build brings the grammar and numeric primitives to the browser. Nothing here
 is a second public API you must learn.
 
-## `crates/veritas-core`
+## `crates/vexx-core`
 
 No external crates, no C toolchain. Fifteen modules:
 
@@ -24,15 +24,15 @@ No external crates, no C toolchain. Fifteen modules:
 />
 
 <Callout variant="check" title="Tested like a reference implementation">
-68 unit tests plus 12 property tests in `crates/veritas-core/tests/soundness.rs`: randomised
+68 unit tests plus 12 property tests in `crates/vexx-core/tests/soundness.rs`: randomised
 constraints are refuted against a brute-force grid, every UNSAT core is re-checked standalone, and the
 automaton is cross-checked against the prefix classifier. CI also runs `clippy -D warnings`.
 </Callout>
 
-## `crates/veritas-py`
+## `crates/vexx-py`
 
-The extension module is named **`veritas_py`** and is loaded by `veritas.native`. Its `PdaHandle` and
-top-level functions are implementation details; use the documented `veritas.native` wrappers instead of
+The extension module is named **`vexx_py`** and is loaded by `vexx.native`. Its `PdaHandle` and
+top-level functions are implementation details; use the documented `vexx.native` wrappers instead of
 importing them directly.
 
 <KeyValueTable
@@ -51,7 +51,7 @@ importing them directly.
 
 In Python, always go through the public module:
 
-<CodeBlock language="python" title="public wrappers" code={`import veritas.native as native
+<CodeBlock language="python" title="public wrappers" code={`import vexx.native as native
 
 print(native.info())
 print(native.prefix_status('{"w'))          # 'incomplete'
@@ -60,7 +60,7 @@ print(native.mask('{"a":', ['{', '}', '"a"', '1']))`} copyable />
 
 See [Native accelerator API](/docs/api-reference/rust-pyo3-native-api) for the full wrapper surface.
 
-## `crates/veritas-wasm`
+## `crates/vexx-wasm`
 
 `wasm32-unknown-unknown` bindings for browser-side grammar work. Build with `wasm-pack` or the wasm cargo
 target. The exported functions:
@@ -90,7 +90,7 @@ class PdaHandle {
 }
 ```
 
-<CodeBlock language="typescript" title="browser usage" code={`import init, { PdaHandle, prefix_status, is_valid_document } from 'veritas-wasm';
+<CodeBlock language="typescript" title="browser usage" code={`import init, { PdaHandle, prefix_status, is_valid_document } from 'vexx-wasm';
 
 await init();
 
@@ -107,10 +107,10 @@ in your pipeline.
 
 ## Kill switch
 
-<CodeBlock language="bash" code={`VERITAS_NO_NATIVE=1 python -m veritas doctor
-VERITAS_NO_NATIVE=1 python -m pytest tests/test_native_backend.py -q`} copyable />
+<CodeBlock language="bash" code={`VEXX_NO_NATIVE=1 python -m vexx doctor
+VEXX_NO_NATIVE=1 python -m pytest tests/test_native_backend.py -q`} copyable />
 
-Checked per call. The native path is preferred only when `veritas.native.available()` is true; every
+Checked per call. The native path is preferred only when `vexx.native.available()` is true; every
 wrapper falls back, and `tests/test_native_backend.py` pins the parity.
 
 ## What is and is not accelerated

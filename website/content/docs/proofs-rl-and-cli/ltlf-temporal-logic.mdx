@@ -6,12 +6,12 @@ description: Finite-trace temporal logic over agent traces — always, eventuall
 import { Callout, CodeBlock, KeyValueTable } from '@/components/mdx-components';
 
 Some requirements are about **order**, not values: KYC before a transfer, a response after a trigger, at
-most one write. Linear Temporal Logic over finite traces (LTLf) expresses exactly that, and Veritas
+most one write. Linear Temporal Logic over finite traces (LTLf) expresses exactly that, and Vexx
 evaluates it against the recorded trace.
 
 <Callout variant="info" title="Evaluation, not masking">
 Policies in this release are checked on a trace you already have — before a call (prospective) or after
-a run (retrospective). They are not compiled into the token mask. Use `vt.require` for constraints that
+a run (retrospective). They are not compiled into the token mask. Use `vx.require` for constraints that
 must hold during decoding.
 </Callout>
 
@@ -26,7 +26,7 @@ must hold during decoding.
     { key: 'at_most(name, limit)', value: 'event occurs no more than `limit` times' },
     { key: 'never(name)', value: 'event never occurs' },
     { key: 'occurred(name)', value: 'event occurred at least once' },
-    { key: 'evaluate(formula, target)', value: 'bool — from veritas.ltlf, over a Trace or WorldState' },
+    { key: 'evaluate(formula, target)', value: 'bool — from vexx.ltlf, over a Trace or WorldState' },
   ]}
 />
 
@@ -35,8 +35,8 @@ global operator. The API is intentionally small.
 
 ## Direct evaluation
 
-<CodeBlock language="python" title="build formulas, evaluate a trace" code={`from veritas import Trace, before, responds, at_most, never, occurred
-from veritas.ltlf import evaluate
+<CodeBlock language="python" title="build formulas, evaluate a trace" code={`from vexx import Trace, before, responds, at_most, never, occurred
+from vexx.ltlf import evaluate
 
 trace = Trace()
 for name in ["request", "verify_kyc", "approve", "transfer"]:
@@ -55,7 +55,7 @@ print(evaluate(before("verify_kyc", "transfer"), bad))      # False`} copyable /
 
 ## Policies on a world state
 
-<CodeBlock language="python" title="the agent surface" code={`from veritas.cartridges.sec import WorldState, kyc_before, no_double_spend
+<CodeBlock language="python" title="the agent surface" code={`from vexx.cartridges.sec import WorldState, kyc_before, no_double_spend
 
 state = WorldState()
 state.add_policy(kyc_before("transfer", "verify_kyc"), name="kyc-first")

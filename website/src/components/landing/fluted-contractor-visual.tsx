@@ -53,9 +53,9 @@ export function FlutedContractorVisual() {
         </div>
 
         <div
-          className="relative mx-auto max-w-4xl h-[340px] sm:h-[420px] lg:h-[520px] rounded-[34px] veritas-fluted-glass border border-white/30 shadow-[var(--vt-shadow-lift)]"
+          className="relative mx-auto max-w-4xl h-[340px] sm:h-[420px] lg:h-[520px] rounded-[34px] vexx-fluted-glass border border-white/30 shadow-[var(--vt-shadow-lift)]"
         >
-          <div className="veritas-fluted-louvers" />
+          <div className="vexx-fluted-louvers" />
           <div className="absolute inset-0 bg-gradient-to-t from-white/20 via-transparent to-black/10" />
 
           {/* callout columns floating inside the glass */}

@@ -1,6 +1,6 @@
 ---
 title: Chemistry (SMILES)
-description: veritas.cartridges.chem — SMILES tokenisation, ring closures, charges, implicit hydrogens, valence and molecular weight.
+description: vexx.cartridges.chem — SMILES tokenisation, ring closures, charges, implicit hydrogens, valence and molecular weight.
 ---
 
 import { Callout, CodeBlock, KeyValueTable, FeatureGrid, Feature } from '@/components/mdx-components';
@@ -48,7 +48,7 @@ downstream chemistry still needs a cheminformatics toolkit.
 
 ## Parse a molecule
 
-<CodeBlock language="python" title="ethanol and caffeine" code={`from veritas.cartridges.chem import analyze_smiles, molecular_weight
+<CodeBlock language="python" title="ethanol and caffeine" code={`from vexx.cartridges.chem import analyze_smiles, molecular_weight
 
 ethanol = analyze_smiles("CCO")
 print(ethanol.ok)                 # True
@@ -70,7 +70,7 @@ print(broken.errors)   # ["unclosed ring closure(s): ['1']"]`} copyable />
 
 ## Fine-grained checks
 
-<CodeBlock language="python" title="valence and charge" code={`from veritas.cartridges.chem import valence_ok, smiles_valence_ok, formal_charge_neutral
+<CodeBlock language="python" title="valence and charge" code={`from vexx.cartridges.chem import valence_ok, smiles_valence_ok, formal_charge_neutral
 
 # carbon with four bonds is fine, five is not
 assert valence_ok("C", 4)
@@ -85,7 +85,7 @@ assert not formal_charge_neutral([1, -1])`} copyable />
 
 ## Wire it into a schema guard
 
-<CodeBlock language="python" title="after verification, before the lab queue" code={`from veritas.cartridges.chem import analyze_smiles
+<CodeBlock language="python" title="after verification, before the lab queue" code={`from vexx.cartridges.chem import analyze_smiles
 
 report = molecule_spec.verify(candidate)
 report.raise_if_failed()
@@ -99,7 +99,7 @@ if analysis.formal_charge != candidate["charge"]:
 print(analysis.formula, analysis.molecular_weight())`} copyable />
 
 Use the DSL for properties that must never be emitted — for example, a molecular-weight bound computed
-during decoding with `vt.require(candidate.mw <= 500, tol=1e-3)`.
+during decoding with `vx.require(candidate.mw <= 500, tol=1e-3)`.
 
 ## Limits
 

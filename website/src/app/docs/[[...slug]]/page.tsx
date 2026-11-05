@@ -38,7 +38,7 @@ export async function generateMetadata(props: { params: Promise<{ slug?: string[
     description: data.description,
     alternates: { canonical: page.url },
     openGraph: {
-      title: `${data.title} · Veritas docs`,
+      title: `${data.title} · Vexx docs`,
       description: data.description,
       type: 'article',
       url: page.url,

@@ -1,12 +1,12 @@
 ---
 title: CLI Reference
-description: The six subcommands, their real flags, their real output and their exit codes — captured from veritas 2.0.0.
+description: The six subcommands, their real flags, their real output and their exit codes — captured from vexx 2.1.0.
 ---
 
 import { Callout, CodeBlock, KeyValueTable, StatGrid, Stat } from '@/components/mdx-components';
 
 Six subcommands, one parser, no hidden flags. Every transcript on this page was captured from
-`python -m veritas` 2.0.0 on a reference install, so what you see is what the tool prints.
+`python -m vexx` 2.1.0 on a reference install, so what you see is what the tool prints.
 
 <StatGrid>
   <Stat value="6" label="subcommands" />
@@ -24,21 +24,21 @@ Six subcommands, one parser, no hidden flags. Every transcript on this page was 
 | `inspect` | Render a decode trace to HTML | Debugging a decode |
 | `synth` | Infer a schema module from examples | Bootstrapping |
 
-## `veritas doctor`
+## `vexx doctor`
 
-<CodeBlock language="bash" title="reference engine (default install)" code={`$ veritas doctor
-veritas 2.0.0 on CPython 3.11.2
+<CodeBlock language="bash" title="reference engine (default install)" code={`$ vexx doctor
+vexx 2.1.0 on CPython 3.11.2
   engine    reference python
-  reason    ModuleNotFoundError: No module named 'veritas_py'
+  reason    ModuleNotFoundError: No module named 'vexx_py'
   wire      n/a
   platform  Linux-6.1.158+-x86_64-with-glibc2.36
   note      the pure-Python engine is complete; the extension would only be faster.`} copyable />
 
 `--json` prints the same facts in a stable shape, including the nested engine block:
 
-<CodeBlock language="json" title="veritas doctor --json" code={`{
+<CodeBlock language="json" title="vexx doctor --json" code={`{
   "engine": {
-    "load_error": "ModuleNotFoundError: No module named 'veritas_py'",
+    "load_error": "ModuleNotFoundError: No module named 'vexx_py'",
     "name": "python",
     "native_available": false,
     "version": "pure",
@@ -48,13 +48,13 @@ veritas 2.0.0 on CPython 3.11.2
   "platform": "Linux-6.1.158+-x86_64-with-glibc2.36",
   "python": "pure",
   "python_version": "3.11.2",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "wire_version": null
 }`} copyable />
 
 <KeyValueTable
   rows={[
-    { key: '--json', value: 'machine-readable report', note: 'Same keys as veritas.doctor(); sort them yourself' },
+    { key: '--json', value: 'machine-readable report', note: 'Same keys as vexx.doctor(); sort them yourself' },
     { key: '--strict', value: 'exit 1 unless accelerated', note: 'Prints error: --strict requires the native extension on stderr' },
   ]}
 />
@@ -65,9 +65,9 @@ not run the test suite, probe Z3 or print a status keyword — it reports the lo
 version and the platform, and exits 0 unless `--strict` is set.
 </Callout>
 
-## `veritas check-spec`
+## `vexx check-spec`
 
-<CodeBlock language="bash" title="pre-flight, no tokens" code={`$ veritas check-spec ticket_spec.py
+<CodeBlock language="bash" title="pre-flight, no tokens" code={`$ vexx check-spec ticket_spec.py
 schema: ticket  (SAT)
   fields:   priority, sla_hours
   derived:  -
@@ -77,7 +77,7 @@ schema: ticket  (SAT)
 A contradictory schema never gets a report — the compile step raises, the CLI prints the error and
 exits 2:
 
-<CodeBlock language="bash" code={`$ veritas check-spec window_spec.py
+<CodeBlock language="bash" code={`$ vexx check-spec window_spec.py
 error: InfeasibleSpecError: Spec window is infeasible at pre-flight
 # exit 2`} copyable />
 
@@ -95,14 +95,14 @@ and read `preflight.status` in CI rather than treating 1 as "the spec is broken"
 this far, and a real violation shows up in `verify`.
 </Callout>
 
-## `veritas verify`
+## `vexx verify`
 
-<CodeBlock language="bash" title="PASS and FAIL" code={`$ veritas verify ticket_spec.py ticket.json
+<CodeBlock language="bash" title="PASS and FAIL" code={`$ vexx verify ticket_spec.py ticket.json
 ticket: PASS
   [ok] require: sla_hours <= (24 - (4 * (priority - 1)))
   digest: fa7eb9478ab886630f7ae37c0c946c4e1f072481a55f670d69a1167251b5f66b
 
-$ veritas verify portfolio_spec.py bad_instance.json
+$ vexx verify portfolio_spec.py bad_instance.json
 portfolio: FAIL
   [ok] require: keys_subset(weights, ['AAPL', 'MSFT', 'NVDA'])
   [ok] require: sum(weights.values()) == 1
@@ -113,7 +113,7 @@ portfolio: FAIL
 
 `--json` returns the report itself, with the constraint text and residuals:
 
-<CodeBlock language="json" title="veritas verify … --json (excerpt)" code={`{
+<CodeBlock language="json" title="vexx verify … --json (excerpt)" code={`{
   "schema": "ticket",
   "status": "PASS",
   "summary": "PASS: 1 satisfied, 0 violated, 0 unevaluated",
@@ -136,7 +136,7 @@ portfolio: FAIL
 
 <KeyValueTable
   rows={[
-    { key: 'instance', value: 'path, or - for stdin', note: 'cat instance.json | veritas verify spec.py -' },
+    { key: 'instance', value: 'path, or - for stdin', note: 'cat instance.json | vexx verify spec.py -' },
     { key: '--name', value: 'select a schema', note: 'When the module declares more than one' },
     { key: '--no-derive', value: 'do not fill derived fields', note: 'Useful to prove the input was complete on its own' },
     { key: '--json', value: 'VerificationReport as JSON', note: 'status, summary, outcomes, unsat_core, relaxation, digest' },
@@ -146,9 +146,9 @@ portfolio: FAIL
 `as_dict()` names the constraint text `constraint`, while the dataclass field is `text` — worth knowing
 when you switch between the two.
 
-## `veritas verify-proof`
+## `vexx verify-proof`
 
-<CodeBlock language="bash" title="offline, every check named" code={`$ veritas verify-proof ticket_proof.json
+<CodeBlock language="bash" title="offline, every check named" code={`$ vexx verify-proof ticket_proof.json
 certificate: VALID
   [ok] version: found '2.0', expected '2.0'
   [ok] sha256: content digest matches
@@ -163,7 +163,7 @@ certificate: VALID
 Coverage is reported, not implied: a certificate whose SMT export omits a constraint still verifies,
 and the check says so — `SMT export omits 1 constraint(s); VIR verification remains authoritative`.
 
-<CodeBlock language="json" title="veritas verify-proof … --json" code={`{
+<CodeBlock language="json" title="vexx verify-proof … --json" code={`{
   "ok": true,
   "checks": [{ "name": "version", "ok": true, "detail": "found '2.0', expected '2.0'" }, …],
   "errors": [],
@@ -171,9 +171,9 @@ and the check says so — `SMT export omits 1 constraint(s); VIR verification re
   "spec_sha256": "fa7eb947…"
 }`} copyable />
 
-## `veritas inspect`
+## `vexx inspect`
 
-<CodeBlock language="bash" code={`$ veritas inspect trace.json --out report.html
+<CodeBlock language="bash" code={`$ vexx inspect trace.json --out report.html
 trace: trace.json
   status: PASS
   steps: 25  backtracks: 1  jump-forward fields: 6
@@ -183,28 +183,28 @@ The viewer is a single standalone HTML file — no server, no assets. Without `-
 next to the trace with an `.html` suffix. `--json` returns the trace path, the HTML path and the whole
 telemetry dictionary.
 
-## `veritas synth`
+## `vexx synth`
 
-<CodeBlock language="bash" code={`$ veritas synth --from-json examples.json --out generated_schema.py
+<CodeBlock language="bash" code={`$ vexx synth --from-json examples.json --out generated_schema.py
 wrote generated_schema.py
 
-$ veritas check-spec generated_schema.py
+$ vexx check-spec generated_schema.py
 schema: synthesized  (SAT)
   fields:   sku, quantity, unit_price
   derived:  -
   requires: 2  derives: 0`} copyable />
 
-The generated module is a normal `@vt.verified_schema` with bounded ranges inferred from the examples:
+The generated module is a normal `@vx.verified_schema` with bounded ranges inferred from the examples:
 
 <CodeBlock language="python" title="generated_schema.py (excerpt)" code={`class Synthesized(BaseModel):
     sku: str = 'ABC-1234'
     quantity: int = 2
     unit_price: float = 19.5
 
-@vt.verified_schema()
+@vx.verified_schema()
 def synthesized(p: Synthesized):
-    vt.require((1 <= p.quantity) & (p.quantity <= 5))
-    vt.require((-19.325 <= p.unit_price) & (p.unit_price <= 263.575))`} copyable />
+    vx.require((1 <= p.quantity) & (p.quantity <= 5))
+    vx.require((-19.325 <= p.unit_price) & (p.unit_price <= 263.575))`} copyable />
 
 <KeyValueTable
   rows={[

@@ -1,12 +1,12 @@
 ---
 title: Exceptions & Diagnostics
-description: The real exception hierarchy, VerificationReport fields, decode telemetry keys and CLI exit codes for Veritas 2.0.0.
+description: The real exception hierarchy, VerificationReport fields, decode telemetry keys and CLI exit codes for vexx1.5.
 ---
 
 import { Callout, CodeBlock, KeyValueTable, StatGrid, Stat, FeatureGrid, Feature } from '@/components/mdx-components';
 
 Everything on this page was checked against the shipped package: the class bases, the attribute names and
-the exit codes are what `veritas` 2.0.0 actually raises and returns. There is no `VeritasError` root and no
+the exit codes are what `vexx` 2.1.0 actually raises and returns. There is no `VexxError` root and no
 `SchemaError`/`ProofError` pair — earlier drafts of this page invented them.
 
 <StatGrid>
@@ -21,19 +21,19 @@ the exit codes are what `veritas` 2.0.0 actually raises and returns. There is no
 The exceptions come from four modules and inherit from three different bases, which matters when you
 write an `except` clause:
 
-<CodeBlock language="text" title="veritas 2.0.0" code={`ValueError
-├── InfeasibleSpecError        veritas.compiler.preflight   .conflicts  .relaxation
-├── CertificateError           veritas.proof.certificate
-├── InstanceFormatError        veritas.instance
-├── JSONSyntaxError            veritas.json_pda
-└── TranspileError             veritas.compiler.ast_transpiler
+<CodeBlock language="text" title="vexx 2.1.0" code={`ValueError
+├── InfeasibleSpecError        vexx.compiler.preflight   .conflicts  .relaxation
+├── CertificateError           vexx.proof.certificate
+├── InstanceFormatError        vexx.instance
+├── JSONSyntaxError            vexx.json_pda
+└── TranspileError             vexx.compiler.ast_transpiler
 
 Exception
-├── CircularDerivationError    veritas.compiler.dependency_graph
-└── VerificationError          veritas.instance             .report
+├── CircularDerivationError    vexx.compiler.dependency_graph
+└── VerificationError          vexx.instance             .report
 
 RuntimeError
-└── DecodeError                veritas.decode
+└── DecodeError                vexx.decode
     ├── ModelProtocolError     model lacks next_logits()
     └── DeadEnd                .field_name  .reason`} copyable />
 
@@ -45,24 +45,24 @@ RuntimeError
     { key: 'CertificateError', value: 'verify_proof()', note: 'Certificate cannot be parsed, a digest does not match, or the embedded spec is malformed' },
     { key: 'InstanceFormatError', value: 'verify_instance()', note: 'The instance is not JSON, or not an object' },
     { key: 'JSONSyntaxError', value: 'JSON pushdown automaton', note: 'A prefix that cannot be extended to valid JSON' },
-    { key: 'DecodeError', value: 'vt.generate() / session.run()', note: 'Base for generation failures; ModelProtocolError and DeadEnd are the concrete cases' },
+    { key: 'DecodeError', value: 'vx.generate() / session.run()', note: 'Base for generation failures; ModelProtocolError and DeadEnd are the concrete cases' },
   ]}
 />
 
 <Callout variant="warn" title="Two classes are called VerificationError">
-`veritas.VerificationError` (from `veritas.instance`) reports a failed instance and exposes `.report`.
-`veritas.bridges.VerificationError` is a separate `RuntimeError` raised by `patch_openai`. Catch them
+`vexx.VerificationError` (from `vexx.instance`) reports a failed instance and exposes `.report`.
+`vexx.bridges.VerificationError` is a separate `RuntimeError` raised by `patch_openai`. Catch them
 explicitly rather than with a bare `except Exception`.
 </Callout>
 
 ## Catching the right thing
 
-<CodeBlock language="python" title="compile-time vs run-time failures" code={`import veritas as vt
+<CodeBlock language="python" title="compile-time vs run-time failures" code={`import vexx as vx
 
-# A @vt.verified_schema module compiles and pre-flights at import time.
+# A @vx.verified_schema module compiles and pre-flights at import time.
 try:
     from portfolio_spec import portfolio
-except vt.InfeasibleSpecError as exc:
+except vx.InfeasibleSpecError as exc:
     print(exc.conflicts)                  # [0, 1] -> constraint indices
     print(exc.relaxation["hints"])        # ['constraint #0 \`end >= 8\` participates in a conflict', ...]
     raise SystemExit(2)
@@ -72,7 +72,7 @@ report = portfolio.verify({"weights": {"AAPL": 0.90, "MSFT": 0.05, "NVDA": 0.05}
 if not report.ok:
     print(report.status)                  # FAIL
     print(report.violations)              # [ConstraintOutcome(index=2, kind='require', ...)]
-    report.raise_if_failed()              # raises vt.VerificationError`} copyable />
+    report.raise_if_failed()              # raises vx.VerificationError`} copyable />
 
 The message from a real failure is short enough to paste into a bug report:
 
@@ -100,10 +100,10 @@ FAIL: 5 satisfied, 1 violated, 0 unevaluated
 
 ## Decode telemetry
 
-`vt.generate(...)` returns a `VerifiedResult` whose `telemetry` dict is `DecodeTelemetry.as_dict()`. The
+`vx.generate(...)` returns a `VerifiedResult` whose `telemetry` dict is `DecodeTelemetry.as_dict()`. The
 keys are stable, and unknown keys never appear — so a dashboard that reads them keeps working:
 
-<CodeBlock language="python" code={`result = vt.generate(model=model, prompt="propose a portfolio", spec=portfolio)
+<CodeBlock language="python" code={`result = vx.generate(model=model, prompt="propose a portfolio", spec=portfolio)
 
 result.raw          # exact JSON stream that was decoded
 result.report.status
@@ -138,13 +138,13 @@ The CLI has three outcomes, not four. There is no separate "pre-flight gate" cod
   ]}
 />
 
-<CodeBlock language="bash" title="health checks that fail loudly" code={`python -m veritas doctor --strict            # exit 1 unless the native extension is loaded
-python -m veritas verify spec.py instance.json
-python -m veritas verify-proof proof.json`} copyable />
+<CodeBlock language="bash" title="health checks that fail loudly" code={`python -m vexx doctor --strict            # exit 1 unless the native extension is loaded
+python -m vexx verify spec.py instance.json
+python -m vexx verify-proof proof.json`} copyable />
 
 <Callout variant="info" title="There is no verbose flag">
 Diagnostics are flags, not environment variables: `--json` on every subcommand, `--strict` on `doctor`,
-and `VERITAS_NO_NATIVE=1` if you need to pin the reference engine per call. `VERITAS_VERBOSE` does not
+and `VEXX_NO_NATIVE=1` if you need to pin the reference engine per call. `VEXX_VERBOSE` does not
 exist.
 </Callout>
 

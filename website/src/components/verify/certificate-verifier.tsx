@@ -146,7 +146,7 @@ function VerificationProgress({ stage }: { stage: number }) {
       </ol>
 
       <div className="mt-auto overflow-hidden rounded-xl border border-white/10 bg-term-bg p-3 font-mono text-[9.5px] leading-relaxed">
-        <p className="text-slate-400">$ veritas verify-proof proof.json</p>
+        <p className="text-slate-400">$ vexx verify-proof proof.json</p>
         {STAGES.slice(0, stage).map((item) => (
           <p key={item.id} className="text-emerald-300">
             ✓ {item.log}
@@ -309,7 +309,7 @@ export function CertificateVerifier() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'veritas-proof.json';
+    a.download = 'vexx-proof.json';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -375,7 +375,7 @@ export function CertificateVerifier() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             spellCheck={false}
-            placeholder='{ "schema_version": 1, "generator": "veritas", ... }'
+            placeholder='{ "schema_version": 1, "generator": "vexx", ... }'
             className="h-full min-h-[300px] w-full flex-1 resize-y bg-term-bg p-4 font-mono text-[10.5px] leading-relaxed text-slate-300 outline-none placeholder:text-slate-600 focus:ring-0 sm:min-h-[360px] sm:text-[11.5px]"
             aria-label="Proof certificate JSON"
           />
@@ -464,7 +464,7 @@ export function CertificateVerifier() {
                 <p className="mt-0.5 text-[11.5px] leading-relaxed text-ink-secondary">
                   {outcome.ok
                     ? engineFormat
-                      ? 'Every digest reproduces from the bytes in front of you. Constraint replay is the engine’s job — run veritas verify-proof for the authoritative check.'
+                      ? 'Every digest reproduces from the bytes in front of you. Constraint replay is the engine’s job — run vexx verify-proof for the authoritative check.'
                       : 'Digests match, every recorded constraint passed, and the derived arithmetic is consistent.'
                     : (outcome.error ??
                       'At least one check failed. The witness or the specification changed after signing.')}

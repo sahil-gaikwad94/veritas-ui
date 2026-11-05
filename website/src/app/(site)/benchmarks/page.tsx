@@ -9,7 +9,7 @@ import { CopyCommand } from '@/components/site/copy-command';
 export const metadata: Metadata = {
   title: 'Benchmarks — native vs reference engine',
   description:
-    'TokenMasker.valid_mask at 0.23 ms per step (17.9× faster than Python) and interval contraction at 3.9 µs. Methodology, caveats and reproduction commands for the Veritas engine.',
+    'TokenMasker.valid_mask at 0.23 ms per step (17.9× faster than Python) and interval contraction at 3.9 µs. Methodology, caveats and reproduction commands for the Vexx engine.',
   alternates: { canonical: '/benchmarks' },
 };
 
@@ -53,7 +53,7 @@ export default function BenchmarksPage() {
           </span>
           <h1 className="display-lg mt-2 max-w-2xl text-ink-primary">Numbers with their caveats attached.</h1>
           <p className="mt-2.5 max-w-2xl text-[15px] leading-relaxed text-ink-secondary sm:text-[16.5px]">
-            Veritas sits inside a decode loop, so overhead has to be measured per step, not per request. These
+            Vexx sits inside a decode loop, so overhead has to be measured per step, not per request. These
             are the two numbers that matter — and the reasons not to over-read them.
           </p>
           <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -235,7 +235,7 @@ export default function BenchmarksPage() {
           </table>
         </div>
         <p className="mt-2.5 text-[10.5px] text-ink-muted">
-          Counts reflect the repository README for version veritas1.1. Run the suites to confirm on your checkout.
+          Counts reflect the repository README for version vexx1.5. Run the suites to confirm on your checkout.
         </p>
       </section>
 
@@ -249,8 +249,8 @@ export default function BenchmarksPage() {
               description="The accelerator is optional. Force the reference path, compare wire versions and inspect what is actually loaded before drawing conclusions."
             />
             <div className="mt-4 space-y-2">
-              <CopyCommand command="cargo test -p veritas-core --all-targets" className="w-full justify-between" />
-              <CopyCommand command="VERITAS_NO_NATIVE=1 python benchmarks/native_speedup.py" className="w-full justify-between" />
+              <CopyCommand command="cargo test -p vexx-core --all-targets" className="w-full justify-between" />
+              <CopyCommand command="VEXX_NO_NATIVE=1 python benchmarks/native_speedup.py" className="w-full justify-between" />
             </div>
           </div>
           <Reveal delay={0.08}>
@@ -272,7 +272,7 @@ workload            pure µs/call  native µs/call   speedup
 mask                    4067.000         227.000    17.92x
 numeric_prefix             5.690           3.880     1.47x
 
-p50 over repeated blocks; VERITAS_NO_NATIVE pins the pure path.`}
+p50 over repeated blocks; VEXX_NO_NATIVE pins the pure path.`}
               </pre>
               <p className="border-t border-white/10 px-4 py-2.5 font-mono text-[9.5px] leading-relaxed text-slate-400">
                 without the wheel it prints the import error and exits 0 — no invented comparison
@@ -281,7 +281,7 @@ p50 over repeated blocks; VERITAS_NO_NATIVE pins the pure path.`}
           </Reveal>
         </div>
         <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
-          Each side runs in its own subprocess: the accelerated wheel in one, <code className="font-mono">VERITAS_NO_NATIVE=1</code>
+          Each side runs in its own subprocess: the accelerated wheel in one, <code className="font-mono">VEXX_NO_NATIVE=1</code>
           in the other. The script prints p50 per call and refuses to compare against an engine it could not import,
           because a benchmark that cannot measure must not pretend to.
         </p>

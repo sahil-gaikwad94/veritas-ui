@@ -26,7 +26,7 @@ export function IntegrationMarquee() {
           </div>
         </div>
         <p className="mt-3 text-center text-[11.5px] text-ink-muted">
-          Model-agnostic: expose <code className="font-mono text-[11px]">next_logits(prefix)</code> and Veritas
+          Model-agnostic: expose <code className="font-mono text-[11px]">next_logits(prefix)</code> and Vexx
           handles the rest.
         </p>
       </div>

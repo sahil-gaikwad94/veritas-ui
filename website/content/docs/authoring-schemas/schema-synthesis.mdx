@@ -1,11 +1,11 @@
 ---
 title: Schema Synthesis
-description: veritas synth turns sample JSON objects into a Pydantic model plus range, key-set and container invariants — and refuses to infer what the samples do not support.
+description: vexx synth turns sample JSON objects into a Pydantic model plus range, key-set and container invariants — and refuses to infer what the samples do not support.
 ---
 
 import { Callout, CodeBlock, KeyValueTable, StatGrid, Stat } from '@/components/mdx-components';
 
-Point `veritas synth` at a handful of real payloads and it writes a runnable `@vt.verified_schema`
+Point `vexx synth` at a handful of real payloads and it writes a runnable `@vx.verified_schema`
 module: types, defaults, numeric ranges, key sets and per-container value bounds. The deterministic
 half of schema authoring — no model, no guessing, and an explicit refusal to invent constraints.
 
@@ -44,16 +44,16 @@ is why the generated file is a first draft you review, not a spec you ship.
   {"weights": {"AAPL": 0.55, "MSFT": 0.20, "NVDA": 0.25}, "sharpe": 0.66}
 ]
 
-$ veritas synth --from-json port_examples.json --name Portfolio --out port_schema.py
+$ vexx synth --from-json port_examples.json --name Portfolio --out port_schema.py
 wrote port_schema.py`} copyable />
 
-<CodeBlock language="python" title="port_schema.py, generated verbatim" code={`"""Synthesized by veritas from concrete examples. Review before production use."""
+<CodeBlock language="python" title="port_schema.py, generated verbatim" code={`"""Synthesized by vexx from concrete examples. Review before production use."""
 
 from __future__ import annotations
 
 from typing import Any, Optional
 
-import veritas as vt
+import vexx as vx
 from pydantic import BaseModel, Field
 
 
@@ -62,16 +62,16 @@ class Portfolio(BaseModel):
     sharpe: float = 0.59
 
 
-@vt.verified_schema()
+@vx.verified_schema()
 def portfolio(p: Portfolio):
-    vt.require(vt.keys_subset(p.weights, ['AAPL', 'MSFT', 'NVDA']))
-    vt.require(vt.forall(p.weights.values(), lambda v: (0.165 <= v) & (v <= 0.585)))
-    vt.require((0.583 <= p.sharpe) & (p.sharpe <= 0.667))`} copyable />
+    vx.require(vx.keys_subset(p.weights, ['AAPL', 'MSFT', 'NVDA']))
+    vx.require(vx.forall(p.weights.values(), lambda v: (0.165 <= v) & (v <= 0.585)))
+    vx.require((0.583 <= p.sharpe) & (p.sharpe <= 0.667))`} copyable />
 
 Note the arithmetic: the observed weight range was `0.20 … 0.55`, and the float bounds are padded by 10%
 of that spread → `0.165 … 0.585`. Integers are never padded.
 
-<CodeBlock language="bash" title="pre-flight the generated module" code={`$ veritas check-spec port_schema.py
+<CodeBlock language="bash" title="pre-flight the generated module" code={`$ vexx check-spec port_schema.py
 schema: portfolio  (SAT)
   fields:   weights, sharpe
   derived:  -
@@ -95,17 +95,17 @@ a Python module, and the padding rule is fixed.
 
 ## From Python
 
-`vt.synth` returns the same source text without touching the filesystem:
+`vx.synth` returns the same source text without touching the filesystem:
 
-<CodeBlock language="python" code={`import veritas as vt
+<CodeBlock language="python" code={`import vexx as vx
 
-source = vt.synth(samples=[{"qty": 2, "price": 19.5}, {"qty": 5, "price": 4.25}])
+source = vx.synth(samples=[{"qty": 2, "price": 19.5}, {"qty": 5, "price": 4.25}])
 print(source)          # a complete module, ready to write to disk or exec`} copyable />
 
 <Callout variant="tip" title="What to add by hand">
 The generated module is where your intent starts. Add the parts inference cannot see — `sum(weights) == 1`,
 `derive(expected_return == dot(...))`, a quality threshold, a `pattern` on an identifier — then run
-`python -m veritas check-spec` and read the verdict before wiring it into a decode.
+`python -m vexx check-spec` and read the verdict before wiring it into a decode.
 </Callout>
 
 ## Limitations

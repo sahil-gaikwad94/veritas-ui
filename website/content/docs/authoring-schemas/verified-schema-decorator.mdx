@@ -6,7 +6,7 @@ import { Callout, CodeBlock, Badge, Tabs, TabsContent, TabsList, TabsTrigger } f
 
 ## What Is @verified_schema?
 
-The `@verified_schema` decorator is the heart of Veritas. It transforms a plain Python function into a **verified schema** — a function that, when called with an LLM, produces output that is guaranteed to satisfy all your constraints.
+The `@verified_schema` decorator is the heart of Vexx. It transforms a plain Python function into a **verified schema** — a function that, when called with an LLM, produces output that is guaranteed to satisfy all your constraints.
 
 Think of it like Pydantic's `BaseModel`, but with two critical differences:
 
@@ -19,7 +19,7 @@ Think of it like Pydantic's `BaseModel`, but with two critical differences:
 
 ### Basic Usage
 
-<CodeBlock language="python" code={`from veritas import verified_schema, VerifiedSchema, require, derive, prefer, forall
+<CodeBlock language="python" code={`from vexx import verified_schema, VerifiedSchema, require, derive, prefer, forall
 
 @verified_schema
 def valid_portfolio(p: Portfolio):
@@ -31,14 +31,14 @@ def valid_portfolio(p: Portfolio):
 
 When you decorate a function with `@verified_schema`:
 
-1. **At decoration time**: Veritas parses your function's AST, builds a `VirSpec`, constructs the dependency graph, and determines key ordering.
-2. **At call time**: Veritas creates a `PdaHandle`, feeds tokens to the LLM one at a time, applies masks, and splices derived values.
+1. **At decoration time**: Vexx parses your function's AST, builds a `VirSpec`, constructs the dependency graph, and determines key ordering.
+2. **At call time**: Vexx creates a `PdaHandle`, feeds tokens to the LLM one at a time, applies masks, and splices derived values.
 
 ### The VerifiedSchema Class
 
 Under the hood, `@verified_schema` creates an instance of `VerifiedSchema`:
 
-<CodeBlock language="python" code={`from veritas import VerifiedSchema
+<CodeBlock language="python" code={`from vexx import VerifiedSchema
 
 # These are equivalent:
 
@@ -60,7 +60,7 @@ The decorator syntax is recommended for 99% of use cases. The class syntax is av
 
 ## The Four Constraint Verbs
 
-Veritas provides four verbs for expressing constraints. Each serves a different purpose:
+Vexx provides four verbs for expressing constraints. Each serves a different purpose:
 
 <Tabs defaultValue="require">
 <TabsList>
@@ -76,7 +76,7 @@ Veritas provides four verbs for expressing constraints. Each serves a different 
 
 **Purpose:** Declare a hard invariant that must hold for every valid instance.
 
-**How it's enforced:** Via Tier-1 `Hc4AffineContractor` (interval narrowing) and Tier-2 `VeritasNanoSolver` (exact linear feasibility). Invalid tokens are masked at the PDA level.
+**How it's enforced:** Via Tier-1 `Hc4AffineContractor` (interval narrowing) and Tier-2 `VexxNanoSolver` (exact linear feasibility). Invalid tokens are masked at the PDA level.
 
 **Parameters:**
 - `expr` — A boolean expression over schema fields
@@ -84,7 +84,7 @@ Veritas provides four verbs for expressing constraints. Each serves a different 
 
 ### Examples
 
-<CodeBlock language="python" code={`from veritas import require, sum, forall
+<CodeBlock language="python" code={`from vexx import require, sum, forall
 
 # Portfolio weights must sum to 1.0
 require(sum(p.weights.values()) == 1.0, tol=1e-6)
@@ -102,7 +102,7 @@ require(forall(p.tool_calls.values(), lambda call: not call.is_destructive))`} c
 
 <Callout variant="warn" title="Unsatisfiable Constraints">
 
-If your `require` constraints contradict each other (e.g., `sum(weights) == 1.0` AND `each weight <= 0.20` with 6 stocks), Veritas will detect this at pre-flight time and raise `InfeasibleSpecError`. Always run `veritas check-spec` before decoding.
+If your `require` constraints contradict each other (e.g., `sum(weights) == 1.0` AND `each weight <= 0.20` with 6 stocks), Vexx will detect this at pre-flight time and raise `InfeasibleSpecError`. Always run `vexx check-spec` before decoding.
 
 </Callout>
 
@@ -112,7 +112,7 @@ If your `require` constraints contradict each other (e.g., `sum(weights) == 1.0`
 
 ### `derive(target == expr, tol=...)`
 
-**Purpose:** Declare a deterministic Zero-DoF derivation. Veritas computes `target` from `expr` and splices it into the output — the LLM never samples it.
+**Purpose:** Declare a deterministic Zero-DoF derivation. Vexx computes `target` from `expr` and splices it into the output — the LLM never samples it.
 
 **How it's enforced:** Via `ZeroDofRule` and `build_json_key_order`. The dependency graph ensures all inputs to `expr` are emitted before `target`.
 
@@ -123,7 +123,7 @@ If your `require` constraints contradict each other (e.g., `sum(weights) == 1.0`
 
 ### Examples
 
-<CodeBlock language="python" code={`from veritas import derive, dot
+<CodeBlock language="python" code={`from vexx import derive, dot
 
 # Expected return computed from weights and expected returns
 derive(p.expected_return == dot(p.weights, RETURNS))
@@ -138,7 +138,7 @@ derive(p.variance == quad_form(p.weights, COV))`} copyable />
 
 Without `derive`, the LLM would have to guess `expected_return`. Even a small error propagates to `sharpe_ratio`, violating your constraints.
 
-With `derive`, Veritas computes it exactly. The LLM saves `_T_ − 1` forward passes per derived field.
+With `derive`, Vexx computes it exactly. The LLM saves `_T_ − 1` forward passes per derived field.
 
 <Callout variant="check" title="Key Insight">
 
@@ -163,7 +163,7 @@ With `derive`, Veritas computes it exactly. The LLM saves `_T_ − 1` forward pa
 
 ### Examples
 
-<CodeBlock language="python" code={`from veritas import prefer
+<CodeBlock language="python" code={`from vexx import prefer
 
 # Prefer low volatility (but don't fail if not achievable)
 prefer(p.volatility <= 0.20, weight=0.8, tag=\"low_volatility\")
@@ -198,7 +198,7 @@ prefer(p.weights[\"AAPL\"] >= 0.20, weight=0.3, tag=\"aapl_overweight\")`} copya
 
 ### Examples
 
-<CodeBlock language="python" code={`from veritas import forall
+<CodeBlock language="python" code={`from vexx import forall
 
 # Every weight between 5% and 50%
 require(forall(p.weights.values(), lambda w: (0.05 <= w) & (w <= 0.50)))
@@ -221,7 +221,7 @@ for w in weights.values():
     acc.add_constraint(0.05 <= w <= 0.50)
 # acc.min >= 0.05 and acc.max <= 0.50 must hold at end`} copyable />
 
-The accumulator tracks running bounds as each element is emitted, so Veritas can detect violations incrementally — not just at the end.
+The accumulator tracks running bounds as each element is emitted, so Vexx can detect violations incrementally — not just at the end.
 
 </TabsContent>
 </Tabs>
@@ -230,7 +230,7 @@ The accumulator tracks running bounds as each element is emitted, so Veritas can
 
 ## Built-In Mathematical Operators
 
-Veritas provides five built-in operators for expressing mathematical constraints:
+Vexx provides five built-in operators for expressing mathematical constraints:
 
 | Operator | Signature | What It Does |
 | :--- | :--- | :--- |
@@ -242,7 +242,7 @@ Veritas provides five built-in operators for expressing mathematical constraints
 
 ### Examples
 
-<CodeBlock language="python" code={`from veritas import sum, dot, quad_form, sqrt, keys_subset
+<CodeBlock language="python" code={`from vexx import sum, dot, quad_form, sqrt, keys_subset
 
 # Portfolio variance constraint
 require(quad_form(p.weights, COV) <= 0.04)
@@ -265,7 +265,7 @@ require(sum(p.allocations.values()) <= 1.0)`} copyable />
 
 Here's a complete portfolio schema using all four verbs:
 
-<CodeBlock language="python" code={`from veritas import verified_schema, require, derive, prefer, forall, sum, dot
+<CodeBlock language="python" code={`from vexx import verified_schema, require, derive, prefer, forall, sum, dot
 
 RETURNS = {\"AAPL\": 0.12, \"MSFT\": 0.10, \"NVDA\": 0.15, \"GOOGL\": 0.11}
 RISK_FREE = 0.04

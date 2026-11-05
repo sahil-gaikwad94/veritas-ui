@@ -4,7 +4,7 @@ description: JSONPushdownAutomaton, TokenMasker and TokenHealer — exact byte-l
 ---
 import { Callout, CodeBlock, Badge } from '@/components/mdx-components';
 
-Tier 0 is the outermost ring of Veritas's three-tier solver horizon. It's a **JSON Pushdown Automaton (PDA)** — a state machine that tracks JSON grammar structure as tokens are generated, ensuring the output is always syntactically valid JSON.
+Tier 0 is the outermost ring of Vexx's three-tier solver horizon. It's a **JSON Pushdown Automaton (PDA)** — a state machine that tracks JSON grammar structure as tokens are generated, ensuring the output is always syntactically valid JSON.
 
 ---
 
@@ -62,7 +62,7 @@ structure at any point. It is deterministic, cloneable and has no model dependen
 
 ### Example
 
-<CodeBlock language="python" title="feed a prefix and inspect the state" code={`from veritas import JSONPushdownAutomaton
+<CodeBlock language="python" title="feed a prefix and inspect the state" code={`from vexx import JSONPushdownAutomaton
 
 machine = JSONPushdownAutomaton()
 
@@ -109,10 +109,10 @@ The `TokenMasker` converts the PDA's valid-token set into a logit mask tensor th
 
 ## Incremental prefix status
 
-For streaming you do not need a second parser. `veritas.native.prefix_status` classifies the prefix with
+For streaming you do not need a second parser. `vexx.native.prefix_status` classifies the prefix with
 the same automaton (native when available, Python otherwise) and returns a string, not a dict.
 
-<CodeBlock language="python" title="know when the document is complete" code={`import veritas.native as native
+<CodeBlock language="python" title="know when the document is complete" code={`import vexx.native as native
 
 buffer = ""
 for chunk in token_stream:
@@ -135,7 +135,7 @@ BPE splits text in places JSON does not care about: `0.25` may tokenize as `["0.
 finds the minimal KV-cache backup that lets a spliced string tokenize exactly, and reports whether it
 succeeded instead of pretending.
 
-<CodeBlock language="python" title="a splice across a token boundary" code={`from veritas import TokenHealer
+<CodeBlock language="python" title="a splice across a token boundary" code={`from vexx import TokenHealer
 
 healer = TokenHealer()          # ByteTokenizer by default
 prefill = healer.heal('{"w', 'eight": 0.25}', max_backup=4)

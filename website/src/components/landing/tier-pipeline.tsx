@@ -35,7 +35,7 @@ const steps: Step[] = [
       'Checked string & format witnesses',
     ],
     trace: [
-      { tone: 'muted', text: 'veritas check-spec portfolio_spec.py' },
+      { tone: 'muted', text: 'vexx check-spec portfolio_spec.py' },
       { tone: 'cobalt', text: 'compile  Portfolio → VIR (4 fields, 6 constraints)' },
       { tone: 'muted', text: 'contract  weights ∈ [0.05, 0.50]^3 ∩ Σ = 1' },
       { tone: 'warn', text: 'witness   dynamic map → verdict UNKNOWN, never a guessed SAT' },
@@ -96,7 +96,7 @@ const steps: Step[] = [
     icon: GitBranch,
     title: 'Deterministic search, jumpback, and zero-DoF splices',
     description:
-      'A nano-solver handles the small linear systems and returns minimal unsat cores. On conflict, CDCL jumps back to the guilty field with a half-space cut. When a field is fully determined, Veritas computes it and splices the bytes in.',
+      'A nano-solver handles the small linear systems and returns minimal unsat cores. On conflict, CDCL jumps back to the guilty field with a half-space cut. When a field is fully determined, Vexx computes it and splices the bytes in.',
     bullets: [
       'Deterministic solver with unsat cores',
       'Entropy-weighted CDCL culprit scoring',
@@ -131,7 +131,7 @@ const steps: Step[] = [
       { tone: 'pass', text: 'PASS  6/6 constraints · 3 derived fields filled' },
       { tone: 'pass', text: 'digest  sha256:9f2c…a71e · spec 4b81…0c9d' },
       { tone: 'pass', text: 'smt2   complete · certificate written' },
-      { tone: 'pass', text: 'veritas verify-proof proof.json → ok' },
+      { tone: 'pass', text: 'vexx verify-proof proof.json → ok' },
     ],
   },
 ];
@@ -285,7 +285,7 @@ export function TierPipeline() {
                 <div className="mt-5 overflow-hidden rounded-xl border border-white/10 bg-term-bg">
                   <div className="flex items-center justify-between border-b border-white/10 bg-term-elevated px-3 py-2">
                     <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-slate-400">
-                      veritas inspect · trace
+                      vexx inspect · trace
                     </span>
                     <span className="flex gap-1">
                       <span className="h-1.5 w-1.5 rounded-full bg-white/15" />

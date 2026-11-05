@@ -10,16 +10,16 @@ requests a JSON schema, verifies the body and raises before a bad value reaches 
 
 <KeyValueTable
   rows={[
-    { key: 'patch_openai(client, spec=None, mode=INSTRUCTOR_MODE)', value: 'VeritasOpenAIProxy' },
-    { key: 'from_openai(client, mode, spec=None)', value: 'no-op unless mode is veritas' },
+    { key: 'patch_openai(client, spec=None, mode=INSTRUCTOR_MODE)', value: 'VexxOpenAIProxy' },
+    { key: 'from_openai(client, mode, spec=None)', value: 'no-op unless mode is vexx' },
     { key: 'InstructorBridge(client=None, spec=None, mode=INSTRUCTOR_MODE)', value: '.create(**kwargs)' },
     { key: 'VerificationError(message, report=None, response=None)', value: 'raised on FAIL / INCOMPLETE' },
-    { key: 'vt.from_outlines(model, spec=None)', value: 'OutlinesAdapter with .generate(prompt)' },
+    { key: 'vx.from_outlines(model, spec=None)', value: 'OutlinesAdapter with .generate(prompt)' },
   ]}
 />
 
 <CodeBlock language="python" title="wrap an OpenAI-compatible client" code={`from openai import OpenAI
-from veritas.bridges import patch_openai, VerificationError
+from vexx.bridges import patch_openai, VerificationError
 
 client = patch_openai(OpenAI(), spec=portfolio)
 
@@ -28,11 +28,11 @@ try:
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "propose a portfolio"}],
     )
-    print(response.veritas_report.status)     # PASS
+    print(response.vexx_report.status)     # PASS
 except VerificationError as exc:
     print(exc.report.constraints)             # what failed, field by field`} copyable />
 
-The proxy sets `response_format` to a JSON schema and injects `veritas_vir` into `extra_body` so a
+The proxy sets `response_format` to a JSON schema and injects `vexx_vir` into `extra_body` so a
 compatible server can enforce the spec server-side. Any other attribute is delegated to the wrapped
 client unchanged.
 
@@ -44,7 +44,7 @@ do not control.
 
 ## Instructor
 
-<CodeBlock language="python" code={`from veritas.bridges import InstructorBridge
+<CodeBlock language="python" code={`from vexx.bridges import InstructorBridge
 
 bridge = InstructorBridge(client=openai_client, spec=portfolio)
 response = bridge.create(
@@ -54,12 +54,12 @@ response = bridge.create(
 
 ## Outlines
 
-`OutlinesAdapter` is a thin route into `vt.generate` — it does not reimplement Outlines. Use it when your
+`OutlinesAdapter` is a thin route into `vx.generate` — it does not reimplement Outlines. Use it when your
 Outlines-backed model can expose next-token logits:
 
-<CodeBlock language="python" code={`import veritas as vt
+<CodeBlock language="python" code={`import vexx as vx
 
-adapter = vt.from_outlines(model, spec=portfolio)
+adapter = vx.from_outlines(model, spec=portfolio)
 result = adapter.generate("propose a portfolio")
 print(result.raw, result.report.status)`} copyable />
 

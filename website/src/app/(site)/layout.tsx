@@ -6,12 +6,17 @@ import { Konami } from '@/components/site/konami';
 
 export default function SiteLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="grain relative isolate flex min-h-dvh flex-col">
+    <div className="vx-shell grain relative isolate flex min-h-dvh flex-col">
       <SiteAura />
       <Konami />
       <SiteHeader />
-      <main id="main" className="relative z-10 flex-1 pt-[calc(3.5rem+1rem)] sm:pt-[calc(3.5rem+1.25rem)]">
-        {children}
+      <main
+        id="main"
+        className="relative z-10 flex-1 px-2 pt-[calc(3.4rem+0.55rem)] sm:px-3.5 sm:pt-[calc(3.4rem+0.85rem)] lg:px-6"
+      >
+        <div className="mx-auto w-full max-w-[1280px]">
+          <div className="vx-sheet">{children}</div>
+        </div>
       </main>
       <SiteFooter />
     </div>

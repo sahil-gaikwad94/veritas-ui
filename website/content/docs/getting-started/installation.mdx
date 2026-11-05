@@ -1,15 +1,15 @@
 ---
 title: Installation
-description: Install Veritas 2.0.0 from source, add optional extras, and confirm which engine is live with veritas doctor.
+description: Install vexx1.5 from source, add optional extras, and confirm which engine is live with vexx doctor.
 ---
 
 import { Callout, CodeBlock, FeatureGrid, Feature, KeyValueTable, Badge } from '@/components/mdx-components';
 
-Veritas needs **Python 3.11+**. The core package has three runtime dependencies — `pydantic>=2.0`,
+Vexx needs **Python 3.11+**. The core package has three runtime dependencies — `pydantic>=2.0`,
 `jsonschema>=4.18` and `sqlglot>=25` — and no mandatory Rust toolchain.
 
 <Callout variant="warn" title="PyPI status">
-The distribution metadata ships as `veritas-ai`, but the release is not on PyPI yet. Install directly
+The distribution metadata ships as `vexx-ai`, but the release is not on PyPI yet. Install directly
 from GitHub until that changes; the commands below already use the supported path.
 </Callout>
 
@@ -18,7 +18,7 @@ from GitHub until that changes; the commands below already use the supported pat
 <CodeBlock language="bash" title="one-line install from the main branch" code={`pip install "git+https://github.com/sahil-gaikwad94/veritas.git"
 
 # confirm the interpreter can see it
-python -c "import veritas; print(veritas.__version__)"   # 2.0.0`} copyable />
+python -c "import vexx; print(vexx.__version__)"   # 2.1.0`} copyable />
 
 ## Editable install (recommended for development)
 
@@ -29,13 +29,13 @@ python -m venv .venv
 .venv/bin/pip install -e ".[dev]"
 
 .venv/bin/python -m pytest tests/ -q
-.venv/bin/veritas --help`} copyable />
+.venv/bin/vexx --help`} copyable />
 
 If you prefer not to install while exploring the source tree, set `PYTHONPATH=python` and run modules
 directly:
 
 ```bash
-PYTHONPATH=python python -m veritas doctor
+PYTHONPATH=python python -m vexx doctor
 ```
 
 ## Optional extras
@@ -44,18 +44,18 @@ Extras are optional by design. Add one only when a feature needs it.
 
 <KeyValueTable
   rows={[
-    { key: 'veritas-ai[z3]', value: 'z3-solver>=4.13', note: 'SMT oracle for non-linear or quantified fallback' },
-    { key: 'veritas-ai[cas]', value: 'sympy>=1.12, numpy>=1.26', note: 'symbolic canonicalisation and matrix helpers' },
-    { key: 'veritas-ai[rl]', value: 'datasets>=2.0, transformers>=4.40', note: 'DPO / GRPO trajectory export' },
-    { key: 'veritas-ai[dev]', value: 'pytest, hypothesis, ruff, build', note: 'test and lint toolchain' },
+    { key: 'vexx-ai[z3]', value: 'z3-solver>=4.13', note: 'SMT oracle for non-linear or quantified fallback' },
+    { key: 'vexx-ai[cas]', value: 'sympy>=1.12, numpy>=1.26', note: 'symbolic canonicalisation and matrix helpers' },
+    { key: 'vexx-ai[rl]', value: 'datasets>=2.0, transformers>=4.40', note: 'DPO / GRPO trajectory export' },
+    { key: 'vexx-ai[dev]', value: 'pytest, hypothesis, ruff, build', note: 'test and lint toolchain' },
   ]}
 />
 
 With a direct Git reference, a PEP 508 requirement string is the least ambiguous form:
 
-<CodeBlock language="bash" title="extras from GitHub" code={`pip install "veritas-ai[z3] @ git+https://github.com/sahil-gaikwad94/veritas.git"
-pip install "veritas-ai[cas] @ git+https://github.com/sahil-gaikwad94/veritas.git"
-pip install "veritas-ai[rl] @ git+https://github.com/sahil-gaikwad94/veritas.git"`} copyable />
+<CodeBlock language="bash" title="extras from GitHub" code={`pip install "vexx-ai[z3] @ git+https://github.com/sahil-gaikwad94/veritas.git"
+pip install "vexx-ai[cas] @ git+https://github.com/sahil-gaikwad94/veritas.git"
+pip install "vexx-ai[rl] @ git+https://github.com/sahil-gaikwad94/veritas.git"`} copyable />
 
 Inside an editable clone, the short form works:
 
@@ -65,39 +65,39 @@ Inside an editable clone, the short form works:
 
 ## Confirm what is actually running
 
-<CodeBlock language="bash" title="engine diagnostics" code={`python -m veritas doctor           # human readable
-python -m veritas doctor --json    # paste into a bug report
-python -m veritas doctor --strict  # exit 1 unless the native extension is loaded`} copyable />
+<CodeBlock language="bash" title="engine diagnostics" code={`python -m vexx doctor           # human readable
+python -m vexx doctor --json    # paste into a bug report
+python -m vexx doctor --strict  # exit 1 unless the native extension is loaded`} copyable />
 
 On a default install — no Rust toolchain, no compiled wheel — the real output is:
 
 ```text
-veritas 2.0.0 on CPython 3.11.2
+vexx 2.1.0 on CPython 3.11.2
   engine    reference python
-  reason    ModuleNotFoundError: No module named 'veritas_py'
+  reason    ModuleNotFoundError: No module named 'vexx_py'
   wire      n/a
   platform  Linux-6.1.158+-x86_64-with-glibc2.36
   note      the pure-Python engine is complete; the extension would only be faster.
 ```
 
 That `reason` line is not a warning: the reference engine is the complete product. When the optional
-wheel is installed the `engine` line becomes `<name> <version> (<abi>)` from `veritas.native.info()`,
+wheel is installed the `engine` line becomes `<name> <version> (<abi>)` from `vexx.native.info()`,
 `wire` reports the negotiated wire version instead of `n/a`, and the `reason` and closing `note` lines
 disappear. `--strict` exists for deployment health checks: it exits 1 unless the accelerator is live.
 
 The same facts are available in Python — and this is the shape you can assert on:
 
 ```python
-import veritas
+import vexx
 
-veritas.native.available()  # False on a default install
-veritas.native.info()
+vexx.native.available()  # False on a default install
+vexx.native.info()
 # {'name': 'python', 'version': 'pure', 'wire_version': None,
 #  'native_available': False,
-#  'load_error': "ModuleNotFoundError: No module named 'veritas_py'"}
+#  'load_error': "ModuleNotFoundError: No module named 'vexx_py'"}
 
-veritas.doctor()
-# {'version': '2.0.0', 'python': 'pure',
+vexx.doctor()
+# {'version': '2.1.0', 'python': 'pure',
 #  'engine': {'name': 'python', 'version': 'pure', 'wire_version': None,
 #             'native_available': False, 'load_error': "..."},
 #  'wire_version': None}
@@ -113,20 +113,20 @@ cost speed; it should never cost soundness.
 
 | Variable | Effect |
 | :--- | :--- |
-| `VERITAS_NO_NATIVE=1` | Force pure-Python execution for every call. Checked per call — no reinstall, no restart. |
+| `VEXX_NO_NATIVE=1` | Force pure-Python execution for every call. Checked per call — no reinstall, no restart. |
 | `PYTHONPATH=python` | Run from a source checkout without installing (development only). |
 
 ```bash
 # A/B a suspected accelerator bug without touching the environment
-VERITAS_NO_NATIVE=1 python -m pytest tests/test_native_backend.py -q
+VEXX_NO_NATIVE=1 python -m pytest tests/test_native_backend.py -q
 ```
 
 ## Verify the install
 
 <CodeBlock language="bash" title="the suite that matters" code={`python -m pytest tests/ -q
 
-# default install:        378 passed, 41 skipped
-# native extension built: 419 passed, 0 skipped`} copyable />
+# default install:        425 passed, 41 native-parity tests skipped
+# native extension built: the same suite runs with those 41 enabled`} copyable />
 
 The 41 skips are the native/pure-Python parity corpus, kill-switch tests that need a live engine, and
 the randomised differential sweep. With the extension present, they run — and every other test then
@@ -137,22 +137,22 @@ exercises native masks and numeric prefixes too.
 Building the accelerator requires a Rust toolchain and `maturin` or `setuptools-rust`, depending on the
 crate. CI builds all three artefacts:
 
-<CodeBlock language="bash" title="native builds" code={`cargo test -p veritas-core --all-targets
-cargo build --release -p veritas-py
-cargo build -p veritas-wasm --target wasm32-unknown-unknown`} copyable />
+<CodeBlock language="bash" title="native builds" code={`cargo test -p vexx-core --all-targets
+cargo build --release -p vexx-py
+cargo build -p vexx-wasm --target wasm32-unknown-unknown`} copyable />
 
-There are no C dependencies inside `veritas-core`; it uses no external crates.
+There are no C dependencies inside `vexx-core`; it uses no external crates.
 
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
 | :--- | :--- | :--- |
-| `ModuleNotFoundError: veritas` | Installed into a different interpreter/venv | Use the same binary for `pip` and `python` (`.venv/bin/python -m pip …`) |
+| `ModuleNotFoundError: vexx` | Installed into a different interpreter/venv | Use the same binary for `pip` and `python` (`.venv/bin/python -m pip …`) |
 | `doctor` says `reference` | Extension not built or not loadable | Expected on most machines; build it or keep using Python |
 | `--strict` exits 1 | Native extension missing | This is the documented behaviour — use it only when you require native |
 | `pip` cannot resolve `git+https` | No network / private mirror | Clone and use `pip install -e .` |
 | Rust build fails | No toolchain | Not required: skip the accelerator and use the pure-Python engine |
-| Z3 import errors | Extra not installed | `pip install "veritas-ai[z3] @ git+…"` or use `solver="nano"` |
+| Z3 import errors | Extra not installed | `pip install "vexx-ai[z3] @ git+…"` or use `solver="nano"` |
 
 More edge cases — open bounds, pattern fallbacks, numeric digit budgets — are documented on
 [Troubleshooting & limits](/docs/getting-started/troubleshooting).
@@ -160,7 +160,7 @@ More edge cases — open bounds, pattern fallbacks, numeric digit budgets — ar
 ## Uninstall
 
 ```bash
-pip uninstall veritas-ai
+pip uninstall vexx-ai
 ```
 
 Nothing outside the environment is modified: no global config, no daemon, no database.
@@ -172,6 +172,6 @@ Nothing outside the environment is modified: no global config, no daemon, no dat
     Write, preflight and verify a real schema. → [Quickstart](/docs/getting-started/quickstart)
   </Feature>
   <Feature title="Concepts" icon="layers">
-    Understand VIR and the three decoding tiers. → [How Veritas works](/docs/getting-started/how-veritas-works)
+    Understand VIR and the three decoding tiers. → [How Vexx works](/docs/getting-started/how-vexx-works)
   </Feature>
 </FeatureGrid>

@@ -125,7 +125,7 @@ export function MobileNav() {
                   </div>
 
                   <p className="pt-1 text-center font-mono text-[10px] uppercase tracking-[0.16em] text-ink-muted">
-                    v{siteConfig.version} · {siteConfig.license}
+                    {siteConfig.version} · {siteConfig.license}
                   </p>
                   <p className="text-center text-[11.5px] text-ink-muted">
                     Open to ideas &amp; PRs —{' '}

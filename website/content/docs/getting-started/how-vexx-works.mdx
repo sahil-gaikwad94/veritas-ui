@@ -1,6 +1,6 @@
 ---
-title: How Veritas Works
-description: Visual tour of the Veritas pipeline — AST → VIR → PDA/HC4 → 0-DoF → Proof certificate.
+title: How Vexx Works
+description: Visual tour of the Vexx pipeline — AST → VIR → PDA/HC4 → 0-DoF → Proof certificate.
 ---
 import { Callout, CodeBlock, Badge, Card, CardContent, CardHeader, CardTitle } from '@/components/mdx-components';
 
@@ -21,7 +21,7 @@ Here's the complete pipeline:
                           ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │  STEP 1: AST TRANSPILATION                                        │
-│  Python AST → VirSpec (Veritas Intermediate Representation)       │
+│  Python AST → VirSpec (Vexx Intermediate Representation)       │
 │  DependencyGraph builds key ordering                              │
 └─────────────────────────────────────────────────────────────────┘
                           ↓
@@ -58,11 +58,11 @@ Here's the complete pipeline:
 
 ## Step 1: AST Transpilation
 
-Before any LLM tokens are generated, Veritas compiles your Python schema into an internal representation.
+Before any LLM tokens are generated, Vexx compiles your Python schema into an internal representation.
 
 ### What Happens
 
-Your `@verified_schema` decorated function is parsed as a Python AST (Abstract Syntax Tree). Veritas's `AstTranspiler` walks this tree and produces a `VirSpec` — a structured description of:
+Your `@verified_schema` decorated function is parsed as a Python AST (Abstract Syntax Tree). Vexx's `AstTranspiler` walks this tree and produces a `VirSpec` — a structured description of:
 
 - **Fields** — what keys will appear in the output JSON
 - **Constraints** — `require` and `prefer` statements
@@ -99,7 +99,7 @@ vir_spec = {
 
 <Callout variant="check" title="Why Key Order Matters">
 
-If `sharpe_ratio` appeared before `weights` in the JSON, the LLM would have to guess it. By putting derived fields last, Veritas ensures all inputs are available when it's time to compute.
+If `sharpe_ratio` appeared before `weights` in the JSON, the LLM would have to guess it. By putting derived fields last, Vexx ensures all inputs are available when it's time to compute.
 
 </Callout>
 
@@ -133,13 +133,13 @@ At this point, the PDA knows:
 
 <Callout variant="check" title="Performance: 0.23 ms per step">
 
-The PDA mask computation runs in Rust and takes just **0.23 milliseconds per token** — 17.9x faster than the Python reference implementation (4.07 ms). This means Veritas adds negligible latency to LLM generation.
+The PDA mask computation runs in Rust and takes just **0.23 milliseconds per token** — 17.9x faster than the Python reference implementation (4.07 ms). This means Vexx adds negligible latency to LLM generation.
 
 </Callout>
 
 ### Pushing a prefix through the PDA
 
-<CodeBlock language="python" title="the same machine the decoder runs" code={`from veritas import JSONPushdownAutomaton, TokenMasker
+<CodeBlock language="python" title="the same machine the decoder runs" code={`from vexx import JSONPushdownAutomaton, TokenMasker
 
 machine = JSONPushdownAutomaton()
 assert machine.feed('{"weights": {')
@@ -174,11 +174,11 @@ Tier-1 uses **HC4 (Hull Consistency 4)** interval contractors combined with **Af
 
 1. **Outward-rounded IEEE-754 intervals** — Every number is represented as `[lo, hi]` where `lo` rounds toward negative infinity and `hi` rounds toward positive infinity. This guarantees soundness — the true value is always inside the interval.
 
-2. **Affine noise-symbol propagation** — When you compute `weight_a + weight_b`, Veritas tracks not just the result but also the uncertainty (noise symbols). This prevents over-approximation drift across multiple operations.
+2. **Affine noise-symbol propagation** — When you compute `weight_a + weight_b`, Vexx tracks not just the result but also the uncertainty (noise symbols). This prevents over-approximation drift across multiple operations.
 
 3. **Constraint propagation** — If `weight_a + weight_b <= 1.0` and `weight_a` is in `[0.40, 0.50]`, then `weight_b` must be in `[0.00, 0.60]`. Combined with `weight_b >= 0.05`, the interval narrows to `[0.05, 0.60]`.
 
-<CodeBlock language="python" title="contract a three-way split" code={`from veritas import Interval, AffineForm, Hc4AffineContractor
+<CodeBlock language="python" title="contract a three-way split" code={`from vexx import Interval, AffineForm, Hc4AffineContractor
 
 contractor = Hc4AffineContractor()
 for var in range(3):
@@ -213,7 +213,7 @@ AffineForm.from_interval(Interval(0.40, 0.50))
 
 ## Step 4: Zero-DoF Splicing
 
-Zero-DoF (Zero Degrees of Freedom) is Veritas's most powerful optimization. It eliminates LLM guessing for derived fields entirely.
+Zero-DoF (Zero Degrees of Freedom) is Vexx's most powerful optimization. It eliminates LLM guessing for derived fields entirely.
 
 ### The Concept
 
@@ -230,7 +230,7 @@ You're saying: "expected_return is fully determined by the weights. The LLM does
 1. The `DependencyGraph` knows `expected_return` depends on `weights`
 2. The key ordering puts `weights` before `expected_return`
 3. When the PDA detects that all weight values have been emitted, `ZeroDofRule` triggers
-4. Veritas computes `dot(weights, RETURNS)` deterministically (native path when available)
+4. Vexx computes `dot(weights, RETURNS)` deterministically (native path when available)
 5. The result is spliced into the token stream — the LLM never samples it
 
 <CodeBlock language="text" title="what the decode trace records" code={`state   weights.AAPL=0.40  weights.MSFT=0.35  weights.NVDA=0.25
@@ -252,7 +252,7 @@ calls   0 LLM forward passes`} copyable />
 
 <Callout variant="check" title="Saves T − 1 Forward Passes">
 
-For each derived field, Veritas saves `_T_ − 1` LLM forward passes — where `_T_` is the number of tokens the LLM would have needed to guess the value correctly.
+For each derived field, Vexx saves `_T_ − 1` LLM forward passes — where `_T_` is the number of tokens the LLM would have needed to guess the value correctly.
 
 </Callout>
 
@@ -260,7 +260,7 @@ For each derived field, Veritas saves `_T_ − 1` LLM forward passes — where `
 
 ## Step 5: CDCL Jumpback (When Conflicts Occur)
 
-Sometimes constraints conflict. For example, if the LLM generates weights that sum to more than 1.0, Veritas detects a UNSAT conflict.
+Sometimes constraints conflict. For example, if the LLM generates weights that sum to more than 1.0, Vexx detects a UNSAT conflict.
 
 ### Without CDCL
 
@@ -268,7 +268,7 @@ Traditional approaches would retry the entire prompt — wasting all tokens gene
 
 ### With CDCL Jumpback
 
-Veritas uses **Conflict-Driven Clause Learning (CDCL)**:
+Vexx uses **Conflict-Driven Clause Learning (CDCL)**:
 
 1. **Detect** the conflict (e.g., `sum(weights) > 1.0`)
 2. **Attribute** the conflict to a specific earlier field using entropy-weighted culprit scoring
@@ -276,13 +276,13 @@ Veritas uses **Conflict-Driven Clause Learning (CDCL)**:
 4. **Learn** a half-space domain cut (e.g., `weights.AAPL <= 0.40`)
 5. **Resume** generation with the new constraint in place
 
-<CodeBlock language="python" code={`import veritas as vt
+<CodeBlock language="python" code={`import vexx as vx
 
-engine = vt.CdclJumpbackEngine()        # lambda_=0.5, gamma=0.1 by default
+engine = vx.CdclJumpbackEngine()        # lambda_=0.5, gamma=0.1 by default
 
 # Every sampled clause leaves a checkpoint
 engine.push_checkpoint(
-    vt.ClauseCheckpoint(
+    vx.ClauseCheckpoint(
         clause_id=3,
         var_id="weights.AAPL",
         committed_val=0.50,
@@ -320,7 +320,7 @@ satisfies the constraints, re-checkable offline with no server and no model.
   "smt2_sha256": "fda1ac1aefa5e74f…",
   "witness": {"priority": 2, "sla_hours": 12},
   "spec": {"version": 3, "model": "Ticket", "variables": {...}},
-  "smt2": "; veritas proof certificate (v2.0)\n(set-logic ALL)\n…",
+  "smt2": "; vexx proof certificate (v2.0)\n(set-logic ALL)\n…",
   "smt2_complete": true,
   "smt2_omitted": [],
   "metadata": {}
@@ -328,7 +328,7 @@ satisfies the constraints, re-checkable offline with no server and no model.
 
 ### Verifying offline
 
-<CodeBlock language="bash" code={`$ veritas verify-proof proof.json
+<CodeBlock language="bash" code={`$ vexx verify-proof proof.json
 certificate: VALID
   [ok] version: found '2.0', expected '2.0'
   [ok] sha256: content digest matches
@@ -362,7 +362,7 @@ Want to see this pipeline in action? The [/playground](/playground) lets you:
 
 ## Mathematical Notation Reference
 
-Veritas uses standard mathematical notation throughout its documentation:
+Vexx uses standard mathematical notation throughout its documentation:
 
 | Symbol | Meaning | Example |
 | :--- | :--- | :--- |

@@ -5,23 +5,23 @@ import { Check, Copy, Terminal } from 'lucide-react';
 import { copyText } from '@/components/site/copy-command';
 import { cn } from '@/lib/utils';
 
-// Every transcript below was captured from `python -m veritas` on veritas1.1
+// Every transcript below was captured from `python -m vexx` on vexx1.5
 // reference engine (CPython 3.11, no native wheel installed). Keep them verbatim.
 const commands = [
   {
     id: 'doctor',
-    cmd: 'veritas doctor',
+    cmd: 'vexx doctor',
     label: 'doctor',
-    output: `veritas1.1 on CPython 3.11.2
+    output: `vexx1.5 on CPython 3.11.2
   engine    reference python
-  reason    ModuleNotFoundError: No module named 'veritas_py'
+  reason    ModuleNotFoundError: No module named 'vexx_py'
   wire      n/a
   platform  Linux-6.1.158+-x86_64-with-glibc2.36
   note      the pure-Python engine is complete; the extension would only be faster.`,
   },
   {
     id: 'check-spec',
-    cmd: 'veritas check-spec ticket_spec.py',
+    cmd: 'vexx check-spec ticket_spec.py',
     label: 'check-spec',
     output: `schema: ticket  (SAT)
   fields:   priority, sla_hours
@@ -31,7 +31,7 @@ const commands = [
   },
   {
     id: 'verify',
-    cmd: 'veritas verify ticket_spec.py ticket.json',
+    cmd: 'vexx verify ticket_spec.py ticket.json',
     label: 'verify',
     output: `ticket: PASS
   [ok] require: sla_hours <= (24 - (4 * (priority - 1)))
@@ -39,10 +39,10 @@ const commands = [
   },
   {
     id: 'verify-proof',
-    cmd: 'veritas verify-proof ticket_proof.json',
+    cmd: 'vexx verify-proof ticket_proof.json',
     label: 'verify-proof',
     output: `certificate: VALID
-  [ok] version: found 'veritas1.1', expected 'veritas1.1'
+  [ok] version: found 'vexx1.5', expected 'vexx1.5'
   [ok] sha256: content digest matches
   [ok] witness_sha256: witness digest matches
   [ok] smt2: SMT-LIB2 script present
@@ -54,11 +54,11 @@ const commands = [
   },
   {
     id: 'synth',
-    cmd: 'veritas synth --from-json examples.json --out generated_schema.py',
+    cmd: 'vexx synth --from-json examples.json --out generated_schema.py',
     label: 'synth',
     output: `wrote generated_schema.py
 
-$ veritas check-spec generated_schema.py
+$ vexx check-spec generated_schema.py
 schema: synthesized  (SAT)
   fields:   sku, quantity, unit_price
   derived:  -

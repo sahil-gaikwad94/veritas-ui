@@ -1,12 +1,12 @@
-# 🌐 Veritas UI — Render.com Deployment Guide
+# 🌐 Vexx UI — Render.com Deployment Guide
 
-Deploy the Veritas website on **Render.com** Free Tier with zero monthly cost.
+Deploy the Vexx website on **Render.com** Free Tier with zero monthly cost.
 
 ## Prerequisites
 
 - A [Render.com](https://render.com) account (free)
 - A GitHub account
-- The veritas repository cloned locally
+- The vexx repository cloned locally
 - Node.js 20+ installed locally (for testing)
 
 ---
@@ -35,13 +35,13 @@ website/
 ├── source.config.ts      # Fumadocs content collections
 ├── layout.config.tsx     # Site configuration
 ├── public/               # Static assets (logos, favicon, wasm/)
-│   └── wasm/             # veritas-wasm WebAssembly binaries
+│   └── wasm/             # vexx-wasm WebAssembly binaries
 ├── content/docs/         # MDX documentation (37 pages)
 └── src/
     ├── app/              # Next.js App Router routes
     ├── components/       # React components
     ├── lib/              # Utilities & configurations
-    └── workers/          # Web Worker for veritas-wasm
+    └── workers/          # Web Worker for vexx-wasm
 ```
 
 ### Step 1.3: Verify package.json scripts
@@ -79,7 +79,7 @@ const config = {
 
 ```bash
 git add .
-git commit -m "feat: add veritas-ui website with Render deployment config"
+git commit -m "feat: add vexx-ui website with Render deployment config"
 git push origin main
 ```
 
@@ -106,7 +106,7 @@ Render will detect the `render.yaml` file automatically. If it doesn't, configur
 
 | Setting | Value |
 |---------|-------|
-| **Name** | `veritas-website` |
+| **Name** | `vexx-website` |
 | **Environment** | `Node` |
 | **Region** | `Oregon` (or closest to you) |
 | **Branch** | `main` |
@@ -122,7 +122,7 @@ In the Render dashboard, go to your service → **Environment** → **Environmen
 | Key | Value | Required |
 |-----|-------|----------|
 | `NODE_VERSION` | `20` | Yes |
-| `VERITAS_NO_NATIVE` | `0` | No (default: 0) |
+| `VEXX_NO_NATIVE` | `0` | No (default: 0) |
 | `NEXT_TELEMETRY_DISABLED` | `1` | No (recommended) |
 
 ### Step 2.5: Create the Service
@@ -133,7 +133,7 @@ In the Render dashboard, go to your service → **Environment** → **Environmen
 
 ### Step 2.6: Verify Deployment
 
-1. Once deployed, Render will give you a URL like `https://veritas-website.onrender.com`
+1. Once deployed, Render will give you a URL like `https://vexx-website.onrender.com`
 2. Visit the URL and verify:
    - Landing page loads correctly
    - Hero toggle works
@@ -159,7 +159,7 @@ The `Dockerfile` at `website/Dockerfile` will be used automatically.
 
 | Setting | Value |
 |---------|-------|
-| **Name** | `veritas-website` |
+| **Name** | `vexx-website` |
 | **Environment** | `Docker` |
 | **Region** | `Oregon` |
 | **Branch** | `main` |
@@ -173,7 +173,7 @@ The `Dockerfile` at `website/Dockerfile` will be used automatically.
 ### Step 4.1: Add a Custom Domain (Optional)
 
 1. Go to your Render service → **Settings** → **Custom Domains**
-2. Add your domain (e.g., `veritas.dev`)
+2. Add your domain (e.g., `vexx.dev`)
 3. Follow the DNS configuration instructions
 
 ### Step 4.2: Enable Auto-Deploy
@@ -201,7 +201,7 @@ The `wasm:build` script requires `wasm-pack` and Rust. On Render, this script is
 cd /workspace/app/website
 npm run wasm:build
 git add public/wasm/
-git commit -m "feat: add pre-built veritas-wasm binaries"
+git commit -m "feat: add pre-built vexx-wasm binaries"
 git push origin main
 ```
 
@@ -222,8 +222,8 @@ Ensure `output: 'standalone'` is set in `next.config.mjs` and the `rootDir` is s
 ### WASM Not Loading
 
 Ensure `public/wasm/` contains:
-- `veritas_wasm_bg.wasm`
-- `veritas_wasm.js`
+- `vexx_wasm_bg.wasm`
+- `vexx_wasm.js`
 
 These must be committed to the repository.
 
@@ -231,7 +231,7 @@ These must be committed to the repository.
 
 ## Phase 6: CI/CD with GitHub Actions (Optional)
 
-Create `.github/workflows/deploy.yml` in the veritas repository:
+Create `.github/workflows/deploy.yml` in the vexx repository:
 
 ```yaml
 name: Deploy to Render
@@ -272,4 +272,4 @@ Add `RENDER_HOOK_URL` to your GitHub repository secrets (get it from Render → 
 
 - Render Docs: [https://render.com/docs](https://render.com/docs)
 - Render Community: [https://community.render.com](https://community.render.com)
-- Veritas Repo: [https://github.com/sahil-gaikwad94/veritas](https://github.com/sahil-gaikwad94/veritas)
+- Vexx Repo: [https://github.com/sahil-gaikwad94/veritas](https://github.com/sahil-gaikwad94/veritas)

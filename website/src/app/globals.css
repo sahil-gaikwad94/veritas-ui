@@ -1,12 +1,13 @@
 @import "tailwindcss";
 @import "fumadocs-ui/css/preset.css";
+@import "./vexx-theme.css";
 
 /* Fumadocs renders its layout utilities from node_modules; Tailwind skips
    node_modules by default, which collapsed the docs sidebar to 0px. */
 @source "../../node_modules/fumadocs-ui/dist";
 
 /* ==========================================================================
-   Veritas design system — "Luminous Cobalt & Tactile Precision"
+   Vexx design system — "Luminous Cobalt & Tactile Precision"
    Single source of truth for marketing pages and documentation.
    ========================================================================== */
 
@@ -349,7 +350,7 @@
 }
 
 /* Fluted / ribbed glass (CRUNCHY inspired) */
-.veritas-fluted-glass {
+.vexx-fluted-glass {
   position: relative;
   overflow: hidden;
   border-radius: 34px;
@@ -358,7 +359,7 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
-.dark .veritas-fluted-glass {
+.dark .vexx-fluted-glass {
   background: radial-gradient(circle at 68% 46%, #0b2ea8 0%, #0b3fe0 30%, #3f79e8 58%, #070a12 88%);
 }
 
@@ -673,7 +674,7 @@
 }
 
 /* Fluted glass louvers (Crunchy) */
-.veritas-fluted-louvers {
+.vexx-fluted-louvers {
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -688,7 +689,7 @@
   opacity: 0.85;
 }
 
-.veritas-fluted-louvers::after {
+.vexx-fluted-louvers::after {
   content: "";
   position: absolute;
   inset: 0;

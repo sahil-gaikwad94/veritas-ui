@@ -1,16 +1,16 @@
 ---
 title: Compared to alternatives
-description: Pydantic, Instructor, Outlines, llguidance, OpenAI structured outputs and Z3 — what each one guarantees, and when Veritas is the wrong tool.
+description: Pydantic, Instructor, Outlines, llguidance, OpenAI structured outputs and Z3 — what each one guarantees, and when Vexx is the wrong tool.
 ---
 
 import { Callout, Tabs, TabsContent, TabsList, TabsTrigger, FeatureGrid, Feature } from '@/components/mdx-components';
 
-Most "structured output" tools solve one of three problems: **shape**, **syntax**, or **proof**. Veritas
+Most "structured output" tools solve one of three problems: **shape**, **syntax**, or **proof**. Vexx
 is built for the fourth: constraints that span fields and must hold mathematically during generation.
 
 ## Capability matrix
 
-| Capability | Pydantic / Instructor | Outlines / llguidance | Raw Z3 | **Veritas** |
+| Capability | Pydantic / Instructor | Outlines / llguidance | Raw Z3 | **Vexx** |
 | :--- | :--- | :--- | :--- | :--- |
 | JSON grammar masking | Post-hoc validation | Yes (CFG / regex / PDA) | No | **Yes — exact mask over your vocabulary** |
 | Cross-field algebra & inequalities | Retry after failure | No | Manual SMT-LIB | **Yes — HC4 + affine contractors** |
@@ -25,13 +25,13 @@ is built for the fourth: constraints that span fields and must hold mathematical
 
 <Callout variant="warn" title="Read the column headings honestly">
 Every row above is a capability, not a quality judgement. Outlines is excellent at grammar masking and
-far more mature at ecosystem breadth. Z3 is a superb general solver. Veritas optimises for a narrower
+far more mature at ecosystem breadth. Z3 is a superb general solver. Vexx optimises for a narrower
 promise: the arithmetic in your output is checked while it is produced.
 </Callout>
 
 ## Pydantic and Instructor
 
-You already describe shapes with Pydantic. Veritas uses the same models, so the incremental cost is the
+You already describe shapes with Pydantic. Vexx uses the same models, so the incremental cost is the
 constraint block:
 
 ```python
@@ -39,20 +39,20 @@ class Portfolio(BaseModel):
     weights: dict
     expected_return: float
 
-@vt.verified_schema()
+@vx.verified_schema()
 def portfolio(p: Portfolio):
-    vt.require(vt.sum(p.weights.values()) == 1.0, tol=1e-6)
-    vt.derive(p.expected_return == vt.dot(p.weights, RETURNS), tol=1e-5)
+    vx.require(vx.sum(p.weights.values()) == 1.0, tol=1e-6)
+    vx.derive(p.expected_return == vx.dot(p.weights, RETURNS), tol=1e-5)
 ```
 
-| | Pydantic alone | Pydantic + Veritas |
+| | Pydantic alone | Pydantic + Vexx |
 | :--- | :--- | :--- |
 | Type errors | Caught after generation | Prevented during generation |
 | Cross-field equations | Custom validator, then retry | Compiled into the decode |
 | Derived values | Model guesses, validator compares | Computed and spliced |
 | Failure cost | Entire response + retry | One masked token |
 
-Instructor and `patch_openai` are useful when you cannot touch logits. Veritas exposes the same
+Instructor and `patch_openai` are useful when you cannot touch logits. Vexx exposes the same
 post-hoc verification path — but it cannot prevent the tokens, so treat it as a guard, not a decoder.
 
 ## Outlines, llguidance and JSON mode
@@ -60,7 +60,7 @@ post-hoc verification path — but it cannot prevent the tokens, so treat it as 
 Grammar-constrained decoding proves that the output **parses**. It says nothing about whether
 `weights` sum to one. The difference is easiest to see in a trace:
 
-| Trace event | Grammar-only | Veritas |
+| Trace event | Grammar-only | Vexx |
 | :--- | :--- | :--- |
 | `"NVDA": 0.3` crosses the simplex residual | Accepted | Prefix masked |
 | `expected_return` emitted | Sampled digit by digit | Spliced value |
@@ -68,15 +68,15 @@ Grammar-constrained decoding proves that the output **parses**. It says nothing 
 | Final object | Valid JSON | Valid JSON **and** re-evaluated constraints |
 
 If your only requirement is "valid JSON matching this schema", a grammar tool is simpler and has a
-broader supported grammar surface. Veritas deliberately supports JSON only.
+broader supported grammar surface. Vexx deliberately supports JSON only.
 
 ## Raw Z3 and SMT solvers
 
-Z3 is more expressive than Veritas's nano-solver, especially for non-linear arithmetic and quantified
+Z3 is more expressive than Vexx's nano-solver, especially for non-linear arithmetic and quantified
 formulas. The trade-off is integration: Z3 expects SMT-LIB (or an API) and a model of your problem, and
 it is not designed to be called once per token.
 
-Veritas does two things differently:
+Vexx does two things differently:
 
 1. **It stays cheap per step.** Grammar and interval layers are deterministic Rust/Python paths; Z3 is
    an optional fallback when installed.
@@ -92,13 +92,13 @@ control the runtime. They do not evaluate cross-field arithmetic, cannot splice 
 you no decode trace.
 
 ```python
-# practical pattern: provider enforces shape, Veritas verifies arithmetic
+# practical pattern: provider enforces shape, Vexx verifies arithmetic
 result = client.responses.create(...)
 report = portfolio.verify(json.loads(result.output_text))
 report.raise_if_failed()
 ```
 
-## When Veritas is the wrong tool
+## When Vexx is the wrong tool
 
 <FeatureGrid>
   <Feature title="You need arbitrary grammars" icon="check">
@@ -114,7 +114,7 @@ report.raise_if_failed()
     directly in Z3.
   </Feature>
   <Feature title="You need a mature ecosystem today" icon="database">
-    Veritas 2.0 is a young project: 419 tests with the native extension, adapter-tested bridges, and a
+    Vexx 1.5 is a young project: 425 tests plus 69 Rust unit tests, adapter-tested bridges, and a
     deliberately documented scope.
   </Feature>
 </FeatureGrid>
@@ -137,18 +137,18 @@ decoder already meets your needs, adding a solver is unnecessary complexity.
 
 <TabsContent value="math">
 
-Use Veritas. The value is proportional to how expensive a wrong number is — portfolios, invoices,
+Use Vexx. The value is proportional to how expensive a wrong number is — portfolios, invoices,
 schedules, safety policies, scientific units.
 
 </TabsContent>
 
 <TabsContent value="proof">
 
-Use Veritas certificates in addition to your own integration tests. Remember that digests are unkeyed
+Use Vexx certificates in addition to your own integration tests. Remember that digests are unkeyed
 integrity checks: bind them to a trusted spec or sign the artefact in your application.
 
 </TabsContent>
 </Tabs>
 
-Continue with [How Veritas works](/docs/getting-started/how-veritas-works) or read the
+Continue with [How Vexx works](/docs/getting-started/how-vexx-works) or read the
 [scope and limitations](/docs/getting-started/troubleshooting).
